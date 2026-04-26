@@ -1,0 +1,1 @@
+.ai/adapters/claude/brief.md
