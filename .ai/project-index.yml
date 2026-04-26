@@ -1,6 +1,6 @@
 meta:
-  version: "1.0.0"
-  wave: 0
+  version: "1.1.0"
+  wave: 1
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
     Updated each wave: add entries for new files, flip status to
@@ -121,7 +121,7 @@ tui_panels:
     exports:
       - SessionPanel (class extends Panel)
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/tui/panels/OrchestrationCanvas.ts
     purpose: ITUI drag-drop canvas — block layout, wire draw, mouse interactions
@@ -139,7 +139,7 @@ tui_panels:
     exports:
       - AgentsPanel (class extends Panel)
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/tui/panels/TerminalPanel.ts
     purpose: node-pty embed — real shell inside a panel region
@@ -177,16 +177,17 @@ tui_widgets:
     exports:
       - CommandPalette (class)
     wave: 1
-    status: planned
+    status: implemented
 
 core:
   - path: src/core/agent-loop.ts
     purpose: Claude streaming loop — sends messages, handles tool calls
     exports:
-      - AgentLoop (class)
-      - "run(messages): AsyncIterable<Event>"
+      - AgentEvent (type union)
+      - AgentLoopOptions (interface)
+      - "agentLoop(session, opts): AsyncIterable<AgentEvent>"
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/core/session.ts
     purpose: Conversation history, token tracking, context management
@@ -196,14 +197,14 @@ core:
       - getHistory
       - tokenCount
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/core/hooks.ts
     purpose: "Hook runner — PreToolUse PostToolUse SessionStart SessionStop StepStart StepComplete AgentSpawn"
     exports:
       - "runHook(event, ctx): Promise<HookResult>"
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/core/tools/index.ts
     purpose: Tool registry and dispatcher
@@ -211,37 +212,37 @@ core:
       - registerTool
       - "dispatch(name, input)"
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/core/tools/bash.ts
     purpose: Bash tool — child_process exec with timeout
     exports: [BashTool]
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/core/tools/read.ts
     purpose: Read tool — filesystem file reader
     exports: [ReadTool]
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/core/tools/write.ts
     purpose: Write tool — filesystem file writer
     exports: [WriteTool]
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/core/tools/web-fetch.ts
     purpose: WebFetch tool — HTTP GET with body extraction
     exports: [WebFetchTool]
     wave: 1
-    status: planned
+    status: implemented
 
   - path: src/core/tools/agent.ts
     purpose: Agent tool — spawns a sub-session
     exports: [AgentTool]
     wave: 1
-    status: planned
+    status: implemented
 
 orchestration:
   - path: src/orchestration/schema.ts
@@ -409,6 +410,16 @@ docs:
   - path: specs/docs/approvedPlans/2026-04-26-wave-0-scaffold.md
     purpose: Approved plan for Wave 0
     wave: 0
+    status: implemented
+
+  - path: docs/FEATURE-WAVE-1-SESSION.md
+    purpose: "Full Wave 1 feature doc — agent loop, streaming, tools, hooks, SessionPanel"
+    wave: 1
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-04-26-wave-1-session.md
+    purpose: Approved plan for Wave 1
+    wave: 1
     status: implemented
 
 config:

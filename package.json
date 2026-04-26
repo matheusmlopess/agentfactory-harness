@@ -1,6 +1,6 @@
 {
   "name": "agentfactory-harness",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "ITUI orchestration shell for AI agents",
   "type": "module",
   "bin": {
