@@ -396,6 +396,11 @@ docs:
     wave: 0
     status: implemented
 
+  - path: docs/FEATURE-PROJECT-INDEX.md
+    purpose: Feature doc for project-index.yml — architecture, usage, yq queries, scenario walkthroughs
+    wave: 0
+    status: implemented
+
   - path: specs/docs/approvedPlans/2026-04-26-wave-0-scaffold.md
     purpose: Approved plan for Wave 0
     wave: 0
