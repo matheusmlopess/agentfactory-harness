@@ -1,0 +1,430 @@
+meta:
+  version: "1.0.0"
+  wave: 0
+  description: >
+    Agent navigation aid — read this before searching src/ or .ai/.
+    Updated each wave: add entries for new files, flip status to
+    "implemented" on merge. Top-level keys are section names.
+  status_values: [implemented, planned, stub]
+
+tui_renderer:
+  - path: src/tui/renderer/ansi.ts
+    purpose: Raw ANSI escape sequence builders — no dependencies
+    exports:
+      - ESC
+      - CSI
+      - enterAltScreen
+      - exitAltScreen
+      - clearScreen
+      - hideCursor
+      - showCursor
+      - enableMouse
+      - disableMouse
+      - "moveTo(row, col)"
+      - "sgr(...codes)"
+      - reset
+      - "fg256(n)"
+      - "bg256(n)"
+      - "fgRgb(r, g, b)"
+      - "bgRgb(r, g, b)"
+      - bold
+      - dim
+      - underline
+      - reverse
+      - clearLine
+      - clearToEol
+    wave: 0
+    status: implemented
+
+  - path: src/tui/renderer/cell-buffer.ts
+    purpose: "Core renderer: Cell[][] grid, minimal-diff output, full repaint"
+    exports:
+      - Cell (interface)
+      - CellBuffer (class)
+      - "write(row, col, text, style)"
+      - "fill(row, col, h, w, char, style)"
+      - "diff(prev: CellBuffer): string"
+      - "flush(): string"
+      - "clone(): CellBuffer"
+    wave: 0
+    status: implemented
+
+  - path: src/tui/renderer/layout.ts
+    purpose: Computes Rect panel regions from terminal dimensions; draws borders
+    exports:
+      - Rect (interface)
+      - PanelLayout (interface)
+      - "computeLayout(rows, cols): PanelLayout"
+      - "drawBorder(buf, rect, title, focused)"
+    wave: 0
+    status: implemented
+
+  - path: src/tui/renderer/theme.ts
+    purpose: 256-color palette constants + box-drawing char sets
+    exports:
+      - Colors
+      - Box
+      - DBox
+      - Wire
+      - Status
+    wave: 0
+    status: implemented
+
+tui_input:
+  - path: src/tui/input/keyboard.ts
+    purpose: Raw stdin buffer to KeyEvent; drops mouse escape bytes
+    exports:
+      - KeyEvent (interface)
+      - "parseKey(data: Buffer): KeyEvent | null"
+    wave: 0
+    status: implemented
+
+  - path: src/tui/input/mouse.ts
+    purpose: "xterm SGR mouse event parser (\\033[<Pb;Px;PyM/m)"
+    exports:
+      - MouseEvent (interface)
+      - "parseMouse(data: Buffer): MouseEvent | null"
+    wave: 2
+    status: planned
+
+  - path: src/tui/input/router.ts
+    purpose: Dispatches keyboard/mouse events to the currently focused panel
+    exports:
+      - InputRouter (class)
+      - "dispatch(event, panels, focused)"
+    wave: 2
+    status: planned
+
+tui_panels:
+  - path: src/tui/panels/Panel.ts
+    purpose: Abstract base class for all panels
+    exports:
+      - Panel (abstract class)
+      - "rect: Rect"
+      - "focused: boolean"
+      - "abstract render(buf: CellBuffer)"
+      - "onKey(e: KeyEvent)"
+      - "onMouse(e: MouseEvent)"
+      - "get inner(): Rect"
+    wave: 0
+    status: stub
+
+  - path: src/tui/panels/StatusBar.ts
+    purpose: Bottom status line — version, mode label, keybind hints
+    exports:
+      - "renderStatusBar(buf: CellBuffer, rect: Rect, mode?: string): void"
+    wave: 0
+    status: implemented
+
+  - path: src/tui/panels/SessionPanel.ts
+    purpose: Chat panel — streaming Claude output, user input bar
+    exports:
+      - SessionPanel (class extends Panel)
+    wave: 1
+    status: planned
+
+  - path: src/tui/panels/OrchestrationCanvas.ts
+    purpose: ITUI drag-drop canvas — block layout, wire draw, mouse interactions
+    exports:
+      - OrchestrationCanvas (class extends Panel)
+      - CanvasState (interface)
+      - Block (interface)
+      - Wire (interface)
+      - DragState (type)
+    wave: 2
+    status: planned
+
+  - path: src/tui/panels/AgentsPanel.ts
+    purpose: Agent list sidebar — live status badges
+    exports:
+      - AgentsPanel (class extends Panel)
+    wave: 1
+    status: planned
+
+  - path: src/tui/panels/TerminalPanel.ts
+    purpose: node-pty embed — real shell inside a panel region
+    exports:
+      - TerminalPanel (class extends Panel)
+    wave: 4
+    status: planned
+
+tui_widgets:
+  - path: src/tui/widgets/Block.ts
+    purpose: ASCII box for one agent node — title, version, status, ports
+    exports:
+      - Block (class)
+      - "renderBlock(buf, block, focused)"
+    wave: 2
+    status: planned
+
+  - path: src/tui/widgets/Wire.ts
+    purpose: L-shaped wire router between output/input ports
+    exports:
+      - Wire (class)
+      - "routeWire(from, to): WirePath"
+    wave: 2
+    status: planned
+
+  - path: src/tui/widgets/ContextMenu.ts
+    purpose: Right-click popup — action list, keyboard nav
+    exports:
+      - ContextMenu (class)
+    wave: 2
+    status: planned
+
+  - path: src/tui/widgets/CommandPalette.ts
+    purpose: Ctrl+P fuzzy-search overlay
+    exports:
+      - CommandPalette (class)
+    wave: 1
+    status: planned
+
+core:
+  - path: src/core/agent-loop.ts
+    purpose: Claude streaming loop — sends messages, handles tool calls
+    exports:
+      - AgentLoop (class)
+      - "run(messages): AsyncIterable<Event>"
+    wave: 1
+    status: planned
+
+  - path: src/core/session.ts
+    purpose: Conversation history, token tracking, context management
+    exports:
+      - Session (class)
+      - addMessage
+      - getHistory
+      - tokenCount
+    wave: 1
+    status: planned
+
+  - path: src/core/hooks.ts
+    purpose: "Hook runner — PreToolUse PostToolUse SessionStart SessionStop StepStart StepComplete AgentSpawn"
+    exports:
+      - "runHook(event, ctx): Promise<HookResult>"
+    wave: 1
+    status: planned
+
+  - path: src/core/tools/index.ts
+    purpose: Tool registry and dispatcher
+    exports:
+      - registerTool
+      - "dispatch(name, input)"
+    wave: 1
+    status: planned
+
+  - path: src/core/tools/bash.ts
+    purpose: Bash tool — child_process exec with timeout
+    exports: [BashTool]
+    wave: 1
+    status: planned
+
+  - path: src/core/tools/read.ts
+    purpose: Read tool — filesystem file reader
+    exports: [ReadTool]
+    wave: 1
+    status: planned
+
+  - path: src/core/tools/write.ts
+    purpose: Write tool — filesystem file writer
+    exports: [WriteTool]
+    wave: 1
+    status: planned
+
+  - path: src/core/tools/web-fetch.ts
+    purpose: WebFetch tool — HTTP GET with body extraction
+    exports: [WebFetchTool]
+    wave: 1
+    status: planned
+
+  - path: src/core/tools/agent.ts
+    purpose: Agent tool — spawns a sub-session
+    exports: [AgentTool]
+    wave: 1
+    status: planned
+
+orchestration:
+  - path: src/orchestration/schema.ts
+    purpose: "af-plan.json Zod schema — PlanSchema, StepSchema"
+    exports:
+      - PlanSchema
+      - StepSchema
+      - Plan (inferred type)
+      - Step (inferred type)
+    wave: 3
+    status: planned
+
+  - path: src/orchestration/executor.ts
+    purpose: DAG topological sort + step runner — emits live status events
+    exports:
+      - Executor (class)
+      - "run(plan): AsyncIterable<StepEvent>"
+    wave: 3
+    status: planned
+
+  - path: src/orchestration/planner.ts
+    purpose: "/plan new interactive wizard — prompts → writes af-plan.json"
+    exports:
+      - Planner (class)
+      - "wizard(): Promise<Plan>"
+    wave: 3
+    status: planned
+
+  - path: src/orchestration/graph.ts
+    purpose: "DAG utilities — topological sort, cycle detection"
+    exports:
+      - "toposort(steps): string[]"
+      - "detectCycles(steps): string[][]"
+    wave: 3
+    status: planned
+
+harness:
+  - path: src/harness/doctor.ts
+    purpose: "Environment health checks: Node version, API key, token file, .ai/, CLAUDE.md"
+    exports:
+      - CheckResult (interface)
+      - "runDoctor(cwd: string): CheckResult[]"
+      - "printDoctorReport(results: CheckResult[]): void"
+    wave: 0
+    status: implemented
+
+  - path: src/harness/reader.ts
+    purpose: .ai/ directory traversal — loads harness context files
+    exports:
+      - HarnessContext (interface)
+      - "readHarness(root: string): HarnessContext"
+    wave: 5
+    status: planned
+
+  - path: src/harness/manifest.ts
+    purpose: agent-manifest.json types and parser
+    exports:
+      - AgentManifest (interface)
+      - "parseManifest(path: string): AgentManifest"
+    wave: 5
+    status: planned
+
+registry:
+  - path: src/registry/client.ts
+    purpose: agentfactory.dev REST client — publish, fetch, list
+    exports:
+      - RegistryClient (class)
+      - "publish(agent)"
+      - "fetch(slug)"
+    wave: 5
+    status: planned
+
+  - path: src/registry/auth.ts
+    purpose: "Token auth — reads ~/.agentfactory/token"
+    exports:
+      - "getToken(): string | null"
+      - "saveToken(t: string)"
+    wave: 5
+    status: planned
+
+cli:
+  - path: src/index.ts
+    purpose: Binary entry point — routes args to commander or App.start()
+    exports: [VERSION]
+    wave: 0
+    status: implemented
+
+  - path: src/cli.ts
+    purpose: Commander program definition — doctor subcommand, --version flag
+    exports:
+      - "buildCli(version: string): Command"
+    wave: 0
+    status: implemented
+
+  - path: src/app.ts
+    purpose: App class — terminal lifecycle, render loop, keyboard input loop
+    exports:
+      - App (class)
+      - start
+      - stop
+    wave: 0
+    status: implemented
+
+governance:
+  - path: .ai/AgentFactory.md
+    purpose: Master project brief — overview, wave plan, behavior rules, search protocol
+    version: "1.1.0"
+    status: implemented
+
+  - path: .ai/project-index.yml
+    purpose: "This file — complete file map for agent navigation"
+    version: "1.0.0"
+    status: implemented
+
+  - path: .ai/adapters/claude/brief.md
+    purpose: "Claude Code intelligence brief — enforced rules (1–8), key files, slash commands"
+    version: "1.1.0"
+    status: implemented
+
+  - path: .ai/rules/approved-plans.md
+    purpose: "Rule 1: every plan saved to specs/docs/approvedPlans/ before implementation"
+    version: "1.0.0"
+    status: implemented
+
+  - path: .ai/rules/worktree-first.md
+    purpose: "Rule 2: every feature in a dedicated git worktree branched from main"
+    version: "1.0.0"
+    status: implemented
+
+  - path: .ai/rules/doc-before-commit.md
+    purpose: "Rule 3: full feature doc before commit — diagrams, legends, scenarios + index update"
+    version: "1.2.0"
+    status: implemented
+
+  - path: .ai/memory/milestones.md
+    purpose: Living wave tracker — W0 done, W1–W5 pending
+    version: "1.0.0"
+    status: implemented
+
+  - path: CLAUDE.md
+    purpose: "Symlink → .ai/adapters/claude/brief.md"
+    status: implemented
+
+docs:
+  - path: README.md
+    purpose: Public project overview — ITUI concept, install, keyboard shortcuts, wave plan
+    wave: 0
+    status: implemented
+
+  - path: docs/FEATURE-WAVE-0-SCAFFOLD.md
+    purpose: "Full Wave 0 feature doc — architecture, rendering pipeline, layout, doctor, usage, tests"
+    wave: 0
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-04-26-wave-0-scaffold.md
+    purpose: Approved plan for Wave 0
+    wave: 0
+    status: implemented
+
+config:
+  - path: package.json
+    purpose: npm metadata, scripts, dependencies
+    key_values:
+      bin: "factory: ./dist/index.js"
+      scripts: [dev, build, test]
+      dependencies: ["@anthropic-ai/sdk", commander, node-pty, zod]
+      devDependencies: [typescript, tsup, tsx, "@types/node", vitest]
+
+  - path: tsconfig.json
+    purpose: TypeScript compiler config
+    key_values:
+      strict: true
+      noUncheckedIndexedAccess: true
+      exactOptionalPropertyTypes: true
+      module: NodeNext
+
+  - path: .gitignore
+    purpose: Git ignore patterns
+    key_values:
+      ignores: ["node_modules/", "dist/", ".env"]
+
+maintenance:
+  new_file: Add entry in the same commit, same PR
+  rename_or_delete: Update path in the same commit
+  wave_closes: "Flip status planned → implemented; bump meta.wave"
+  version_bump: minor per wave, patch per single-file addition

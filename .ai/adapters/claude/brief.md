@@ -55,7 +55,7 @@ Never log, print, or commit API keys, tokens, or credentials. Token path:
 New logic requires 80%+ vitest coverage. Test files co-located: `src/foo/bar.test.ts`
 
 ### Rule 7 — Search Index First
-Before using `find`/`grep` or walking `src/`, read `.ai/project-index.md`.
+Before using `find`/`grep` or walking `src/`, read `.ai/project-index.yml`.
 It lists every file in the repo with purpose and key exports, organized by layer.
 Only search beyond the index when a file is missing from it — then add a row after.
 
@@ -63,7 +63,7 @@ Only search beyond the index when a file is missing from it — then add a row a
 
 | File | Purpose |
 |------|---------|
-| `.ai/project-index.md` | Complete file map — read before any search |
+| `.ai/project-index.yml` | Complete file map — read before any search |
 | `src/tui/renderer/cell-buffer.ts` | Core renderer — Cell[][], diff, flush |
 | `src/tui/renderer/ansi.ts` | ANSI sequence builders |
 | `src/tui/input/mouse.ts` | SGR mouse event parser |
