@@ -357,8 +357,8 @@ governance:
     status: implemented
 
   - path: .ai/adapters/claude/brief.md
-    purpose: "Claude Code intelligence brief — enforced rules (1–8), key files, slash commands"
-    version: "1.1.0"
+    purpose: "Claude Code intelligence brief — enforced rules (1–9), key files, slash commands"
+    version: "1.4.0"
     status: implemented
 
   - path: .ai/rules/approved-plans.md
@@ -374,6 +374,11 @@ governance:
   - path: .ai/rules/doc-before-commit.md
     purpose: "Rule 3: full feature doc before commit — diagrams, legends, scenarios + index update"
     version: "1.2.0"
+    status: implemented
+
+  - path: .ai/rules/reference-repos.md
+    purpose: "Rule 9: clone external repos to .refs/ for research only — gitignored, never committed"
+    version: "1.0.0"
     status: implemented
 
   - path: .ai/memory/milestones.md
@@ -426,7 +431,7 @@ config:
   - path: .gitignore
     purpose: Git ignore patterns
     key_values:
-      ignores: ["node_modules/", "dist/", ".env"]
+      ignores: ["node_modules/", "dist/", ".env", ".refs/"]
 
 maintenance:
   new_file: Add entry in the same commit, same PR

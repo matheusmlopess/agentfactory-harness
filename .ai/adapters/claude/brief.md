@@ -1,5 +1,5 @@
 # AgentFactory Intelligence Brief — Claude Code (agentfactory-harness)
-<!-- version: 1.3.0 -->
+<!-- version: 1.4.0 -->
 
 ## Harness
 
@@ -78,6 +78,11 @@ New logic requires 80%+ vitest coverage. Test files co-located: `src/foo/bar.tes
 Before using `find`/`grep` or walking `src/`, read `.ai/project-index.yml`.
 It lists every file in the repo with purpose and key exports, organized by layer.
 Only search beyond the index when a file is missing from it — then add a row after.
+
+### Rule 9 — Reference Repos
+Research MAY use external repos cloned to `.refs/` (gitignored). Never copy files
+from `.refs/` into `src/`. Cite insights as prose in the plan doc, not as file paths.
+See `.ai/rules/reference-repos.md` for the full contract.
 
 ## Key Files
 
