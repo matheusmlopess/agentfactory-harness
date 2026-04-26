@@ -1,5 +1,5 @@
 # AgentFactory Intelligence Brief — agentfactory-harness
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 
 ## Harness
 
@@ -41,6 +41,23 @@ agentfactory-harness/
 │   └── docs/approvedPlans/  ← every approved plan stored here
 └── .ai/                     ← this harness
 ```
+
+## Project Index
+
+`.ai/project-index.md` — read this first when searching for any file or function.
+Lists every file in the repo: path · purpose · key exports · wave · status.
+Organized into 12 sections (TUI Renderer, Input, Panels, Widgets, Core, Orchestration,
+Harness, Registry, CLI, Governance, Docs, Config). Jump directly to the relevant section
+rather than walking the directory tree.
+
+## Search Protocol
+
+When searching for a file, function, or module:
+1. Read `.ai/project-index.md` — find the relevant section, locate the row
+2. Found → read that file directly; no `find`/`grep` needed
+3. Not found → either planned (check `status` column) or does not exist yet
+
+---
 
 ### Wave plan
 
