@@ -1,5 +1,5 @@
 # Rule: Documentation Before Commit
-<!-- version: 1.1.0 -->
+<!-- version: 1.2.0 -->
 
 Every implemented and tested feature MUST have a detailed feature document written
 **before** the commit, **before** the PR, and **before** the milestone entry.
@@ -179,4 +179,6 @@ Before running `git commit` on a feature branch:
 2. Check: does it have all required sections?
 3. Check: does every diagram have a legend table?
 4. Check: does every scenario have a box-drawing diagram + numbered steps?
-5. If any check fails — write the missing content first.
+5. Update `.ai/project-index.md`: add a row for every new file added in this commit; set `status` to `implemented`.
+6. If this commit closes a wave: flip all that wave's rows from `planned` → `implemented` and bump `<!-- wave: N -->`.
+7. If any check fails — write the missing content first.
