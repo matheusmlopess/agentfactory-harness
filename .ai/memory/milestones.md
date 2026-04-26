@@ -1,5 +1,5 @@
 # Milestones — agentfactory-harness
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 
 Living traceability matrix for all agentfactory-harness work items.
 
@@ -7,7 +7,7 @@ Living traceability matrix for all agentfactory-harness work items.
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
-| W0 | Scaffold: cell-buffer, ANSI, static layout, factory doctor | feat | pending | — | — | — | — |
+| W0 | Scaffold: cell-buffer, ANSI, static layout, factory doctor | feat | ✓ done | feature/wave-0-scaffold | #1 (closed) | 85624d6 | v0.1.0 |
 
 ## Wave 1 — Session
 
