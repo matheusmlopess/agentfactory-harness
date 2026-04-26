@@ -1,5 +1,5 @@
 # AgentFactory Intelligence Brief — Claude Code (agentfactory-harness)
-<!-- version: 1.1.0 -->
+<!-- version: 1.3.0 -->
 
 ## Harness
 
@@ -37,24 +37,44 @@ Every feature or modification MUST be implemented in a git worktree branched fro
 Only skip the question if the user has explicitly stated which branch to use.
 Worktree location: `../agentfactory-harness-wt/<branch-name>/`
 
-### Rule 3 — Version Markers
+### Rule 3 — Documentation Before Commit
+Every implemented and tested feature MUST have a detailed `docs/FEATURE-<SLUG>.md`
+written **before** the commit, before the PR, and before the milestone entry.
+
+Order of operations (strict):
+```
+implement → test → document → commit → PR → milestone
+```
+
+Required sections: What it does · Architecture · How it works · Usage ·
+Test coverage · Known limitations.
+
+Every doc MUST include:
+- **Box-drawing ASCII diagrams** for every architecture/data-flow view
+- **Legend table** below each diagram defining every symbol used
+- **Terminal-friendly fenced code blocks** for every workflow example (copy-pasteable)
+- **Scenario walkthroughs**: one box-drawing diagram + numbered steps per distinct use case
+
+See `.ai/rules/doc-before-commit.md` for full spec.
+
+### Rule 4 — Version Markers
 Every `.md` file MUST have `<!-- version: x.y.z -->` on line 2. Bump minor on
 content changes, patch on typo/formatting fixes.
 
-### Rule 4 — TypeScript Strictness
+### Rule 5 — TypeScript Strictness
 - `strict: true` in tsconfig — no exceptions
 - No `any` types — use `unknown` + type guards
 - Explicit return types on all exported functions
 - Prefer `const` over `let`
 
-### Rule 5 — Secrets
+### Rule 6 — Secrets
 Never log, print, or commit API keys, tokens, or credentials. Token path:
 `~/.agentfactory/token` — read at runtime, never stored in code.
 
-### Rule 6 — Test Coverage
+### Rule 7 — Test Coverage
 New logic requires 80%+ vitest coverage. Test files co-located: `src/foo/bar.test.ts`
 
-### Rule 7 — Search Index First
+### Rule 8 — Search Index First
 Before using `find`/`grep` or walking `src/`, read `.ai/project-index.yml`.
 It lists every file in the repo with purpose and key exports, organized by layer.
 Only search beyond the index when a file is missing from it — then add a row after.
