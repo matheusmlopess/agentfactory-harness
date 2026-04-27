@@ -1,5 +1,6 @@
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import type { KeyEvent } from '../input/keyboard.js'
+import type { MouseEvent } from '../input/mouse.js'
 import type { Rect } from '../renderer/layout.js'
 
 export abstract class Panel {
@@ -15,6 +16,9 @@ export abstract class Panel {
 
   /** Handle a keyboard event. Return true if consumed. */
   onKey(_event: KeyEvent): boolean { return false }
+
+  /** Handle a mouse event. Return true if consumed. */
+  onMouse(_event: MouseEvent): boolean { return false }
 
   /** Inner content area (inside border). */
   get inner(): Rect {
