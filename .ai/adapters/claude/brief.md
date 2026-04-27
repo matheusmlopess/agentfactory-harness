@@ -1,5 +1,5 @@
 # AgentFactory Intelligence Brief — Claude Code (agentfactory-harness)
-<!-- version: 1.4.0 -->
+<!-- version: 1.5.0 -->
 
 ## Harness
 
@@ -79,9 +79,14 @@ Before using `find`/`grep` or walking `src/`, read `.ai/project-index.yml`.
 It lists every file in the repo with purpose and key exports, organized by layer.
 Only search beyond the index when a file is missing from it — then add a row after.
 
-### Rule 9 — Reference Repos
-Research MAY use external repos cloned to `.refs/` (gitignored). Never copy files
-from `.refs/` into `src/`. Cite insights as prose in the plan doc, not as file paths.
+### Rule 9 — Reference Repos (Permanent)
+`.refs/` holds permanent reference repos — never delete them after research.
+Each repo has `.refs/<name>/index.yml` describing every subfolder.
+
+**Before starting any plan:** read every `.refs/*/index.yml` to survey available
+reference material. Tool calls MAY read files directly inside `.refs/` repos during
+research. When anything from a ref repo informs a decision, cite the repo-relative
+file path and line (e.g. `open-multi-agent/src/task/index.ts:87`) in the plan doc.
 See `.ai/rules/reference-repos.md` for the full contract.
 
 ## Key Files
