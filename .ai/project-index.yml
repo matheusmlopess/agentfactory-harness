@@ -1,6 +1,6 @@
 meta:
-  version: "1.1.0"
-  wave: 1
+  version: "1.2.0"
+  wave: 2
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
     Updated each wave: add entries for new files, flip status to
@@ -85,7 +85,7 @@ tui_input:
       - MouseEvent (interface)
       - "parseMouse(data: Buffer): MouseEvent | null"
     wave: 2
-    status: planned
+    status: implemented
 
   - path: src/tui/input/router.ts
     purpose: Dispatches keyboard/mouse events to the currently focused panel
@@ -93,7 +93,7 @@ tui_input:
       - InputRouter (class)
       - "dispatch(event, panels, focused)"
     wave: 2
-    status: planned
+    status: implemented
 
 tui_panels:
   - path: src/tui/panels/Panel.ts
@@ -132,7 +132,7 @@ tui_panels:
       - Wire (interface)
       - DragState (type)
     wave: 2
-    status: planned
+    status: implemented
 
   - path: src/tui/panels/AgentsPanel.ts
     purpose: Agent list sidebar — live status badges
@@ -155,7 +155,7 @@ tui_widgets:
       - Block (class)
       - "renderBlock(buf, block, focused)"
     wave: 2
-    status: planned
+    status: implemented
 
   - path: src/tui/widgets/Wire.ts
     purpose: L-shaped wire router between output/input ports
@@ -163,14 +163,14 @@ tui_widgets:
       - Wire (class)
       - "routeWire(from, to): WirePath"
     wave: 2
-    status: planned
+    status: implemented
 
   - path: src/tui/widgets/ContextMenu.ts
     purpose: Right-click popup — action list, keyboard nav
     exports:
       - ContextMenu (class)
     wave: 2
-    status: planned
+    status: implemented
 
   - path: src/tui/widgets/CommandPalette.ts
     purpose: Ctrl+P fuzzy-search overlay
@@ -349,7 +349,7 @@ cli:
 governance:
   - path: .ai/AgentFactory.md
     purpose: Master project brief — overview, wave plan, behavior rules, search protocol
-    version: "1.1.0"
+  version: "1.2.0"
     status: implemented
 
   - path: .ai/project-index.yml
@@ -420,6 +420,16 @@ docs:
   - path: specs/docs/approvedPlans/2026-04-26-wave-1-session.md
     purpose: Approved plan for Wave 1
     wave: 1
+    status: implemented
+
+  - path: docs/FEATURE-WAVE-2-ITUI-CANVAS.md
+    purpose: "Full Wave 2 feature doc — mouse input, block drag, wire routing, context menu"
+    wave: 2
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-04-27-wave-2-canvas.md
+    purpose: Approved plan for Wave 2
+    wave: 2
     status: implemented
 
 config:

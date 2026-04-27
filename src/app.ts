@@ -4,8 +4,12 @@ import { renderStatusBar } from './tui/panels/StatusBar.js'
 import { Colors } from './tui/renderer/theme.js'
 import * as A from './tui/renderer/ansi.js'
 import { parseKey } from './tui/input/keyboard.js'
+import { parseMouse } from './tui/input/mouse.js'
+import { InputRouter } from './tui/input/router.js'
 import { SessionPanel } from './tui/panels/SessionPanel.js'
 import { AgentsPanel } from './tui/panels/AgentsPanel.js'
+import { OrchestrationCanvas } from './tui/panels/OrchestrationCanvas.js'
+import type { Panel } from './tui/panels/Panel.js'
 import { registerTool } from './core/tools/index.js'
 import { BashTool } from './core/tools/bash.js'
 import { ReadTool } from './core/tools/read.js'
@@ -22,7 +26,10 @@ export class App {
   private activeTab = 0
   private running = false
   private sessionPanel!: SessionPanel
+  private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
+  private panels!: Panel[]
+  private router = new InputRouter()
 
   constructor() {
     this.buf  = new CellBuffer(this.rows, this.cols)
@@ -48,8 +55,10 @@ export class App {
   private initPanels(): void {
     const layout = computeLayout(this.rows, this.cols)
     this.sessionPanel = new SessionPanel(layout.session, () => this.render())
+    this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.render())
     this.agentsPanel  = new AgentsPanel(layout.agents)
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
+    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
   }
 
   private setup(): void {
@@ -67,6 +76,7 @@ export class App {
       this.prev = new CellBuffer(this.rows, this.cols)
       const layout = computeLayout(this.rows, this.cols)
       this.sessionPanel.rect = layout.session
+      this.canvasPanel.rect  = layout.canvas
       this.agentsPanel.rect  = layout.agents
       this.render()
     })
@@ -101,20 +111,13 @@ export class App {
     this.sessionPanel.focused = this.activeTab === 0
     this.sessionPanel.render(this.buf)
 
+    this.canvasPanel.rect    = layout.canvas
+    this.canvasPanel.focused = this.activeTab === 1
+    this.canvasPanel.render(this.buf)
+
     this.agentsPanel.rect    = layout.agents
     this.agentsPanel.focused = this.activeTab === 2
     this.agentsPanel.render(this.buf)
-
-    // Canvas placeholder (Wave 2)
-    const cv = layout.canvas
-    const midRow = cv.row + Math.floor(cv.height / 2)
-    const msg = 'Wave 2 — ITUI canvas coming soon'
-    this.buf.write(
-      midRow,
-      cv.col + 1 + Math.floor((cv.width - 2 - msg.length) / 2),
-      msg,
-      { fg: Colors.textDim }
-    )
 
     renderStatusBar(this.buf, layout.statusBar)
 
@@ -141,6 +144,13 @@ export class App {
     process.stdin.setRawMode(true)
     process.stdin.resume()
     process.stdin.on('data', (data: Buffer) => {
+      // Mouse event — try before keyboard
+      const mouse = parseMouse(data)
+      if (mouse) {
+        this.router.dispatch(mouse, this.panels, this.activeTab)
+        return
+      }
+
       const key = parseKey(data)
       if (!key) return
 
@@ -161,10 +171,7 @@ export class App {
         return
       }
 
-      // Dispatch to active panel
-      if (this.activeTab === 0) {
-        if (this.sessionPanel.onKey(key)) return
-      }
+      this.router.dispatch(key, this.panels, this.activeTab)
     })
   }
 }
