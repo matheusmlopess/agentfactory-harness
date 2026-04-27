@@ -1,5 +1,5 @@
 # Milestones — agentfactory-harness
-<!-- version: 1.2.0 -->
+<!-- version: 1.3.0 -->
 
 Living traceability matrix for all agentfactory-harness work items.
 
@@ -13,7 +13,7 @@ Living traceability matrix for all agentfactory-harness work items.
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
-| W1 | Claude streaming loop, tools, hooks, slash commands | feat | in-progress | feature/wave-1-session | — | — | — |
+| W1 | Claude streaming loop, tools, hooks, slash commands | feat | ✓ done | feature/wave-1-session | #3 (closed) | dfb3b5e | v0.2.0 |
 
 ## Wave 2 — ITUI Canvas
 

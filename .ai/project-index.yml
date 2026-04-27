@@ -177,7 +177,7 @@ tui_widgets:
     exports:
       - CommandPalette (class)
     wave: 1
-    status: implemented
+    status: planned
 
 core:
   - path: src/core/agent-loop.ts
@@ -242,7 +242,7 @@ core:
     purpose: Agent tool — spawns a sub-session
     exports: [AgentTool]
     wave: 1
-    status: implemented
+    status: planned
 
 orchestration:
   - path: src/orchestration/schema.ts
