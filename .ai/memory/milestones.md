@@ -1,5 +1,5 @@
 # Milestones — agentfactory-harness
-<!-- version: 1.3.0 -->
+<!-- version: 1.4.0 -->
 
 Living traceability matrix for all agentfactory-harness work items.
 
@@ -19,7 +19,7 @@ Living traceability matrix for all agentfactory-harness work items.
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
-| W2 | Mouse SGR system, block drag, wire routing | feat | pending | — | — | — | — |
+| W2 | Mouse SGR system, block drag, wire routing | feat | ✓ done | feature/wave-2-canvas | #4 (closed) | f47f29e | v0.3.0 |
 
 ## Wave 3 — Orchestration Engine
 
