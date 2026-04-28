@@ -438,7 +438,12 @@ docs:
     status: implemented
 
   - path: docs/FEATURE-AGENTFACTORY-SKILL-PIPELINE.md
-    purpose: "agentfactory-gen skill creation pipeline — full workflow, file formats, 10 CLI gap analysis"
+    purpose: "agentfactory-gen skill creation pipeline — full workflow, file formats, 10 CLI gap analysis with Mermaid failure-path diagrams"
+    wave: 0
+    status: implemented
+
+  - path: docs/GAP-ISSUE-MATRIX.md
+    purpose: "Cross-reference matrix: 10 skill-pipeline gaps vs all open issues in agentfactory-harness and AgentFactory repos"
     wave: 0
     status: implemented
 
