@@ -1,5 +1,5 @@
 # AgentFactory Intelligence Brief — Claude Code (agentfactory-harness)
-<!-- version: 1.4.0 -->
+<!-- version: 1.6.0 -->
 
 ## Harness
 
@@ -9,101 +9,102 @@
   Recompile    : agentfactory-gen brief
 ```
 
-Shared context: `.ai/AgentFactory.md` — read this for the full project overview.
+## Project Overview
 
-## Project Context
+**agentfactory-harness** (`factory` CLI) is a full-screen TypeScript TUI that acts as
+an interactive orchestration shell for AI agents. It implements the **ITUI** concept —
+an Interactive TUI with mouse drag-and-drop ASCII canvas for building and running
+agent orchestration plans visually inside the terminal.
 
-**agentfactory-harness** builds the `factory` CLI — a TypeScript full-screen TUI
-with an ITUI (Interactive TUI) mouse canvas for agent orchestration. Raw ANSI
-cell-buffer renderer, node-pty terminal embed, Claude API loop, af-plan.json DAG format.
+### Core concepts
 
-Tech stack: TypeScript · tsup · tsx · commander · @anthropic-ai/sdk · node-pty · zod · vitest
+- **ITUI Canvas**: drag-and-drop ASCII blocks (agent nodes) + wire connections
+- **af-plan.json**: portable orchestration plan format (DAG of agent steps)
+- **Three planes**: Agent (Claude loop) · Orchestration (DAG executor) · Registry
+- **Raw ANSI renderer**: custom cell-buffer, no framework (Ink/blessed)
+- **PTY embed**: real terminal panel via `node-pty`
 
-## Governance Rules (ENFORCED)
+### Repository
 
-### Rule 1 — Approved Plan Archive
-Every approved plan MUST be saved to `specs/docs/approvedPlans/<slug>.md` before
-implementation begins. This is a documentation companion — it creates a permanent
-record of what was decided and why. Format: date prefix + descriptive slug.
-Example: `specs/docs/approvedPlans/2026-04-26-wave-0-scaffold.md`
-
-### Rule 2 — Worktree-First Implementation
-Every feature or modification MUST be implemented in a git worktree branched from
-`main`. Before creating a new worktree, ALWAYS ask:
-
-  "Is there already a branch or worktree in progress for this work?
-   Should I continue on the current branch instead of creating a new worktree?"
-
-Only skip the question if the user has explicitly stated which branch to use.
-Worktree location: `../agentfactory-harness-wt/<branch-name>/`
-
-### Rule 3 — Documentation Before Commit
-Every implemented and tested feature MUST have a detailed `docs/FEATURE-<SLUG>.md`
-written **before** the commit, before the PR, and before the milestone entry.
-
-Order of operations (strict):
 ```
-implement → test → document → commit → PR → milestone
+agentfactory-harness/
+├── src/
+│   ├── tui/renderer/      ← cell-buffer, ANSI, layout, theme
+│   ├── tui/input/         ← keyboard, mouse (SGR), router
+│   ├── tui/panels/        ← Session, OrchestrationCanvas, Terminal, Agents
+│   ├── tui/widgets/       ← Block, Wire, ContextMenu, CommandPalette
+│   ├── core/              ← agent-loop, tools, hooks, session
+│   ├── orchestration/     ← schema (Zod), executor, planner, graph
+│   ├── harness/           ← .ai/ reader, manifest, doctor
+│   └── registry/          ← agentfactory.dev client, auth
+├── specs/
+│   └── docs/approvedPlans/  ← every approved plan stored here
+└── .ai/                     ← this harness
 ```
 
-Required sections: What it does · Architecture · How it works · Usage ·
-Test coverage · Known limitations.
+## Project Index
 
-Every doc MUST include:
-- **Box-drawing ASCII diagrams** for every architecture/data-flow view
-- **Legend table** below each diagram defining every symbol used
-- **Terminal-friendly fenced code blocks** for every workflow example (copy-pasteable)
-- **Scenario walkthroughs**: one box-drawing diagram + numbered steps per distinct use case
+`.ai/project-index.yml` — read this first when searching for any file or function.
+Lists every file in the repo: path · purpose · key exports · wave · status.
+Organized into 12 sections (TUI Renderer, Input, Panels, Widgets, Core, Orchestration,
+Harness, Registry, CLI, Governance, Docs, Config). Jump directly to the relevant section
+rather than walking the directory tree.
 
-See `.ai/rules/doc-before-commit.md` for full spec.
+## Search Protocol
 
-### Rule 4 — Version Markers
-Every `.md` file MUST have `<!-- version: x.y.z -->` on line 2. Bump minor on
-content changes, patch on typo/formatting fixes.
+When searching for a file, function, or module:
+1. Read `.ai/project-index.yml` — find the relevant section, locate the row
+2. Found → read that file directly; no `find`/`grep` needed
+3. Not found → either planned (check `status` column) or does not exist yet
 
-### Rule 5 — TypeScript Strictness
-- `strict: true` in tsconfig — no exceptions
-- No `any` types — use `unknown` + type guards
-- Explicit return types on all exported functions
-- Prefer `const` over `let`
+---
 
-### Rule 6 — Secrets
-Never log, print, or commit API keys, tokens, or credentials. Token path:
-`~/.agentfactory/token` — read at runtime, never stored in code.
+### Wave plan
 
-### Rule 7 — Test Coverage
-New logic requires 80%+ vitest coverage. Test files co-located: `src/foo/bar.test.ts`
+| Wave | Scope |
+|------|-------|
+| 0 | Scaffold: cell-buffer, ANSI, static layout, `factory doctor` |
+| 1 | Session: Claude streaming loop, tools, hooks, slash commands |
+| 2 | ITUI Canvas: mouse SGR, block drag, wire routing |
+| 3 | Orchestration: DAG executor, live status, `/run` |
+| 4 | PTY terminal panel |
+| 5 | Registry + .ai/ harness integration |
 
-### Rule 8 — Search Index First
-Before using `find`/`grep` or walking `src/`, read `.ai/project-index.yml`.
-It lists every file in the repo with purpose and key exports, organized by layer.
-Only search beyond the index when a file is missing from it — then add a row after.
+## Behavior Rules
 
-### Rule 9 — Reference Repos
-Research MAY use external repos cloned to `.refs/` (gitignored). Never copy files
-from `.refs/` into `src/`. Cite insights as prose in the plan doc, not as file paths.
+See `.ai/rules/` for all enforced rules. Summary:
+
+### Rule 9 — Reference Repos (Permanent)
+`.refs/` holds permanent reference repos — never delete them after research.
+Each repo has `.refs/<name>/index.yml` describing every subfolder.
+
+**Before starting any plan:** read every `.refs/*/index.yml` to survey available
+reference material. Tool calls MAY read files directly inside `.refs/` repos during
+research. When anything from a ref repo informs a decision, cite the repo-relative
+file path and line (e.g. `open-multi-agent/src/task/index.ts:87`) in the plan doc.
 See `.ai/rules/reference-repos.md` for the full contract.
 
-## Key Files
+- **Approved Plans**: Every feature starts with an approved plan. Plans are saved to
+  `specs/docs/approvedPlans/` before implementation begins.
+- **Worktrees**: Every approved plan is implemented in a new git worktree branched
+  from `main`. Always ask if work is already in progress on a branch before creating
+  a new worktree.
+- **Version Markers**: Every `.md` file MUST carry `<!-- version: x.y.z -->`.
+- **Branches**: feature branches follow `feature/<short-desc>` convention.
+- **Secrets**: Never log, print, or commit API keys or tokens.
+- **Coverage**: 80%+ test coverage for new logic (vitest).
+- **TypeScript**: strict mode, no `any`, explicit return types on public functions.
 
-| File | Purpose |
-|------|---------|
-| `.ai/project-index.yml` | Complete file map — read before any search |
-| `src/tui/renderer/cell-buffer.ts` | Core renderer — Cell[][], diff, flush |
-| `src/tui/renderer/ansi.ts` | ANSI sequence builders |
-| `src/tui/input/mouse.ts` | SGR mouse event parser |
-| `src/tui/panels/OrchestrationCanvas.ts` | ITUI drag-drop canvas |
-| `src/core/agent-loop.ts` | Claude streaming loop |
-| `src/orchestration/schema.ts` | af-plan.json Zod schema |
-| `specs/docs/approvedPlans/` | Approved plan archive |
+## Registered Agents
+<!-- @agent-registry:start -->
+- **security-review**: Produces dated REVIEW-SECURITY-ARCHITECTURE-YYYY-MM-DD.md reports: component matrix, Mermaid diagrams, SEV-classified security findings, design gaps, and a prioritised recommendations table. (See: `.ai/agents/security-review/docs/CLAUDE.md`)
+<!-- @agent-registry:end -->
 
-## Slash Commands
+## Available Skills
+<!-- @skills-registry:start -->
+- **security-review**: Full security and architecture review of a repo: component matrix, Mermaid diagrams, SEV-classified findings, design gaps, recommendations table. (See: `.ai/skills/security-review/SKILL.md`)
+<!-- @skills-registry:end -->
 
-| Command | What it does |
-|---------|-------------|
-| `/run <plan>` | Execute af-plan.json → live canvas |
-| `/spawn <agent>` | Sub-session for an agent |
-| `/doctor` | Health check |
-| `/plan new` | Interactive plan wizard |
-| `/import <slug>` | Pull from registry |
-| `/publish <name>` | Wrap + upload |
+## Commands
+
+No commands registered.

@@ -1,44 +1,69 @@
 # Rule: Reference Repos
-<!-- version: 1.0.0 -->
+<!-- version: 2.0.0 -->
 
-When researching how to implement a feature, you MAY clone external repos into
-`.refs/` for study. This is a local-only research mechanism — reference repos are
-gitignored and must never influence the shipped codebase directly.
+Reference repos live **permanently** in `.refs/` as a shared research library.
+They are gitignored and must never influence the shipped codebase directly.
 
 ## The contract
 
 | MUST | MUST NOT |
 |------|----------|
-| Clone to `.refs/<name>/` | Commit anything inside `.refs/` |
-| Keep `.refs/` in `.gitignore` | Copy files from `.refs/` into `src/` |
-| Use only for reading patterns | Reference `.refs/` paths in docs or plans |
-| Remove after research ends (optional) | Treat any reference repo as a dependency |
+| Keep repos permanently in `.refs/<name>/` | Commit anything inside `.refs/` |
+| Maintain `index.yml` per repo (every subfolder described) | Copy files from `.refs/` into `src/` |
+| Read every `index.yml` before starting any plan | Delete repos after research |
+| Use tool calls (Read, grep) to read inside repos during research | Treat any reference repo as a dependency |
+| Cite `<repo>/<path>:<line>` in plan docs for every borrowed pattern | Reference `.refs/` absolute paths in docs |
+| Update `index.yml` when a repo gains new folders | |
 
-## Procedure
+## Before every plan
+
+At the start of every planning session, read all index files to survey available
+reference material before designing an approach:
 
 ```bash
-# Clone a reference repo for research
+cat .refs/anthropics-claude-code/index.yml
+cat .refs/claude-code-harness/index.yml
+cat .refs/claw-code/index.yml
+cat .refs/openclaude/index.yml
+cat .refs/open-multi-agent/index.yml
+```
+
+## Adding a new reference repo
+
+```bash
+# Clone permanently — do not delete after research
 git clone <url> .refs/<name>
 
-# Read and grep inside it — never copy
-grep -r "async function\*" .refs/<name>/src/
+# Write an index.yml describing every subfolder
+# (copy the schema from any existing .refs/*/index.yml)
+```
+
+Then update Rule 9 in `.ai/adapters/claude/brief.md` to add the new read command
+to the "Before every plan" list above.
+
+## Researching inside a repo
+
+```bash
+# Read files directly — tool calls are allowed
 cat .refs/<name>/src/core/agent-loop.ts
 
-# Distil the insight into your own implementation
-# Delete when done (optional — gitignored either way)
-rm -rf .refs/<name>
+# Grep for patterns
+grep -r "async function\*" .refs/<name>/src/
 ```
 
 ## Citing reference research
 
-When reference repos inform a design decision, record the insight as prose in
-the approved plan or feature doc — never as a file path. Use the form:
+When a reference repo informs a design decision, cite the **repo-relative path and
+line number** in the plan or feature doc. Use the form:
 
-> Informed by reference research: accumulate `input_json_delta` strings and
-> `JSON.parse` only at `content_block_stop` to avoid malformed partial JSON.
+> `open-multi-agent/src/task/index.ts:87` — topological sort with cycle detection;
+> adapted the same algorithm for our DAG executor.
+
+Never use the `.refs/` absolute filesystem path in docs or plans.
 
 ## Why
 
 agentfactory-harness is a novel, independent project. Reference repos answer
-"how does the community solve this?" without creating coupling. Keeping them in
-`.refs/` and out of git makes the research boundary explicit.
+"how does the community solve this?" without creating coupling. Permanent residency
+means the research library grows over time and every planning session can benefit
+from it. Keeping it in `.refs/` and out of git keeps the boundary explicit.
