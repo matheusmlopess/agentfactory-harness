@@ -7,6 +7,8 @@ import { Colors, Wire as WireChars } from '../renderer/theme.js'
 import { type Block, renderBlock } from '../widgets/Block.js'
 import { routeWire } from '../widgets/Wire.js'
 import { ContextMenu } from '../widgets/ContextMenu.js'
+import type { Plan } from '../../orchestration/schema.js'
+import type { StepEvent } from '../../orchestration/executor.js'
 
 export interface CanvasWire {
   id: string
@@ -45,6 +47,62 @@ export class OrchestrationCanvas extends Panel {
 
   getState(): CanvasState {
     return this.state
+  }
+
+  /** Populate canvas blocks and wires from an af-plan.json Plan. */
+  syncFromPlan(plan: Plan): void {
+    const BLOCK_W = 20
+    const BLOCK_H = 5
+    const COL_STRIDE = 26
+    const ROW_STRIDE = 8
+
+    const blocks: Block[] = plan.steps.map((step, i) => ({
+      id: step.id,
+      row: Math.floor(i / 4) * ROW_STRIDE,
+      col: (i % 4) * COL_STRIDE,
+      height: BLOCK_H,
+      width: BLOCK_W,
+      title: step.agent,
+      status: 'idle' as const,
+      outputs: ['out'],
+      inputs: step.dependsOn.length > 0 ? ['in'] : [],
+    }))
+
+    const wires: CanvasWire[] = []
+    for (const step of plan.steps) {
+      for (const dep of step.dependsOn) {
+        wires.push({
+          id: `${dep}→${step.id}`,
+          fromBlockId: dep,
+          fromPort: 'out',
+          toBlockId: step.id,
+          toPort: 'in',
+        })
+      }
+    }
+
+    this.state = { blocks, wires, drag: { kind: 'idle' } }
+    this.onUpdate()
+  }
+
+  /** Update a block's status from an executor StepEvent. */
+  applyStepEvent(event: StepEvent): void {
+    if (event.type === 'plan:done') return
+    const statusMap: Record<string, Block['status']> = {
+      running: 'running',
+      done: 'done',
+      error: 'error',
+      skipped: 'idle',
+      pending: 'idle',
+    }
+    const blockStatus = statusMap[event.status] ?? 'idle'
+    this.state = {
+      ...this.state,
+      blocks: this.state.blocks.map((b) =>
+        b.id === event.stepId ? { ...b, status: blockStatus } : b,
+      ),
+    }
+    this.onUpdate()
   }
 
   render(buf: CellBuffer): void {
