@@ -145,9 +145,9 @@ export class OrchestrationCanvas extends Panel {
       }
     }
 
-    // Draw context menu on top
+    // Draw context menu on top — pass absolute bottom-right boundary
     if (this.menu) {
-      this.menu.render(buf, r.height, r.width)
+      this.menu.render(buf, r.row + r.height, r.col + r.width)
     }
   }
 
