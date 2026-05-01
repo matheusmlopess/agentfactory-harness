@@ -501,6 +501,16 @@ docs:
     wave: 0
     status: implemented
 
+  - path: docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION.md
+    purpose: "Full Wave 3 feature doc — DAG executor, toposort, readySet, cascade-skip, interpolation, CLI commands, 5 scenario walkthroughs"
+    wave: 3
+    status: implemented
+
+  - path: .ai/rules/doc-before-commit.md
+    purpose: "Rule 3 (updated v1.3.0): enforces docs/features/ path, 6-section checklist, legend + scenario requirements"
+    version: "1.3.0"
+    status: implemented
+
 config:
   - path: package.json
     purpose: npm metadata, scripts, dependencies

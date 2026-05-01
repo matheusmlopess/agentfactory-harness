@@ -1,5 +1,5 @@
 # Rule: Documentation Before Commit
-<!-- version: 1.2.0 -->
+<!-- version: 1.3.0 -->
 
 Every implemented and tested feature MUST have a detailed feature document written
 **before** the commit, **before** the PR, and **before** the milestone entry.
@@ -23,13 +23,17 @@ Never commit untested code. Never commit undocumented features.
 ## Where the doc goes
 
 ```
-docs/FEATURE-<SLUG>.md
+docs/features/FEATURE-<SLUG>.md
 ```
 
 Examples:
-- `docs/FEATURE-WAVE-0-SCAFFOLD.md`
-- `docs/FEATURE-ITUI-CANVAS.md`
-- `docs/FEATURE-PTY-PANEL.md`
+- `docs/features/FEATURE-WAVE-0-SCAFFOLD.md`
+- `docs/features/FEATURE-ITUI-CANVAS.md`
+- `docs/features/FEATURE-PTY-PANEL.md`
+- `docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION.md`
+
+> **Legacy docs** in `docs/FEATURE-*.md` (Waves 0–2) are grandfathered.
+> All new feature docs MUST go in `docs/features/`.
 
 ## Required doc sections
 
@@ -175,10 +179,12 @@ Feature docs serve three purposes:
 ## Enforcement
 
 Before running `git commit` on a feature branch:
-1. Check: does `docs/FEATURE-<SLUG>.md` exist?
-2. Check: does it have all required sections?
-3. Check: does every diagram have a legend table?
-4. Check: does every scenario have a box-drawing diagram + numbered steps?
-5. Update `.ai/project-index.yml`: add a row for every new file added in this commit; set `status` to `implemented`.
-6. If this commit closes a wave: flip all that wave's rows from `planned` → `implemented` and bump `<!-- wave: N -->`.
-7. If any check fails — write the missing content first.
+1. Check: does `docs/features/FEATURE-<SLUG>.md` exist?
+2. Check: does it have **all six required sections** (What it does, Architecture, How it works, Usage, Test coverage, Known limitations)?
+3. Check: does every diagram have a legend table immediately below it?
+4. Check: does every scenario have a box-drawing diagram + numbered step-by-step list?
+5. Check: does every diagram symbol used appear in its legend? No undefined characters.
+6. Check: does every usage example use a fenced code block with a language tag and `$` shell prompt prefix?
+7. Update `.ai/project-index.yml`: add a row for every new file added in this commit; set `status` to `implemented`.
+8. If this commit closes a wave: flip all that wave's rows from `planned` → `implemented` and bump `meta.wave`.
+9. If any check fails — write the missing content first. Do not commit until all checks pass.
