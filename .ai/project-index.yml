@@ -432,6 +432,41 @@ docs:
     wave: 2
     status: implemented
 
+  - path: docs/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md
+    purpose: "Security & architecture review — component matrix, 7 Mermaid diagrams, SEV findings, design gaps, recommendations"
+    wave: 0
+    status: implemented
+
+  - path: docs/FEATURE-AGENTFACTORY-SKILL-PIPELINE.md
+    purpose: "agentfactory-gen skill creation pipeline — full workflow, file formats, 10 CLI gap analysis with Mermaid failure-path diagrams"
+    wave: 0
+    status: implemented
+
+  - path: docs/GAP-ISSUE-MATRIX.md
+    purpose: "Cross-reference matrix: 10 skill-pipeline gaps vs all open issues in agentfactory-harness and AgentFactory repos"
+    wave: 0
+    status: implemented
+
+  - path: .ai/agents/security-review/skills/security-review/SKILL.md
+    purpose: "security-review skill — 6-step procedure for dated security review reports (new + update modes)"
+    wave: 0
+    status: implemented
+
+  - path: .ai/agents/security-review/skills/security-review/references/report-template.md
+    purpose: "11-section {{PLACEHOLDER}} skeleton for security review reports"
+    wave: 0
+    status: implemented
+
+  - path: .ai/agents/security-review/skills/security-review/references/mermaid-safe-patterns.md
+    purpose: "GitHub-safe Mermaid rendering constraints reference"
+    wave: 0
+    status: implemented
+
+  - path: .ai/agents/security-review/docs/SKILL-SECURITY-REVIEW.md
+    purpose: "Feature doc for security-review skill — modes, output schema, finding classification, historical reports"
+    wave: 0
+    status: implemented
+
 config:
   - path: package.json
     purpose: npm metadata, scripts, dependencies

@@ -80,3 +80,13 @@ See `.ai/rules/` for full enforcement rules.
 format as [`agentfactory-gen`](https://github.com/matheusmlopess/AgentFactory).
 Orchestration primitives proven here (`af-plan.json`, DAG executor) will be upstreamed
 to `agentfactory-gen` as the #77 epic matures.
+
+## Registered Agents
+<!-- @agent-registry:start -->
+- **security-review**: Produces dated REVIEW-SECURITY-ARCHITECTURE-YYYY-MM-DD.md reports: component matrix, Mermaid diagrams, SEV-classified security findings, design gaps, and a prioritised recommendations table. (See: `.ai/agents/security-review/docs/CLAUDE.md`)
+<!-- @agent-registry:end -->
+
+## Available Skills
+<!-- @skills-registry:start -->
+- **security-review**: Full security and architecture review of a repo: component matrix, Mermaid diagrams, SEV-classified findings, design gaps, recommendations table. (See: `.ai/skills/security-review/SKILL.md`)
+<!-- @skills-registry:end -->
