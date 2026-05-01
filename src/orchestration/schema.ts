@@ -8,6 +8,8 @@ export const StepSchema = z.object({
   prompt: z.string().min(1),
   dependsOn: z.array(z.string()).default([]),
   timeout: z.number().int().positive().optional(),
+  provider: z.enum(['anthropic', 'openai']).optional(),
+  model: z.string().optional(),
 })
 
 export type Step = z.infer<typeof StepSchema>

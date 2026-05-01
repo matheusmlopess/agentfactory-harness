@@ -19,12 +19,26 @@ export function runDoctor(cwd: string): CheckResult[] {
     detail: `v${process.versions.node} (need ≥ 20)`,
   })
 
-  // 2. ANTHROPIC_API_KEY
-  const hasKey = Boolean(process.env['ANTHROPIC_API_KEY'])
+  // 2. LLM provider + API key
+  const provider = process.env['LLM_PROVIDER'] ?? 'anthropic'
+  results.push({
+    label: 'LLM_PROVIDER',
+    ok: true,
+    detail: provider,
+  })
+
+  const anthropicKey = Boolean(process.env['ANTHROPIC_API_KEY'])
   results.push({
     label: 'ANTHROPIC_API_KEY',
-    ok: hasKey,
-    detail: hasKey ? 'set' : 'not set — Claude features unavailable',
+    ok: anthropicKey,
+    detail: anthropicKey ? 'set' : 'not set — set to use Claude models',
+  })
+
+  const openaiKey = Boolean(process.env['OPENAI_API_KEY'])
+  results.push({
+    label: 'OPENAI_API_KEY',
+    ok: openaiKey,
+    detail: openaiKey ? 'set' : 'not set — set to use OpenAI models',
   })
 
   // 3. Auth token file

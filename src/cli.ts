@@ -8,6 +8,7 @@ import { Planner } from './orchestration/planner.js'
 import { AgentTool } from './core/tools/agent.js'
 import { Session } from './core/session.js'
 import { agentLoop } from './core/agent-loop.js'
+import { createAdapter, defaultProvider } from './core/llm/index.js'
 
 export function buildCli(version: string): Command {
   const program = new Command()
@@ -35,10 +36,15 @@ export function buildCli(version: string): Command {
 
       const executor = new Executor(plan, {
         agentRunner: async (step) => {
+          const provider = step.provider ?? defaultProvider()
+          const adapter = createAdapter(provider)
           const session = new Session()
           session.addMessage({ role: 'user', content: step.prompt })
           let out = ''
-          for await (const e of agentLoop(session, {})) {
+          for await (const e of agentLoop(session, {
+            adapter,
+            ...(step.model !== undefined ? { model: step.model } : {}),
+          })) {
             if (e.type === 'text_delta') out += e.delta
           }
           return out.trim()
