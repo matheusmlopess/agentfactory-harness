@@ -56,8 +56,9 @@ export class SessionPanel extends Panel {
 
     // Input bar
     buf.fill(inputRow, r.col, 1, r.width, ' ', { bg: Colors.bg })
-    const prompt = this.streaming ? '  ' : '> '
-    const inputDisplay = (prompt + this.inputBuf).substring(0, r.width - 1)
+    const prompt = this.streaming ? '… ' : '> '
+    const cursor = this.focused && !this.streaming ? '█' : ''
+    const inputDisplay = (prompt + this.inputBuf + cursor).substring(0, r.width - 1)
     buf.write(inputRow, r.col, inputDisplay, { fg: Colors.text, bg: Colors.bg })
   }
 
@@ -157,6 +158,10 @@ export class SessionPanel extends Panel {
           this.onUpdate()
         }
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      this.lines.push({ role: 'system', text: `Error: ${msg}` })
+      this.onUpdate()
     } finally {
       this.streaming = false
       await runHook('SessionStop', {})
