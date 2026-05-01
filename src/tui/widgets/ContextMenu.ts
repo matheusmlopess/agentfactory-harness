@@ -21,11 +21,11 @@ export class ContextMenu {
   }
 
   render(buf: CellBuffer, maxRows: number, maxCols: number): void {
-    const menuWidth = Math.min(
+    const menuWidth = Math.max(4, Math.min(
       Math.max(...this.items.map(i => i.label.length)) + 4,
       maxCols - this.col
-    )
-    const menuHeight = Math.min(this.items.length + 2, maxRows - this.row)
+    ))
+    const menuHeight = Math.max(3, Math.min(this.items.length + 2, maxRows - this.row))
 
     // Border
     buf.write(this.row, this.col, '┌' + '─'.repeat(menuWidth - 2) + '┐', { fg: Colors.border })

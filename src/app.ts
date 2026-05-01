@@ -25,6 +25,7 @@ export class App {
   private prev: CellBuffer
   private activeTab = 0
   private running = false
+  private renderPending = false
   private sessionPanel!: SessionPanel
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
@@ -52,10 +53,19 @@ export class App {
     this.listenInput()
   }
 
+  private scheduleRender(): void {
+    if (this.renderPending) return
+    this.renderPending = true
+    setImmediate(() => {
+      this.renderPending = false
+      this.render()
+    })
+  }
+
   private initPanels(): void {
     const layout = computeLayout(this.rows, this.cols)
-    this.sessionPanel = new SessionPanel(layout.session, () => this.render())
-    this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.render())
+    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender())
+    this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
     this.agentsPanel  = new AgentsPanel(layout.agents)
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
     this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
@@ -83,16 +93,27 @@ export class App {
 
     process.on('SIGINT',  () => this.stop())
     process.on('SIGTERM', () => this.stop())
+
+    // Last-resort cleanup: runs on normal exit and on uncaught exceptions,
+    // but NOT on SIGKILL. Ensures mouse tracking and alt-screen are always
+    // disabled even if stop() was never called.
+    process.on('exit', () => {
+      process.stdout.write(A.disableMouse() + A.showCursor() + A.exitAltScreen())
+    })
   }
 
   stop(): void {
+    if (!this.running) return
     this.running = false
+    // Drain stdin before exit so buffered mouse events don't leak into the shell
+    process.stdin.removeAllListeners('data')
+    process.stdin.setRawMode(false)
+    process.stdin.pause()
+    // Write cleanup sequences and exit only after they are flushed to the terminal
     process.stdout.write(
-      A.disableMouse() +
-      A.showCursor() +
-      A.exitAltScreen()
+      A.disableMouse() + A.showCursor() + A.exitAltScreen(),
+      () => process.exit(0),
     )
-    process.exit(0)
   }
 
   private render(): void {
