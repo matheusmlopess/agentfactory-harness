@@ -1,6 +1,6 @@
 meta:
-  version: "1.2.0"
-  wave: 2
+  version: "1.3.0"
+  wave: 3
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
     Updated each wave: add entries for new files, flip status to
@@ -239,10 +239,15 @@ core:
     status: implemented
 
   - path: src/core/tools/agent.ts
-    purpose: Agent tool — spawns a sub-session
+    purpose: AgentTool — spawns a child agentLoop session, returns final text
     exports: [AgentTool]
-    wave: 1
-    status: planned
+    wave: 3
+    status: implemented
+
+  - path: src/core/tools/agent.test.ts
+    purpose: AgentTool tests — text concat, empty output, metadata
+    wave: 3
+    status: implemented
 
 orchestration:
   - path: src/orchestration/schema.ts
@@ -253,31 +258,55 @@ orchestration:
       - Plan (inferred type)
       - Step (inferred type)
     wave: 3
-    status: planned
+    status: implemented
+
+  - path: src/orchestration/schema.test.ts
+    purpose: Schema validation tests — valid plans, duplicate ids, bad dependsOn refs
+    wave: 3
+    status: implemented
 
   - path: src/orchestration/executor.ts
-    purpose: DAG topological sort + step runner — emits live status events
+    purpose: "DAG executor — AsyncIterable<StepEvent>, toposort dispatch, cascade-skip on error"
     exports:
       - Executor (class)
-      - "run(plan): AsyncIterable<StepEvent>"
+      - StepEvent (interface)
+      - StepStatus (type)
+      - AgentRunnerFn (type)
+      - ExecutorOptions (interface)
     wave: 3
-    status: planned
+    status: implemented
+
+  - path: src/orchestration/executor.test.ts
+    purpose: Executor tests — single step, parallel fan-out, chain, cascade failure, concurrency, interpolation
+    wave: 3
+    status: implemented
 
   - path: src/orchestration/planner.ts
     purpose: "/plan new interactive wizard — prompts → writes af-plan.json"
     exports:
       - Planner (class)
-      - "wizard(): Promise<Plan>"
+      - "wizard(cwd): Promise<Plan>"
     wave: 3
-    status: planned
+    status: implemented
+
+  - path: src/orchestration/planner.test.ts
+    purpose: Planner tests — single step, dependsOn parsing, blank-name error
+    wave: 3
+    status: implemented
 
   - path: src/orchestration/graph.ts
-    purpose: "DAG utilities — topological sort, cycle detection"
+    purpose: "Pure DAG utilities — topological sort, cycle detection, readySet"
     exports:
       - "toposort(steps): string[]"
       - "detectCycles(steps): string[][]"
+      - "readySet(steps, completed): Set<string>"
     wave: 3
-    status: planned
+    status: implemented
+
+  - path: src/orchestration/graph.test.ts
+    purpose: Graph tests — linear chain, diamond, self-cycle, 3-node cycle, readySet scenarios
+    wave: 3
+    status: implemented
 
 harness:
   - path: src/harness/doctor.ts
@@ -430,6 +459,11 @@ docs:
   - path: specs/docs/approvedPlans/2026-04-27-wave-2-canvas.md
     purpose: Approved plan for Wave 2
     wave: 2
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-05-01-wave-3-orchestration.md
+    purpose: Approved plan for Wave 3
+    wave: 3
     status: implemented
 
   - path: docs/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md

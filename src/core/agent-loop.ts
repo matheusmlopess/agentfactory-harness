@@ -1,15 +1,13 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type {
   MessageParam,
   TextBlockParam,
   ToolUseBlockParam,
 } from '@anthropic-ai/sdk/resources/messages.js'
+import type Anthropic from '@anthropic-ai/sdk'
 import { type Session } from './session.js'
 import { listTools, dispatch } from './tools/index.js'
 import { runHook } from './hooks.js'
-
-const DEFAULT_MODEL = 'claude-opus-4-7'
-const DEFAULT_MAX_TOKENS = 8192
+import { createAdapter, defaultProvider, type LLMAdapter } from './llm/index.js'
 
 export type AgentEvent =
   | { type: 'text_delta'; delta: string }
@@ -23,14 +21,11 @@ export interface AgentLoopOptions {
   model?: string
   signal?: AbortSignal
   systemPrompt?: string
+  adapter?: LLMAdapter
 }
 
-// Mutable state tracked across one streaming response
-interface StreamState {
-  textAccum: string
-  toolBlocks: Map<number, { id: string; name: string; inputAccum: string }>
-  stopReason: string
-}
+const DEFAULT_MAX_TOKENS = 8192
+const DEFAULT_SYSTEM = 'You are a helpful assistant in the factory ITUI agent shell.'
 
 export async function* agentLoop(
   session: Session,
@@ -38,18 +33,18 @@ export async function* agentLoop(
 ): AsyncIterable<AgentEvent> {
   const {
     maxTurns = 20,
-    model = DEFAULT_MODEL,
     signal,
-    systemPrompt = 'You are a helpful assistant in the factory ITUI agent shell.',
+    systemPrompt = DEFAULT_SYSTEM,
   } = opts
 
-  const client = new Anthropic()
+  const adapter = opts.adapter ?? createAdapter(defaultProvider())
+  const model = opts.model ?? adapter.defaultModel
   const tools = listTools()
 
-  const apiTools = tools.map(t => ({
+  const toolDefs = tools.map((t) => ({
     name: t.name,
     description: t.description,
-    input_schema: t.inputSchemaJson,
+    inputSchemaJson: t.inputSchemaJson,
   }))
 
   let turns = 0
@@ -57,68 +52,60 @@ export async function* agentLoop(
   while (turns < maxTurns) {
     if (signal?.aborted) return
 
-    const state: StreamState = {
-      textAccum: '',
-      toolBlocks: new Map(),
-      stopReason: 'end_turn',
-    }
+    // Per-turn accumulation
+    let textAccum = ''
+    let stopReason = 'end_turn'
+    const toolBlocks = new Map<number, { id: string; name: string; inputAccum: string }>()
 
     await runHook('StepStart', { turn: turns })
 
-    const stream = await client.messages.create({
-      model,
-      max_tokens: DEFAULT_MAX_TOKENS,
-      system: systemPrompt,
-      messages: session.getHistory() as MessageParam[],
-      stream: true,
-      ...(apiTools.length > 0 ? { tools: apiTools as Anthropic.Tool[] } : {}),
-    })
+    try {
+      for await (const chunk of adapter.stream(session.getHistory() as MessageParam[], {
+        model,
+        systemPrompt,
+        tools: toolDefs,
+        maxTokens: DEFAULT_MAX_TOKENS,
+        ...(signal !== undefined ? { signal } : {}),
+      })) {
+        if (signal?.aborted) return
 
-    // Accumulate streaming events; yield text deltas live
-    for await (const event of stream) {
-      if (signal?.aborted) return
+        switch (chunk.type) {
+          case 'text_delta':
+            textAccum += chunk.text
+            yield { type: 'text_delta', delta: chunk.text }
+            break
 
-      if (event.type === 'content_block_start') {
-        if (event.content_block.type === 'tool_use') {
-          state.toolBlocks.set(event.index, {
-            id: event.content_block.id,
-            name: event.content_block.name,
-            inputAccum: '',
-          })
-          yield { type: 'tool_start', name: event.content_block.name, id: event.content_block.id }
+          case 'tool_start':
+            toolBlocks.set(toolBlocks.size, { id: chunk.id, name: chunk.name, inputAccum: '' })
+            yield { type: 'tool_start', name: chunk.name, id: chunk.id }
+            break
+
+          case 'tool_input_delta': {
+            const block = toolBlocks.get(chunk.index)
+            if (block) block.inputAccum += chunk.json
+            break
+          }
+
+          case 'message_end':
+            stopReason = chunk.stop_reason
+            break
         }
       }
-
-      if (event.type === 'content_block_delta') {
-        if (event.delta.type === 'text_delta') {
-          state.textAccum += event.delta.text
-          yield { type: 'text_delta', delta: event.delta.text }
-        } else if (event.delta.type === 'input_json_delta') {
-          const block = state.toolBlocks.get(event.index)
-          if (block) block.inputAccum += event.delta.partial_json
-        }
-      }
-
-      if (event.type === 'message_delta') {
-        state.stopReason = event.delta.stop_reason ?? 'end_turn'
-      }
+    } catch (err) {
+      yield { type: 'error', error: err instanceof Error ? err : new Error(String(err)) }
+      return
     }
 
-    // Add assistant message to history
+    // Build assistant message for history
     const assistantContent: Array<TextBlockParam | ToolUseBlockParam> = []
-    if (state.textAccum) {
-      assistantContent.push({ type: 'text', text: state.textAccum })
-    }
+    if (textAccum) assistantContent.push({ type: 'text', text: textAccum })
 
-    // Dispatch tool calls collected during this turn
     const toolResultParts: Anthropic.ToolResultBlockParam[] = []
-    for (const [, block] of state.toolBlocks) {
+    for (const [, block] of toolBlocks) {
       let parsedInput: unknown = {}
       try {
         if (block.inputAccum) parsedInput = JSON.parse(block.inputAccum)
-      } catch {
-        parsedInput = {}
-      }
+      } catch { parsedInput = {} }
 
       assistantContent.push({
         type: 'tool_use',
@@ -130,7 +117,7 @@ export async function* agentLoop(
       const hook = await runHook('PreToolUse', { tool: block.name, input: parsedInput })
       let result: string
       if (!hook.continue) {
-        result = `Tool use blocked by PreToolUse hook`
+        result = 'Tool use blocked by PreToolUse hook'
       } else {
         result = await dispatch(block.name, parsedInput)
         await runHook('PostToolUse', { tool: block.name, result })
@@ -141,13 +128,11 @@ export async function* agentLoop(
     }
 
     session.addMessage({ role: 'assistant', content: assistantContent })
+    await runHook('StepComplete', { turn: turns, stop_reason: stopReason })
+    yield { type: 'turn_end', stop_reason: stopReason }
 
-    await runHook('StepComplete', { turn: turns, stop_reason: state.stopReason })
-    yield { type: 'turn_end', stop_reason: state.stopReason }
+    if (stopReason === 'end_turn' || toolBlocks.size === 0) break
 
-    if (state.stopReason === 'end_turn' || state.toolBlocks.size === 0) break
-
-    // Add tool results and loop for next turn
     session.addMessage({ role: 'user', content: toolResultParts })
     turns++
   }

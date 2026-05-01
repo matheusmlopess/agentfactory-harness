@@ -16,6 +16,6 @@ export function renderStatusBar(buf: CellBuffer, rect: Rect, mode = 'NORMAL'): v
   buf.write(row, col, left, { fg: Colors.textBright, bg, bold: true })
 
   // Right: keybind hints
-  const right = ' Ctrl+Q quit  Tab focus '
+  const right = ' ^Q quit  Tab/F1-F3 focus '
   buf.write(row, col + width - right.length, right, { fg: Colors.textDim, bg })
 }

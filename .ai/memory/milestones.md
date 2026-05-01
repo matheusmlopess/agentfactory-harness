@@ -1,5 +1,5 @@
 # Milestones — agentfactory-harness
-<!-- version: 1.4.0 -->
+<!-- version: 1.5.0 -->
 
 Living traceability matrix for all agentfactory-harness work items.
 
@@ -25,7 +25,7 @@ Living traceability matrix for all agentfactory-harness work items.
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
-| W3 | DAG executor, live canvas status, /run command | feat | pending | — | — | — | — |
+| W3 | DAG executor, live canvas status, /run command | feat | ✓ done | feature/wave-3-orchestration | — | — | v0.4.0 |
 
 ## Wave 4 — PTY Terminal
 

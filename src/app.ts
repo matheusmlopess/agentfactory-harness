@@ -16,7 +16,7 @@ import { ReadTool } from './core/tools/read.js'
 import { WriteTool } from './core/tools/write.js'
 import { WebFetchTool } from './core/tools/web-fetch.js'
 
-const TABS = ['Session', 'Orchestration', 'Agents', 'Registry']
+const TABS = ['Session', 'Orchestration', 'Agents']
 
 export class App {
   private rows = process.stdout.rows ?? 24
@@ -165,13 +165,13 @@ export class App {
         return
       }
 
-      if (key.key >= '1' && key.key <= '4') {
-        this.activeTab = parseInt(key.key) - 1
-        this.render()
-        return
-      }
+      // F1–F3 switch panels without stealing printable characters
+      if (key.key === 'f1') { this.activeTab = 0; this.render(); return }
+      if (key.key === 'f2') { this.activeTab = 1; this.render(); return }
+      if (key.key === 'f3') { this.activeTab = 2; this.render(); return }
 
-      this.router.dispatch(key, this.panels, this.activeTab)
+      const consumed = this.router.dispatch(key, this.panels, this.activeTab)
+      if (!consumed) this.render()
     })
   }
 }
