@@ -1,5 +1,5 @@
 # AgentFactory Intelligence Brief — agentfactory-harness
-<!-- version: 1.1.0 -->
+<!-- version: 1.2.0 -->
 
 ## Harness
 
@@ -84,3 +84,6 @@ See `.ai/rules/` for all enforced rules. Summary:
 - **Secrets**: Never log, print, or commit API keys or tokens.
 - **Coverage**: 80%+ test coverage for new logic (vitest).
 - **TypeScript**: strict mode, no `any`, explicit return types on public functions.
+- **Reference Repos**: `.refs/` holds permanent reference repos, each with an
+  `index.yml` (every subfolder described). Read all index files at the start of
+  every planning session. Cite `<repo>/<path>:<line>` in plan docs for borrowed patterns.
