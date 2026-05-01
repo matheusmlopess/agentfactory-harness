@@ -173,10 +173,11 @@ export class OrchestrationCanvas extends Panel {
       return false
     }
 
-    // Close menu on any click outside
+    // Close menu on any click — consume the event so it doesn't also start a drag
     if (this.menu && e.action === 'press') {
       this.menu = null
       this.onUpdate()
+      return true
     }
 
     if (e.button === 'right' && e.action === 'press') {
