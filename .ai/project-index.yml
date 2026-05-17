@@ -107,7 +107,7 @@ tui_panels:
       - "onMouse(e: MouseEvent)"
       - "get inner(): Rect"
     wave: 0
-    status: stub
+    status: implemented
 
   - path: src/tui/panels/StatusBar.ts
     purpose: Bottom status line — version, mode label, keybind hints

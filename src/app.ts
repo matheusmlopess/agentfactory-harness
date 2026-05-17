@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { CellBuffer } from './tui/renderer/cell-buffer.js'
 import { computeLayout, drawBorder } from './tui/renderer/layout.js'
 import { renderStatusBar } from './tui/panels/StatusBar.js'
@@ -15,6 +17,11 @@ import { BashTool } from './core/tools/bash.js'
 import { ReadTool } from './core/tools/read.js'
 import { WriteTool } from './core/tools/write.js'
 import { WebFetchTool } from './core/tools/web-fetch.js'
+import { PlanSchema, type Plan } from './orchestration/schema.js'
+import { Executor } from './orchestration/executor.js'
+import { Session } from './core/session.js'
+import { agentLoop } from './core/agent-loop.js'
+import { createAdapter, defaultProvider } from './core/llm/index.js'
 
 const TABS = ['Session', 'Orchestration', 'Agents']
 
@@ -26,6 +33,8 @@ export class App {
   private activeTab = 0
   private running = false
   private renderPending = false
+  private currentPlan: Plan | null = null
+  private planRunning = false
   private sessionPanel!: SessionPanel
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
@@ -45,10 +54,11 @@ export class App {
     registerTool(WebFetchTool)
   }
 
-  start(): void {
+  async start(): Promise<void> {
     this.running = true
     this.setup()
     this.initPanels()
+    await this.tryLoadPlan()
     this.render()
     this.listenInput()
   }
@@ -69,6 +79,50 @@ export class App {
     this.agentsPanel  = new AgentsPanel(layout.agents)
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
     this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
+  }
+
+  private async tryLoadPlan(): Promise<void> {
+    try {
+      const raw = JSON.parse(await readFile(resolve(process.cwd(), 'af-plan.json'), 'utf8'))
+      const plan = PlanSchema.parse(raw)
+      this.currentPlan = plan
+      this.canvasPanel.syncFromPlan(plan)
+    } catch {
+      // No plan file or invalid plan — canvas stays empty, no error shown
+    }
+  }
+
+  private async runPlan(): Promise<void> {
+    if (!this.currentPlan || this.planRunning) return
+    this.planRunning = true
+
+    try {
+      const plan = this.currentPlan
+      this.canvasPanel.syncFromPlan(plan)
+
+      const executor = new Executor(plan, {
+        agentRunner: async (step) => {
+          const provider = step.provider ?? defaultProvider()
+          const adapter = createAdapter(provider)
+          const session = new Session()
+          session.addMessage({ role: 'user', content: step.prompt })
+          let out = ''
+          for await (const e of agentLoop(session, {
+            adapter,
+            ...(step.model !== undefined ? { model: step.model } : {}),
+          })) {
+            if (e.type === 'text_delta') out += e.delta
+          }
+          return out.trim()
+        },
+      })
+
+      for await (const event of executor.run()) {
+        this.canvasPanel.applyStepEvent(event)
+      }
+    } finally {
+      this.planRunning = false
+    }
   }
 
   private setup(): void {
@@ -140,7 +194,7 @@ export class App {
     this.agentsPanel.focused = this.activeTab === 2
     this.agentsPanel.render(this.buf)
 
-    renderStatusBar(this.buf, layout.statusBar)
+    renderStatusBar(this.buf, layout.statusBar, this.planRunning ? 'running' : undefined)
 
     const diff = this.buf.diff(this.prev)
     if (diff) process.stdout.write(diff)
@@ -190,6 +244,12 @@ export class App {
       if (key.key === 'f1') { this.activeTab = 0; this.render(); return }
       if (key.key === 'f2') { this.activeTab = 1; this.render(); return }
       if (key.key === 'f3') { this.activeTab = 2; this.render(); return }
+
+      // Ctrl+R — run the loaded plan (no-op if no plan or already running)
+      if (key.key === 'ctrl+r') {
+        void this.runPlan()
+        return
+      }
 
       const consumed = this.router.dispatch(key, this.panels, this.activeTab)
       if (!consumed) this.render()

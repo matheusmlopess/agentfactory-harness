@@ -2,7 +2,7 @@
 import { buildCli } from './cli.js'
 import { App } from './app.js'
 
-const VERSION = '0.1.0'
+const VERSION = '0.3.0'
 
 const program = buildCli(VERSION)
 
@@ -14,5 +14,8 @@ if (process.argv.length > 2 && !process.argv[2]?.startsWith('-')) {
 } else {
   // No subcommand — launch the full-screen TUI
   const app = new App()
-  app.start()
+  app.start().catch((err: unknown) => {
+    process.stderr.write(String(err) + '\n')
+    process.exit(1)
+  })
 }
