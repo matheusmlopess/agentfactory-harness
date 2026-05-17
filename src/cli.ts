@@ -5,6 +5,7 @@ import { runDoctor, printDoctorReport } from './harness/doctor.js'
 import { PlanSchema } from './orchestration/schema.js'
 import { Executor } from './orchestration/executor.js'
 import { Planner } from './orchestration/planner.js'
+import { registerTool } from './core/tools/index.js'
 import { AgentTool } from './core/tools/agent.js'
 import { Session } from './core/session.js'
 import { agentLoop } from './core/agent-loop.js'
@@ -91,8 +92,7 @@ export function buildCli(version: string): Command {
       process.stdout.write(`Plan "${result.data.name}" is valid (${result.data.steps.length} steps)\n`)
     })
 
-  // Register AgentTool so it's available in agent loops started from CLI
-  void AgentTool
+  registerTool(AgentTool)
 
   return program
 }
