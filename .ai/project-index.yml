@@ -1,5 +1,5 @@
 meta:
-  version: "1.4.0"
+  version: "1.5.0"
   wave: 4
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
@@ -146,7 +146,29 @@ tui_panels:
     exports:
       - TerminalPanel (class extends Panel)
     wave: 4
-    status: planned
+    status: implemented
+
+  - path: src/tui/input/vt.ts
+    purpose: VTScreen — streaming ANSI parser + virtual cell grid for PTY output
+    exports:
+      - VTStyle (interface)
+      - VTScreen (class)
+      - "feed(data: string): void"
+      - "resize(rows, cols): void"
+      - "render(buf, inner): void"
+      - "cursorRow / cursorCol: number"
+    wave: 4
+    status: implemented
+
+  - path: src/tui/input/vt.test.ts
+    purpose: VTScreen unit tests — text, cursor, SGR, erase, scroll, resize
+    wave: 4
+    status: implemented
+
+  - path: src/tui/panels/TerminalPanel.test.ts
+    purpose: TerminalPanel lifecycle tests with mocked IPty
+    wave: 4
+    status: implemented
 
 tui_widgets:
   - path: src/tui/widgets/Block.ts
@@ -178,6 +200,8 @@ tui_widgets:
       - CommandPalette (class)
     wave: 1
     status: planned
+
+  # layout.ts extended in Wave 4 to add terminal: Rect
 
 core:
   - path: src/core/agent-loop.ts

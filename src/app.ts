@@ -11,6 +11,7 @@ import { InputRouter } from './tui/input/router.js'
 import { SessionPanel } from './tui/panels/SessionPanel.js'
 import { AgentsPanel } from './tui/panels/AgentsPanel.js'
 import { OrchestrationCanvas } from './tui/panels/OrchestrationCanvas.js'
+import { TerminalPanel } from './tui/panels/TerminalPanel.js'
 import type { Panel } from './tui/panels/Panel.js'
 import { registerTool } from './core/tools/index.js'
 import { BashTool } from './core/tools/bash.js'
@@ -23,7 +24,8 @@ import { Session } from './core/session.js'
 import { agentLoop } from './core/agent-loop.js'
 import { createAdapter, defaultProvider } from './core/llm/index.js'
 
-const TABS = ['Session', 'Orchestration', 'Agents']
+const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal']
+const TAB_TERMINAL = 3
 
 export class App {
   private rows = process.stdout.rows ?? 24
@@ -40,6 +42,7 @@ export class App {
   private sessionPanel!: SessionPanel
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
+  private terminalPanel!: TerminalPanel
   private panels!: Panel[]
   private router = new InputRouter()
 
@@ -76,11 +79,12 @@ export class App {
 
   private initPanels(): void {
     const layout = computeLayout(this.rows, this.cols)
-    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender())
-    this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
-    this.agentsPanel  = new AgentsPanel(layout.agents)
+    this.sessionPanel  = new SessionPanel(layout.session, () => this.scheduleRender())
+    this.canvasPanel   = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
+    this.agentsPanel   = new AgentsPanel(layout.agents)
+    this.terminalPanel = new TerminalPanel(layout.terminal, () => this.scheduleRender())
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
-    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
+    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel, this.terminalPanel]
   }
 
   private async tryLoadPlan(): Promise<void> {
@@ -155,9 +159,12 @@ export class App {
       this.buf  = new CellBuffer(this.rows, this.cols)
       this.prev = new CellBuffer(this.rows, this.cols)
       const layout = computeLayout(this.rows, this.cols)
-      this.sessionPanel.rect = layout.session
-      this.canvasPanel.rect  = layout.canvas
-      this.agentsPanel.rect  = layout.agents
+      this.sessionPanel.rect  = layout.session
+      this.canvasPanel.rect   = layout.canvas
+      this.agentsPanel.rect   = layout.agents
+      this.terminalPanel.rect = layout.terminal
+      const inner = this.terminalPanel.inner
+      this.terminalPanel.resize(inner.height, inner.width)
       this.render()
     })
 
@@ -175,6 +182,7 @@ export class App {
   stop(): void {
     if (!this.running) return
     this.running = false
+    this.terminalPanel.destroy()
     // Drain stdin before exit so buffered mouse events don't leak into the shell
     process.stdin.removeAllListeners('data')
     process.stdin.setRawMode(false)
@@ -190,25 +198,34 @@ export class App {
     if (!this.running) return
 
     const layout = computeLayout(this.rows, this.cols)
+    const onTerminal = this.activeTab === TAB_TERMINAL
 
     this.buf.fill(0, 0, this.rows, this.cols, ' ', { bg: Colors.bg })
     this.renderTabBar(layout.tabBar.row)
 
-    drawBorder(this.buf, layout.session, 'Session',       this.activeTab === 0)
-    drawBorder(this.buf, layout.canvas,  'Orchestration', this.activeTab === 1)
-    drawBorder(this.buf, layout.agents,  'Agents',        this.activeTab === 2)
-
+    // Left column — always visible
+    drawBorder(this.buf, layout.session, 'Session', this.activeTab === 0)
     this.sessionPanel.rect    = layout.session
     this.sessionPanel.focused = this.activeTab === 0
     this.sessionPanel.render(this.buf)
 
-    this.canvasPanel.rect    = layout.canvas
-    this.canvasPanel.focused = this.activeTab === 1
-    this.canvasPanel.render(this.buf)
+    if (onTerminal) {
+      drawBorder(this.buf, layout.terminal, 'Terminal', true)
+      this.terminalPanel.rect    = layout.terminal
+      this.terminalPanel.focused = true
+      this.terminalPanel.render(this.buf)
+    } else {
+      drawBorder(this.buf, layout.canvas, 'Orchestration', this.activeTab === 1)
+      drawBorder(this.buf, layout.agents, 'Agents',        this.activeTab === 2)
 
-    this.agentsPanel.rect    = layout.agents
-    this.agentsPanel.focused = this.activeTab === 2
-    this.agentsPanel.render(this.buf)
+      this.canvasPanel.rect    = layout.canvas
+      this.canvasPanel.focused = this.activeTab === 1
+      this.canvasPanel.render(this.buf)
+
+      this.agentsPanel.rect    = layout.agents
+      this.agentsPanel.focused = this.activeTab === 2
+      this.agentsPanel.render(this.buf)
+    }
 
     renderStatusBar(this.buf, layout.statusBar, this.planRunning ? 'running' : undefined, this.statusError ?? undefined)
 
@@ -235,7 +252,19 @@ export class App {
     process.stdin.setRawMode(true)
     process.stdin.resume()
     process.stdin.on('data', (data: Buffer) => {
-      // Mouse event — try before keyboard
+      // When Terminal tab is active, bypass parseKey and forward raw bytes
+      // to the PTY. Only intercept Ctrl+Q and F1–F4 via raw byte patterns.
+      if (this.activeTab === TAB_TERMINAL) {
+        if (data[0] === 0x11) { this.stop(); return }                  // Ctrl+Q
+        if (data.equals(Buffer.from('\x1bOP'))) { this.activeTab = 0; this.render(); return } // F1
+        if (data.equals(Buffer.from('\x1bOQ'))) { this.activeTab = 1; this.render(); return } // F2
+        if (data.equals(Buffer.from('\x1bOR'))) { this.activeTab = 2; this.render(); return } // F3
+        if (data.equals(Buffer.from('\x1bOS'))) return                 // F4 — already here
+        this.terminalPanel.write(data)
+        return
+      }
+
+      // Mouse event — try before keyboard (non-terminal tabs only)
       const mouse = parseMouse(data)
       if (mouse) {
         this.router.dispatch(mouse, this.panels, this.activeTab)
@@ -256,10 +285,11 @@ export class App {
         return
       }
 
-      // F1–F3 switch panels without stealing printable characters
+      // F1–F4 switch panels without stealing printable characters
       if (key.key === 'f1') { this.activeTab = 0; this.render(); return }
       if (key.key === 'f2') { this.activeTab = 1; this.render(); return }
       if (key.key === 'f3') { this.activeTab = 2; this.render(); return }
+      if (key.key === 'f4') { this.activeTab = TAB_TERMINAL; this.render(); return }
 
       // Ctrl+R — run the loaded plan (no-op if no plan or already running)
       if (key.key === 'ctrl+r') {
