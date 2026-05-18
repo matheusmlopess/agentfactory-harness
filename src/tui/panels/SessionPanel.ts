@@ -1,6 +1,7 @@
 import { Panel } from './Panel.js'
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import type { KeyEvent } from '../input/keyboard.js'
+import type { MouseEvent } from '../input/mouse.js'
 import type { Rect } from '../renderer/layout.js'
 import { Colors } from '../renderer/theme.js'
 import { Session } from '../../core/session.js'
@@ -86,6 +87,18 @@ export class SessionPanel extends Panel {
       this.inputBuf += e.key
       this.onUpdate()
       return true
+    }
+    return false
+  }
+
+  override onMouse(e: MouseEvent): boolean {
+    if (e.button === 'scroll_up') {
+      this.scrollOffset = Math.min(this.scrollOffset + 3, Math.max(0, this.lines.length - 1))
+      this.onUpdate(); return true
+    }
+    if (e.button === 'scroll_down') {
+      this.scrollOffset = Math.max(0, this.scrollOffset - 3)
+      this.onUpdate(); return true
     }
     return false
   }

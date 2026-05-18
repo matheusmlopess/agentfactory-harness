@@ -245,17 +245,9 @@ export class ConfigPanel extends Panel {
   }
 
   override onMouse(e: MouseEvent): boolean {
-    // Scroll wheel — move list up/down
-    if (e.button === 'scroll_up') {
-      this.scrollTop = Math.max(0, this.scrollTop - 3)
-      this.onUpdate(); return true
-    }
-    if (e.button === 'scroll_down') {
-      const listHeight = this.visibleListHeight()
-      const maxScroll = Math.max(0, this.rows.length - listHeight)
-      this.scrollTop = Math.min(maxScroll, this.scrollTop + 3)
-      this.onUpdate(); return true
-    }
+    // Scroll wheel — navigate selection like arrow keys
+    if (e.button === 'scroll_up')   { this.moveSelection(-1); this.onUpdate(); return true }
+    if (e.button === 'scroll_down') { this.moveSelection(1);  this.onUpdate(); return true }
 
     if (e.button !== 'left' || e.action !== 'press') return false
     const r = this.inner
