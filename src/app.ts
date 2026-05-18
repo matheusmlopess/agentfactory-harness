@@ -23,9 +23,12 @@ import { Executor } from './orchestration/executor.js'
 import { Session } from './core/session.js'
 import { agentLoop } from './core/agent-loop.js'
 import { createAdapter, defaultProvider } from './core/llm/index.js'
+import { ConfigPanel } from './tui/panels/ConfigPanel.js'
+import { store } from './core/config/store.js'
 
-const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal']
+const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config']
 const TAB_TERMINAL = 3
+const TAB_CONFIG   = 4
 const EXIT_BTN = ' ✕ Quit '
 
 export class App {
@@ -44,6 +47,7 @@ export class App {
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
   private terminalPanel: TerminalPanel | null = null
+  private configPanel: ConfigPanel | null = null
   private panels!: Panel[]
   private router = new InputRouter()
 
@@ -63,6 +67,7 @@ export class App {
   async start(): Promise<void> {
     this.running = true
     this.setup()
+    await store.init()
     this.initPanels()
     await this.tryLoadPlan()
     this.render()
@@ -84,7 +89,8 @@ export class App {
     this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
     this.agentsPanel  = new AgentsPanel(layout.agents)
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
-    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
+    this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender())
+    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel, this.configPanel]
   }
 
   // VT-GAP-08: lazy PTY spawn — only on first switch to Terminal tab
@@ -176,6 +182,7 @@ export class App {
         const inner = this.terminalPanel.inner
         this.terminalPanel.resize(inner.height, inner.width)
       }
+      if (this.configPanel) this.configPanel.rect = layout.config
       this.render()
     })
 
@@ -220,7 +227,12 @@ export class App {
     this.sessionPanel.focused = this.activeTab === 0
     this.sessionPanel.render(this.buf)
 
-    if (onTerminal) {
+    if (this.activeTab === TAB_CONFIG) {
+      drawBorder(this.buf, layout.config, 'Config', true)
+      this.configPanel!.rect    = layout.config
+      this.configPanel!.focused = true
+      this.configPanel!.render(this.buf)
+    } else if (onTerminal) {
       const tp = this.ensureTerminalPanel()
       drawBorder(this.buf, layout.terminal, 'Terminal', true)
       tp.rect    = layout.terminal
@@ -285,7 +297,10 @@ export class App {
     const layout = computeLayout(this.rows, this.cols)
     const s = layout.session
     if (row >= s.row && row < s.row + s.height && col >= s.col && col < s.col + s.width) return 0
-    if (this.activeTab === TAB_TERMINAL) {
+    if (this.activeTab === TAB_CONFIG) {
+      const cfg = layout.config
+      if (row >= cfg.row && row < cfg.row + cfg.height && col >= cfg.col && col < cfg.col + cfg.width) return TAB_CONFIG
+    } else if (this.activeTab === TAB_TERMINAL) {
       const t = layout.terminal
       if (row >= t.row && row < t.row + t.height && col >= t.col && col < t.col + t.width) return TAB_TERMINAL
     } else {
@@ -308,10 +323,11 @@ export class App {
 
         // VT-GAP-04: match both xterm (\x1bOP) and VT100 (\x1b[11~) F-key forms
         const s = data.toString('binary')
-        if (s === '\x1bOP' || s === '\x1b[11~') { this.activeTab = 0; this.render(); return } // F1
-        if (s === '\x1bOQ' || s === '\x1b[12~') { this.activeTab = 1; this.render(); return } // F2
-        if (s === '\x1bOR' || s === '\x1b[13~') { this.activeTab = 2; this.render(); return } // F3
-        if (s === '\x1bOS' || s === '\x1b[14~') return                 // F4 — already here
+        if (s === '\x1bOP' || s === '\x1b[11~') { this.activeTab = 0; this.render(); return }          // F1
+        if (s === '\x1bOQ' || s === '\x1b[12~') { this.activeTab = 1; this.render(); return }          // F2
+        if (s === '\x1bOR' || s === '\x1b[13~') { this.activeTab = 2; this.render(); return }          // F3
+        if (s === '\x1bOS' || s === '\x1b[14~') { this.activeTab = TAB_CONFIG; this.render(); return } // F4 → Config
+        if (s === '\x1bOt' || s === '\x1b[15~') return                                                 // F5 — already here
 
         // Shift+PgUp / Shift+PgDn — scroll terminal scrollback
         if (s === '\x1b[5;2~') { this.ensureTerminalPanel().scrollBack();   this.render(); return }
@@ -368,10 +384,11 @@ export class App {
       }
 
       // F1–F4 switch panels without stealing printable characters
-      if (key.key === 'f1') { this.activeTab = 0; this.render(); return }
-      if (key.key === 'f2') { this.activeTab = 1; this.render(); return }
-      if (key.key === 'f3') { this.activeTab = 2; this.render(); return }
-      if (key.key === 'f4') { this.activeTab = TAB_TERMINAL; this.render(); return }
+      if (key.key === 'f1') { this.activeTab = 0;           this.render(); return }
+      if (key.key === 'f2') { this.activeTab = 1;           this.render(); return }
+      if (key.key === 'f3') { this.activeTab = 2;           this.render(); return }
+      if (key.key === 'f4') { this.activeTab = TAB_CONFIG;   this.render(); return }
+      if (key.key === 'f5') { this.activeTab = TAB_TERMINAL; this.render(); return }
 
       // Ctrl+R — run the loaded plan (no-op if no plan or already running)
       if (key.key === 'ctrl+r') {
