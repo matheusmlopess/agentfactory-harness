@@ -259,6 +259,34 @@ export class App {
     }
   }
 
+  /** Returns tab index (0-based) for a click on the tab bar row, or -1. */
+  private tabAt(col: number): number {
+    let c = 1
+    for (let i = 0; i < TABS.length; i++) {
+      const label = ` ${TABS[i]!} `
+      if (col >= c && col < c + label.length) return i
+      c += label.length + 1
+    }
+    return -1
+  }
+
+  /** Returns the tab index that a click at (row, col) should focus, or -1. */
+  private panelTabAt(row: number, col: number): number {
+    const layout = computeLayout(this.rows, this.cols)
+    const s = layout.session
+    if (row >= s.row && row < s.row + s.height && col >= s.col && col < s.col + s.width) return 0
+    if (this.activeTab === TAB_TERMINAL) {
+      const t = layout.terminal
+      if (row >= t.row && row < t.row + t.height && col >= t.col && col < t.col + t.width) return TAB_TERMINAL
+    } else {
+      const cv = layout.canvas
+      if (row >= cv.row && row < cv.row + cv.height && col >= cv.col && col < cv.col + cv.width) return 1
+      const ag = layout.agents
+      if (row >= ag.row && row < ag.row + ag.height && col >= ag.col && col < ag.col + ag.width) return 2
+    }
+    return -1
+  }
+
   private listenInput(): void {
     process.stdin.setRawMode(true)
     process.stdin.resume()
@@ -275,8 +303,15 @@ export class App {
         if (s === '\x1bOR' || s === '\x1b[13~') { this.activeTab = 2; this.render(); return } // F3
         if (s === '\x1bOS' || s === '\x1b[14~') return                 // F4 — already here
 
-        // VT-GAP-05: suppress SGR mouse events (\x1b[<...) from reaching the PTY
-        if (s.startsWith('\x1b[<')) return
+        // SGR mouse events: intercept tab bar clicks, suppress the rest from reaching PTY
+        if (s.startsWith('\x1b[<')) {
+          const mouse = parseMouse(data)
+          if (mouse?.button === 'left' && mouse.action === 'press' && mouse.row === 0) {
+            const tab = this.tabAt(mouse.col)
+            if (tab >= 0) { this.activeTab = tab; this.render() }
+          }
+          return
+        }
 
         this.ensureTerminalPanel().write(data)
         return
@@ -285,7 +320,20 @@ export class App {
       // Mouse event — try before keyboard (non-terminal tabs only)
       const mouse = parseMouse(data)
       if (mouse) {
-        this.router.dispatch(mouse, this.panels, this.activeTab)
+        if (mouse.button === 'left' && mouse.action === 'press') {
+          // Tab bar click
+          if (mouse.row === 0) {
+            const tab = this.tabAt(mouse.col)
+            if (tab >= 0) { this.activeTab = tab; this.render(); return }
+          }
+          // Panel body click — focus the panel under the cursor
+          const clickedTab = this.panelTabAt(mouse.row, mouse.col)
+          if (clickedTab >= 0 && clickedTab !== this.activeTab) {
+            this.activeTab = clickedTab
+          }
+        }
+        const consumed = this.router.dispatch(mouse, this.panels, this.activeTab)
+        if (!consumed) this.render()
         return
       }
 

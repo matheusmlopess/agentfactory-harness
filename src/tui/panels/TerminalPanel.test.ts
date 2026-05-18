@@ -6,7 +6,7 @@ let mockOnData: ((chunk: string) => void) | null = null
 let mockOnExit: (() => void) | null = null
 let spawnedCols = 0
 let spawnedRows = 0
-const mockPty: IPty = {
+const mockPty = {
   cols: 0,
   rows: 0,
   pid: 1,
@@ -28,7 +28,8 @@ const mockPty: IPty = {
   kill: vi.fn(),
   pause: vi.fn(),
   resume: vi.fn(),
-}
+  clear: vi.fn(),
+} satisfies IPty
 
 vi.mock('node-pty', () => ({
   spawn: vi.fn((_shell: string, _args: string[], opts: { cols: number; rows: number }) => {
