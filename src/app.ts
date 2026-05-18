@@ -313,6 +313,10 @@ export class App {
         if (s === '\x1bOR' || s === '\x1b[13~') { this.activeTab = 2; this.render(); return } // F3
         if (s === '\x1bOS' || s === '\x1b[14~') return                 // F4 — already here
 
+        // Shift+PgUp / Shift+PgDn — scroll terminal scrollback
+        if (s === '\x1b[5;2~') { this.ensureTerminalPanel().scrollBack();   this.render(); return }
+        if (s === '\x1b[6;2~') { this.ensureTerminalPanel().scrollForward(); this.render(); return }
+
         // SGR mouse events: intercept tab bar clicks, suppress the rest from reaching PTY
         if (s.startsWith('\x1b[<')) {
           const mouse = parseMouse(data)

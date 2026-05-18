@@ -273,4 +273,96 @@ describe('VTScreen', () => {
     screen.feed(csi('?25h'))
     expect(screen.isCursorVisible).toBe(true)
   })
+
+  // ── VT-GAP-01: wide characters ────────────────────────────────────────────
+
+  it('wide char advances cursor by 2', () => {
+    screen.feed('A中') // 'A' + CJK '中' (wide)
+    // 'A' → col 1; '中' wide → col 3
+    expect(screen.cursorCol).toBe(3)
+  })
+
+  it('wide char writes blank placeholder at col+1', () => {
+    screen.feed('中') // '中' at col 0
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    expect(buf.getChar(0, 0)).toBe('中')
+    expect(buf.getChar(0, 1)).toBe(' ') // placeholder
+    expect(buf.getChar(0, 2)).toBe(' ') // untouched
+  })
+
+  it('emoji (U+1F600) advances cursor by 2', () => {
+    screen.feed('\u{1F600}') // 😀
+    expect(screen.cursorCol).toBe(2)
+  })
+
+  // ── VT-GAP-06: scrollback buffer ──────────────────────────────────────────
+
+  it('scrollBack() shows older rows', () => {
+    // 5-row screen; fill 10 rows so 5 scroll into scrollback
+    screen.feed('A\r\nB\r\nC\r\nD\r\nE\r\nF\r\nG\r\nH\r\nI\r\nJ')
+    // screen now shows F-J (rows 5-9 of input); A-E in scrollback
+    screen.scrollBack(5)
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    expect(buf.getChar(0, 0)).toBe('A')
+  })
+
+  it('scrollForward() returns to live view', () => {
+    screen.feed('A\r\nB\r\nC\r\nD\r\nE\r\nF\r\nG\r\nH\r\nI\r\nJ')
+    screen.scrollBack(5)
+    screen.scrollForward(5) // back to live
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    expect(buf.getChar(4, 0)).toBe('J') // last live row
+  })
+
+  it('isScrolledBack is false initially and true after scrollBack', () => {
+    expect(screen.isScrolledBack).toBe(false)
+    screen.feed('A\r\nB\r\nC\r\nD\r\nE\r\nF') // trigger one scroll
+    screen.scrollBack()
+    expect(screen.isScrolledBack).toBe(true)
+  })
+
+  it('resize snaps scrollOffset back to 0', () => {
+    screen.feed('A\r\nB\r\nC\r\nD\r\nE\r\nF')
+    screen.scrollBack()
+    expect(screen.isScrolledBack).toBe(true)
+    screen.resize(5, 10)
+    expect(screen.isScrolledBack).toBe(false)
+  })
+
+  it('alt screen does not save to scrollback', () => {
+    screen.feed(csi('?1049h')) // enter alt
+    // Fill and scroll the alt screen — should NOT pollute primary scrollback
+    screen.feed('X\r\nX\r\nX\r\nX\r\nX\r\nX')
+    screen.feed(csi('?1049l')) // exit alt
+    screen.scrollBack(100)
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    // Primary scrollback is empty — scrollBack clamped to 0
+    expect(screen.isScrolledBack).toBe(false)
+  })
+
+  // ── VT-GAP-07: truecolour ─────────────────────────────────────────────────
+
+  it('SGR 38;2;R;G;B stores RGB tuple as fg (no approximation)', () => {
+    screen.feed(csi('38;2;255;128;0m'))
+    screen.feed('X')
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    const style = buf.cells['0,0']?.style as Record<string, unknown>
+    const fg = style?.['fg']
+    expect(Array.isArray(fg)).toBe(true)
+    expect((fg as number[])[0]).toBe(255)
+    expect((fg as number[])[1]).toBe(128)
+    expect((fg as number[])[2]).toBe(0)
+  })
+
+  it('SGR 48;2;R;G;B stores RGB tuple as bg', () => {
+    screen.feed(csi('48;2;10;20;30m'))
+    screen.feed('Y')
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    const style = buf.cells['0,0']?.style as Record<string, unknown>
+    const bg = style?.['bg']
+    expect(Array.isArray(bg)).toBe(true)
+    expect((bg as number[])[0]).toBe(10)
+    expect((bg as number[])[1]).toBe(20)
+    expect((bg as number[])[2]).toBe(30)
+  })
 })

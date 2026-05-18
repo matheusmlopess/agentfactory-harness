@@ -67,10 +67,11 @@ export class TerminalPanel extends Panel {
 
     this.screen.render(buf, inner)
 
-    // Cursor indicator — only when focused and PTY hasn't hidden it
+    // Cursor indicator — suppressed when scrolled back (cursor is on live screen, not visible)
     const cr = this.screen.cursorRow
     const cc = this.screen.cursorCol
-    if (this.focused && this.screen.isCursorVisible && cr < inner.height && cc < inner.width) {
+    if (this.focused && this.screen.isCursorVisible && !this.screen.isScrolledBack
+        && cr < inner.height && cc < inner.width) {
       buf.write(inner.row + cr, inner.col + cc, '█', { fg: Colors.accent, bg: Colors.bg })
     }
   }
@@ -79,6 +80,10 @@ export class TerminalPanel extends Panel {
   write(data: Buffer): void {
     if (this.alive && this.ptyInstance) this.ptyInstance.write(data.toString('binary'))
   }
+
+  scrollBack(): void  { this.screen.scrollBack() }
+  scrollForward(): void { this.screen.scrollForward() }
+  get isScrolledBack(): boolean { return this.screen.isScrolledBack }
 
   resize(rows: number, cols: number): void {
     const r = Math.max(1, rows)
