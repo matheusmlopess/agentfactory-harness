@@ -22,6 +22,12 @@ export interface ExecutorOptions {
   agentRunner: AgentRunnerFn
 }
 
+function sanitiseOutput(value: string): string {
+  // Prevent earlier step output from containing template markers that would
+  // be expanded again when injected into a later step's prompt.
+  return value.replace(/\{\{/g, '{ {').replace(/\}\}/g, '} }')
+}
+
 function interpolate(prompt: string, inputs: Record<string, string>): string {
   return prompt.replace(/\{\{([a-z0-9_-]+)\}\}/g, (_, id: string) => inputs[id] ?? '')
 }
@@ -84,7 +90,7 @@ export class Executor {
       const start = Date.now()
 
       try {
-        const output = await agentRunner({ ...step, prompt }, inputs)
+        const output = sanitiseOutput(await agentRunner({ ...step, prompt }, inputs))
         outputs.set(step.id, output)
         completed.add(step.id)
         running.delete(step.id)

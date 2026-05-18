@@ -27,6 +27,12 @@ Living traceability matrix for all agentfactory-harness work items.
 |---|-------|------|--------|--------|----|--------|-----|
 | W3 | DAG executor, live canvas status, /run command | feat | ✓ done | feature/wave-3-orchestration | — | — | v0.4.0 |
 
+## Wave 3.5 — Multi-LLM Provider Layer
+
+| # | Title | Type | Status | Branch | PR | Commit | Tag |
+|---|-------|------|--------|--------|----|--------|-----|
+| W3.5 | Anthropic + OpenAI adapter layer, LLM_PROVIDER env, per-step provider/model | feat | ✓ done | feature/wave-3-orchestration | — | fdd405c | — |
+
 ## Wave 4 — PTY Terminal
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |

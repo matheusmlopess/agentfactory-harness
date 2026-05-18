@@ -35,6 +35,8 @@ export class App {
   private renderPending = false
   private currentPlan: Plan | null = null
   private planRunning = false
+  private statusError: string | null = null
+  private statusErrorTimer: ReturnType<typeof setTimeout> | null = null
   private sessionPanel!: SessionPanel
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
@@ -87,9 +89,23 @@ export class App {
       const plan = PlanSchema.parse(raw)
       this.currentPlan = plan
       this.canvasPanel.syncFromPlan(plan)
-    } catch {
-      // No plan file or invalid plan — canvas stays empty, no error shown
+    } catch (err) {
+      const isNoFile = err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT'
+      if (!isNoFile) {
+        this.showError(err instanceof Error ? err.message : String(err))
+      }
     }
+  }
+
+  private showError(msg: string): void {
+    this.statusError = msg.substring(0, 120)
+    if (this.statusErrorTimer) clearTimeout(this.statusErrorTimer)
+    this.statusErrorTimer = setTimeout(() => {
+      this.statusError = null
+      this.statusErrorTimer = null
+      this.scheduleRender()
+    }, 5000)
+    this.scheduleRender()
   }
 
   private async runPlan(): Promise<void> {
@@ -194,7 +210,7 @@ export class App {
     this.agentsPanel.focused = this.activeTab === 2
     this.agentsPanel.render(this.buf)
 
-    renderStatusBar(this.buf, layout.statusBar, this.planRunning ? 'running' : undefined)
+    renderStatusBar(this.buf, layout.statusBar, this.planRunning ? 'running' : undefined, this.statusError ?? undefined)
 
     const diff = this.buf.diff(this.prev)
     if (diff) process.stdout.write(diff)

@@ -24,7 +24,7 @@ export class SessionPanel extends Panel {
     super(rect)
     this.session = new Session()
     this.onUpdate = onUpdate
-    this.lines.push({ role: 'system', text: 'factory v0.2.0 — type a message or /help' })
+    this.lines.push({ role: 'system', text: 'factory v0.4.0 — type a message or /help' })
   }
 
   getSession(): Session {
