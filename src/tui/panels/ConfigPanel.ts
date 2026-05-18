@@ -245,6 +245,18 @@ export class ConfigPanel extends Panel {
   }
 
   override onMouse(e: MouseEvent): boolean {
+    // Scroll wheel — move list up/down
+    if (e.button === 'scroll_up') {
+      this.scrollTop = Math.max(0, this.scrollTop - 3)
+      this.onUpdate(); return true
+    }
+    if (e.button === 'scroll_down') {
+      const listHeight = this.visibleListHeight()
+      const maxScroll = Math.max(0, this.rows.length - listHeight)
+      this.scrollTop = Math.min(maxScroll, this.scrollTop + 3)
+      this.onUpdate(); return true
+    }
+
     if (e.button !== 'left' || e.action !== 'press') return false
     const r = this.inner
     const listHeight = this.visibleListHeight()
@@ -265,6 +277,14 @@ export class ConfigPanel extends Panel {
         const def = item.def
         if (def.aliasOf === undefined) {
           this.selectedIdx = item.entryIdx
+          this.onUpdate()
+          return true
+        }
+        // Alias row: find and select the canonical entry instead
+        const canonIdx = this.entries.findIndex(e => e.configKey === def.configKey && e.aliasOf === undefined)
+        if (canonIdx >= 0) {
+          this.selectedIdx = canonIdx
+          this.syncScrollToSelected()
           this.onUpdate()
           return true
         }

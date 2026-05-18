@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, appendFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { CellBuffer } from './tui/renderer/cell-buffer.js'
 import { computeLayout, drawBorder } from './tui/renderer/layout.js'
@@ -188,6 +188,14 @@ export class App {
 
     process.on('SIGINT',  () => this.stop())
     process.on('SIGTERM', () => this.stop())
+
+    // Log uncaught errors to /tmp/factory-err.log so they survive the alt-screen
+    const logErr = (err: unknown): void => {
+      const msg = `[${new Date().toISOString()}] ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`
+      void appendFile('/tmp/factory-err.log', msg)
+    }
+    process.on('uncaughtException', (err) => { logErr(err); this.stop() })
+    process.on('unhandledRejection', (reason) => { logErr(reason) })
 
     // Last-resort cleanup: runs on normal exit and on uncaught exceptions,
     // but NOT on SIGKILL. Ensures mouse tracking and alt-screen are always
