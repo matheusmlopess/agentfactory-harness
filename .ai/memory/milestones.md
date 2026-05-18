@@ -37,6 +37,7 @@ Living traceability matrix for all agentfactory-harness work items.
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
+| W4 | VTScreen ANSI parser, TerminalPanel node-pty embed, F4 tab, raw input bypass | feat | ✓ done | feature/wave-4-terminal | — | 1a7b7c5 | — |
 | W4 | node-pty panel, VT100 subset, keyboard routing | feat | pending | — | — | — | — |
 
 ## Wave 5 — Registry & Harness

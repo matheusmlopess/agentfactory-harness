@@ -500,6 +500,11 @@ docs:
     wave: 4
     status: implemented
 
+  - path: docs/features/FEATURE-WAVE-4-TERMINAL-PANEL.md
+    purpose: "Wave 4 feature doc — VTScreen + TerminalPanel: architecture, ANSI matrix, 9 E2E tests, design trade-offs, 9 gaps, infra notes"
+    wave: 4
+    status: implemented
+
   - path: docs/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md
     purpose: "Security & architecture review — component matrix, 7 Mermaid diagrams, SEV findings, design gaps, recommendations"
     wave: 0
