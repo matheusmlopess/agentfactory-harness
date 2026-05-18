@@ -1,6 +1,6 @@
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 # agentfactory-harness — System Architecture & Operational Reference
-# (Waves 0 – 3.5, v0.4.0)
+# (Waves 0 – 4, v0.4.0)
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  SCOPE  Waves 0–3.5 (all implemented code as of 2026-05-18)                 ║
@@ -725,3 +725,45 @@ Before/after view — each wave added a layer; nothing was removed.
   • Multi-PTY terminal panel (split sessions)
   • Clipboard integration (copy from session, paste into terminal)
   • Security review update covering Waves 3–4 findings
+
+───────────────────────────────────────────────────────────────────────────────
+## 12. WAVE 4 ADDITIONS — TerminalPanel / PTY Embed + Mouse Navigation
+───────────────────────────────────────────────────────────────────────────────
+
+  Wave 4 (PR #15, feature/wave-4-terminal) adds two capabilities:
+
+  1. TERMINAL PANEL — real PTY shell embedded in the right column via node-pty.
+     F4 / clicking the Terminal tab switches the right column from
+     Orchestration+Agents to a full shell session.
+
+  2. MOUSE NAVIGATION — tab bar and panel bodies are now clickable.
+     Any left-click on a tab label or panel body changes the active tab.
+     Works from all tabs including Terminal (where SGR mouse events are
+     parsed for tab-bar hits before being suppressed from the PTY).
+
+  New files:
+    src/tui/input/vt.ts           — VTScreen ANSI state machine
+    src/tui/input/vt.test.ts      — 27 unit tests
+    src/tui/panels/TerminalPanel.ts      — node-pty panel
+    src/tui/panels/TerminalPanel.test.ts — 7 lifecycle tests
+
+  Modified files:
+    src/tui/renderer/layout.ts    — PanelLayout gains terminal: Rect
+    src/app.ts                    — 4th tab, mouse nav helpers, raw bypass
+
+  VTScreen ANSI support added in Wave 4:
+    • CR/LF/BS/BEL, soft-wrap, CUP/CUU/CUD/CUF/CUB/CHA/VPA
+    • DECSTBM scroll regions, alternate screen (?1049h/l, ?47h/l)
+    • Cursor visibility (?25h/l)
+    • ED 0/1/2/3, EL 0/1/2
+    • SGR: bold, dim, underline, reverse, 16-colour, 256-colour, truecolour
+    • OSC ignored (title sequences)
+
+  Gap status after Wave 4:
+    ✓ resolved: VT-GAP-02 (alt-screen), VT-GAP-03 (scroll regions),
+                VT-GAP-04 (VT100 F-keys), VT-GAP-05 (SGR mouse suppress),
+                VT-GAP-08 (lazy spawn), VT-GAP-09 (PTY error banner)
+    ○ open:     VT-GAP-01 (wide chars), VT-GAP-06 (scrollback),
+                VT-GAP-07 (truecolour native)
+
+  Full detail: docs/features/FEATURE-WAVE-4-TERMINAL-PANEL.md

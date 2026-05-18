@@ -26,6 +26,7 @@ import { createAdapter, defaultProvider } from './core/llm/index.js'
 
 const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal']
 const TAB_TERMINAL = 3
+const EXIT_BTN = ' ✕ Quit '
 
 export class App {
   private rows = process.stdout.rows ?? 24
@@ -257,6 +258,15 @@ export class App {
       })
       col += label.length + 1
     }
+    // Exit button — right-aligned in the tab bar
+    const exitCol = this.cols - EXIT_BTN.length - 1
+    this.buf.write(row, exitCol, EXIT_BTN, { fg: Colors.bg, bg: 196, bold: true })
+  }
+
+  /** True if a click at (row=0, col) lands on the exit button. */
+  private isExitBtn(col: number): boolean {
+    const exitCol = this.cols - EXIT_BTN.length - 1
+    return col >= exitCol && col < exitCol + EXIT_BTN.length
   }
 
   /** Returns tab index (0-based) for a click on the tab bar row, or -1. */
@@ -307,6 +317,7 @@ export class App {
         if (s.startsWith('\x1b[<')) {
           const mouse = parseMouse(data)
           if (mouse?.button === 'left' && mouse.action === 'press' && mouse.row === 0) {
+            if (this.isExitBtn(mouse.col)) { this.stop(); return }
             const tab = this.tabAt(mouse.col)
             if (tab >= 0) { this.activeTab = tab; this.render() }
           }
@@ -323,6 +334,7 @@ export class App {
         if (mouse.button === 'left' && mouse.action === 'press') {
           // Tab bar click
           if (mouse.row === 0) {
+            if (this.isExitBtn(mouse.col)) { this.stop(); return }
             const tab = this.tabAt(mouse.col)
             if (tab >= 0) { this.activeTab = tab; this.render(); return }
           }

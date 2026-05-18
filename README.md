@@ -66,7 +66,7 @@ Raw ANSI cell-buffer renderer (no Ink, no blessed) · node-pty terminal embed ·
 | 2 | ✓ done | ITUI mouse canvas, drag-drop |
 | 3 | ✓ done | DAG executor, /run |
 | 3.5 | ✓ done | Multi-LLM provider layer (Anthropic + OpenAI) |
-| 4 | planned | PTY terminal panel (plan approved) |
+| 4 | ✓ done | PTY terminal panel, VTScreen ANSI, mouse navigation (PR #15) |
 | 5 | pending | Registry integration |
 
 ## Governance
