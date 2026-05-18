@@ -74,7 +74,7 @@ export class SessionPanel extends Panel {
       return true
     }
     if (e.key === 'arrow_up') {
-      this.scrollOffset = Math.min(this.scrollOffset + 1, Math.max(0, this.lines.length - 1))
+      this.scrollOffset = Math.min(this.scrollOffset + 1, this.maxScroll())
       this.onUpdate()
       return true
     }
@@ -93,7 +93,7 @@ export class SessionPanel extends Panel {
 
   override onMouse(e: MouseEvent): boolean {
     if (e.button === 'scroll_up') {
-      this.scrollOffset = Math.min(this.scrollOffset + 3, Math.max(0, this.lines.length - 1))
+      this.scrollOffset = Math.min(this.scrollOffset + 3, this.maxScroll())
       this.onUpdate(); return true
     }
     if (e.button === 'scroll_down') {
@@ -101,6 +101,12 @@ export class SessionPanel extends Panel {
       this.onUpdate(); return true
     }
     return false
+  }
+
+  private maxScroll(): number {
+    const r = this.inner
+    const displayRows = r.height - 1
+    return Math.max(0, this.wrapLines(r.width).length - displayRows)
   }
 
   private submit(): void {

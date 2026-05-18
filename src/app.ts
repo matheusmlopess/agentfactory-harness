@@ -374,13 +374,14 @@ export class App {
         }
         // Config panel owns the right column when active — dispatch directly so it
         // is not shadowed by canvasPanel/agentsPanel which share the same rect slot.
+        // Always render after — scroll/click both mutate state that needs immediate repaint.
         if (this.activeTab === TAB_CONFIG) {
-          const consumed = this.configPanel!.onMouse(mouse)
-          if (!consumed) this.render()
+          this.configPanel!.onMouse(mouse)
+          this.render()
           return
         }
-        const consumed = this.router.dispatch(mouse, this.panels, this.activeTab)
-        if (!consumed) this.render()
+        this.router.dispatch(mouse, this.panels, this.activeTab)
+        this.render()
         return
       }
 
