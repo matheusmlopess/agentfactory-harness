@@ -30,6 +30,8 @@ function maskValue(val: string, def: ProviderDef): string {
   return `${prefix}…▓▓▓▓`
 }
 
+const DOUBLE_CLICK_MS = 350
+
 export class ConfigPanel extends Panel {
   // entries[]: only non-alias entries, in category order — the navigation targets
   private readonly entries: ProviderDef[]
@@ -41,6 +43,8 @@ export class ConfigPanel extends Panel {
   private mode: PanelMode = 'browse'
   private editBuf = ''
   private editPrev = ''
+  private lastClickEntryIdx = -1
+  private lastClickTime = 0
   private readonly onUpdate: () => void
 
   constructor(rect: Rect, onUpdate: () => void) {
@@ -74,8 +78,8 @@ export class ConfigPanel extends Panel {
     const r = this.inner
     if (r.height < 4 || r.width < 20) return
 
-    const editZoneRows = 4
-    const listHeight = this.mode === 'edit' ? r.height - editZoneRows - 1 : r.height - 2
+    // List always uses full height; modal floats on top when editing
+    const listHeight = r.height - 2
 
     // Fill background
     buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.bgPanel })
@@ -101,7 +105,6 @@ export class ConfigPanel extends Panel {
           screenRow++; rowsRendered++
         }
       } else {
-        // entry row
         const def = item.def
         const isSelected = this.entries[this.selectedIdx] === def
         const isAlias = def.aliasOf !== undefined
@@ -110,75 +113,93 @@ export class ConfigPanel extends Panel {
         const nameFg = isAlias ? Colors.textDim : (isSelected ? Colors.textBright : Colors.text)
         const nameBg = isSelected ? Colors.bgActive : Colors.bgPanel
 
-        // Name column (left half)
         const nameCol = Math.floor(r.width * 0.55)
         const nameStr = (namePrefix + def.name).substring(0, nameCol)
         buf.write(screenRow, r.col, nameStr.padEnd(nameCol), { fg: nameFg, bg: nameBg })
 
-        // Value column (right half)
         const valCol = r.width - nameCol
         let valStr: string
         if (isAlias) {
           valStr = `(→ ${def.aliasOf})`
         } else {
           const val = store.getKey(def.configKey, def.envVar)
-          if (val !== undefined && val !== '') {
-            const masked = maskValue(val, def)
-            valStr = `${masked} [set]`
-          } else {
-            valStr = '(not set)'
-          }
+          valStr = (val !== undefined && val !== '') ? `${maskValue(val, def)} [set]` : '(not set)'
         }
-        const valDisplay = valStr.substring(0, valCol - 1)
         const valFg = isAlias ? Colors.textDim : (store.getKey(def.configKey, def.envVar) ? Colors.success : Colors.textDim)
-        buf.write(screenRow, r.col + nameCol, valDisplay.padStart(valCol - 1), { fg: isAlias ? Colors.textDim : valFg, bg: nameBg })
+        buf.write(screenRow, r.col + nameCol, valStr.substring(0, valCol - 1).padStart(valCol - 1), { fg: valFg, bg: nameBg })
 
         screenRow++; rowsRendered++
       }
       rowIdx++
     }
 
-    // ── Scroll indicator ──────────────────────────────────────────────────
+    // ── Scroll indicators ─────────────────────────────────────────────────
     if (this.rows.length > rowsRendered) {
-      const moreBelow = rowIdx < this.rows.length
-      const moreAbove = this.scrollTop > 0
-      if (moreAbove) buf.write(r.row, r.col + r.width - 3, ' ▲ ', { fg: Colors.textDim, bg: Colors.bgPanel })
-      if (moreBelow) buf.write(r.row + listHeight - 1, r.col + r.width - 3, ' ▼ ', { fg: Colors.textDim, bg: Colors.bgPanel })
+      if (this.scrollTop > 0)       buf.write(r.row, r.col + r.width - 3, ' ▲ ', { fg: Colors.textDim, bg: Colors.bgPanel })
+      if (rowIdx < this.rows.length) buf.write(r.row + listHeight - 1, r.col + r.width - 3, ' ▼ ', { fg: Colors.textDim, bg: Colors.bgPanel })
     }
 
-    // ── Hint bar or edit zone ─────────────────────────────────────────────
-    const hintRow = r.row + r.height - 2
-    if (this.mode === 'edit') {
-      const def = this.entries[this.selectedIdx]
-      if (!def) return
-      const editTop = r.row + listHeight + 1
-
-      const divider = '─'.repeat(r.width)
-      buf.write(editTop, r.col, divider, { fg: Colors.border, bg: Colors.bgPanel })
-
-      const label = `${def.name}:`
-      buf.write(editTop + 1, r.col, label.substring(0, r.width), { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
-
-      const prompt = '> '
-      const cursor = '█'
-      const fieldWidth = r.width - prompt.length - 2
-      const inputDisplay = this.editBuf.length > fieldWidth
-        ? this.editBuf.slice(-fieldWidth) + cursor
-        : this.editBuf + cursor
-      buf.write(editTop + 2, r.col, (prompt + inputDisplay).substring(0, r.width), { fg: Colors.text, bg: Colors.bgActive })
-
-      buf.write(editTop + 3, r.col, ' [Enter] Save  [Esc] Cancel', { fg: Colors.textDim, bg: Colors.bgPanel })
-    } else {
+    // ── Hint bar (browse mode) ────────────────────────────────────────────
+    if (this.mode === 'browse') {
+      const hintRow = r.row + r.height - 2
       buf.write(hintRow, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.bgPanel })
-      const hint = ' [↑↓] Navigate  [Enter] Edit  [PgUp/PgDn] Scroll'
+      const hint = ' [↑↓/scroll] Navigate  [Enter/DblClick] Edit  [PgUp/PgDn] Scroll'
       buf.write(hintRow + 1, r.col, hint.substring(0, r.width), { fg: Colors.textDim, bg: Colors.bgPanel })
     }
 
-    // Write error if last persist failed
-    if (store.lastWriteError) {
-      const errMsg = ` ⚠ ${store.lastWriteError} `.substring(0, r.width)
-      buf.write(r.row + r.height - 1, r.col, errMsg, { fg: Colors.bg, bg: Colors.error })
+    // ── Edit modal overlay ────────────────────────────────────────────────
+    if (this.mode === 'edit') {
+      const def = this.entries[this.selectedIdx]
+      if (!def) return
+      this.renderEditModal(buf, r, def)
     }
+
+    // ── Write error if last persist failed ────────────────────────────────
+    if (store.lastWriteError) {
+      buf.write(r.row + r.height - 1, r.col, ` ⚠ ${store.lastWriteError} `.substring(0, r.width), { fg: Colors.bg, bg: Colors.error })
+    }
+  }
+
+  private renderEditModal(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }, def: ProviderDef): void {
+    const modalW = Math.min(r.width - 4, 56)
+    const modalH = 10
+    const modalRow = r.row + Math.floor((r.height - modalH) / 2)
+    const modalCol = r.col + Math.floor((r.width - modalW) / 2)
+
+    // Dim area behind modal
+    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
+
+    // Border
+    const hLine = '─'.repeat(modalW - 2)
+    buf.write(modalRow,           modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    for (let i = 1; i < modalH - 1; i++) {
+      buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.fill(modalRow + i, modalCol + 1, 1, modalW - 2, ' ', { bg: Colors.bgPanel })
+    }
+
+    // Title in top border
+    const titleStr = ` Configure: ${def.name} `
+    buf.write(modalRow, modalCol + 2, titleStr.substring(0, modalW - 4), { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+
+    // Field label (env var or config key)
+    const fieldLabel = def.envVar ?? def.configKey.toUpperCase()
+    buf.write(modalRow + 2, modalCol + 2, fieldLabel.substring(0, modalW - 4), { fg: Colors.accent, bg: Colors.bgPanel, bold: true })
+
+    // Format hint
+    buf.write(modalRow + 3, modalCol + 2, `Format: ${def.hint}`.substring(0, modalW - 4), { fg: Colors.textDim, bg: Colors.bgPanel })
+
+    // Input field
+    const prompt = '  > '
+    const cursor = '█'
+    const fieldW = modalW - prompt.length - 3
+    const inputDisplay = this.editBuf.length > fieldW ? this.editBuf.slice(-fieldW) + cursor : this.editBuf + cursor
+    const inputLine = (prompt + inputDisplay).substring(0, modalW - 2).padEnd(modalW - 2)
+    buf.write(modalRow + 5, modalCol + 1, inputLine, { fg: Colors.text, bg: Colors.bgActive })
+
+    // Save/cancel hint
+    buf.write(modalRow + 7, modalCol + 2, '[Enter] Save    [Esc] Cancel', { fg: Colors.textDim, bg: Colors.bgPanel })
   }
 
   // ── Input handling ────────────────────────────────────────────────────────
@@ -206,13 +227,8 @@ export class ConfigPanel extends Panel {
       this.onUpdate(); return true
     }
     if (e.key === 'enter') {
-      const def = this.entries[this.selectedIdx]
-      if (def && def.aliasOf === undefined) {
-        this.editPrev = store.getKey(def.configKey, def.envVar) ?? ''
-        this.editBuf  = ''
-        this.mode = 'edit'
-        this.onUpdate()
-      }
+      this.openEdit()
+      this.onUpdate()
       return true
     }
     return false
@@ -267,24 +283,39 @@ export class ConfigPanel extends Panel {
       }
       if (rendered === clickRow) {
         const def = item.def
-        if (def.aliasOf === undefined) {
-          this.selectedIdx = item.entryIdx
-          this.onUpdate()
+        // Alias row: jump to canonical provider
+        if (def.aliasOf !== undefined) {
+          const canonIdx = this.entries.findIndex(e => e.configKey === def.configKey && e.aliasOf === undefined)
+          if (canonIdx >= 0) {
+            this.selectedIdx = canonIdx
+            this.syncScrollToSelected()
+            this.onUpdate()
+          }
           return true
         }
-        // Alias row: find and select the canonical entry instead
-        const canonIdx = this.entries.findIndex(e => e.configKey === def.configKey && e.aliasOf === undefined)
-        if (canonIdx >= 0) {
-          this.selectedIdx = canonIdx
-          this.syncScrollToSelected()
-          this.onUpdate()
-          return true
-        }
-        return false
+
+        const now = Date.now()
+        const isDouble = item.entryIdx === this.lastClickEntryIdx &&
+                         (now - this.lastClickTime) < DOUBLE_CLICK_MS
+        this.lastClickEntryIdx = item.entryIdx
+        this.lastClickTime = now
+
+        this.selectedIdx = item.entryIdx
+        if (isDouble) this.openEdit()
+        this.onUpdate()
+        return true
       }
       rendered++
     }
     return false
+  }
+
+  private openEdit(): void {
+    const def = this.entries[this.selectedIdx]
+    if (!def || def.aliasOf !== undefined) return
+    this.editPrev = store.getKey(def.configKey, def.envVar) ?? ''
+    this.editBuf  = ''
+    this.mode = 'edit'
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
@@ -324,9 +355,7 @@ export class ConfigPanel extends Panel {
   }
 
   private visibleListHeight(): number {
-    const r = this.inner
-    const editZoneRows = 4
-    return this.mode === 'edit' ? r.height - editZoneRows - 1 : r.height - 2
+    return this.inner.height - 2
   }
 }
 
