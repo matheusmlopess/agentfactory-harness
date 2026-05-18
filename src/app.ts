@@ -42,7 +42,7 @@ export class App {
   private sessionPanel!: SessionPanel
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
-  private terminalPanel!: TerminalPanel
+  private terminalPanel: TerminalPanel | null = null
   private panels!: Panel[]
   private router = new InputRouter()
 
@@ -79,12 +79,20 @@ export class App {
 
   private initPanels(): void {
     const layout = computeLayout(this.rows, this.cols)
-    this.sessionPanel  = new SessionPanel(layout.session, () => this.scheduleRender())
-    this.canvasPanel   = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
-    this.agentsPanel   = new AgentsPanel(layout.agents)
-    this.terminalPanel = new TerminalPanel(layout.terminal, () => this.scheduleRender())
+    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender())
+    this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
+    this.agentsPanel  = new AgentsPanel(layout.agents)
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
-    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel, this.terminalPanel]
+    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
+  }
+
+  // VT-GAP-08: lazy PTY spawn — only on first switch to Terminal tab
+  private ensureTerminalPanel(): TerminalPanel {
+    if (!this.terminalPanel) {
+      const layout = computeLayout(this.rows, this.cols)
+      this.terminalPanel = new TerminalPanel(layout.terminal, () => this.scheduleRender())
+    }
+    return this.terminalPanel
   }
 
   private async tryLoadPlan(): Promise<void> {
@@ -162,9 +170,11 @@ export class App {
       this.sessionPanel.rect  = layout.session
       this.canvasPanel.rect   = layout.canvas
       this.agentsPanel.rect   = layout.agents
-      this.terminalPanel.rect = layout.terminal
-      const inner = this.terminalPanel.inner
-      this.terminalPanel.resize(inner.height, inner.width)
+      if (this.terminalPanel) {
+        this.terminalPanel.rect = layout.terminal
+        const inner = this.terminalPanel.inner
+        this.terminalPanel.resize(inner.height, inner.width)
+      }
       this.render()
     })
 
@@ -182,7 +192,7 @@ export class App {
   stop(): void {
     if (!this.running) return
     this.running = false
-    this.terminalPanel.destroy()
+    this.terminalPanel?.destroy()
     // Drain stdin before exit so buffered mouse events don't leak into the shell
     process.stdin.removeAllListeners('data')
     process.stdin.setRawMode(false)
@@ -210,10 +220,11 @@ export class App {
     this.sessionPanel.render(this.buf)
 
     if (onTerminal) {
+      const tp = this.ensureTerminalPanel()
       drawBorder(this.buf, layout.terminal, 'Terminal', true)
-      this.terminalPanel.rect    = layout.terminal
-      this.terminalPanel.focused = true
-      this.terminalPanel.render(this.buf)
+      tp.rect    = layout.terminal
+      tp.focused = true
+      tp.render(this.buf)
     } else {
       drawBorder(this.buf, layout.canvas, 'Orchestration', this.activeTab === 1)
       drawBorder(this.buf, layout.agents, 'Agents',        this.activeTab === 2)
@@ -256,11 +267,18 @@ export class App {
       // to the PTY. Only intercept Ctrl+Q and F1–F4 via raw byte patterns.
       if (this.activeTab === TAB_TERMINAL) {
         if (data[0] === 0x11) { this.stop(); return }                  // Ctrl+Q
-        if (data.equals(Buffer.from('\x1bOP'))) { this.activeTab = 0; this.render(); return } // F1
-        if (data.equals(Buffer.from('\x1bOQ'))) { this.activeTab = 1; this.render(); return } // F2
-        if (data.equals(Buffer.from('\x1bOR'))) { this.activeTab = 2; this.render(); return } // F3
-        if (data.equals(Buffer.from('\x1bOS'))) return                 // F4 — already here
-        this.terminalPanel.write(data)
+
+        // VT-GAP-04: match both xterm (\x1bOP) and VT100 (\x1b[11~) F-key forms
+        const s = data.toString('binary')
+        if (s === '\x1bOP' || s === '\x1b[11~') { this.activeTab = 0; this.render(); return } // F1
+        if (s === '\x1bOQ' || s === '\x1b[12~') { this.activeTab = 1; this.render(); return } // F2
+        if (s === '\x1bOR' || s === '\x1b[13~') { this.activeTab = 2; this.render(); return } // F3
+        if (s === '\x1bOS' || s === '\x1b[14~') return                 // F4 — already here
+
+        // VT-GAP-05: suppress SGR mouse events (\x1b[<...) from reaching the PTY
+        if (s.startsWith('\x1b[<')) return
+
+        this.ensureTerminalPanel().write(data)
         return
       }
 

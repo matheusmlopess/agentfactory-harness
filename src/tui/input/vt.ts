@@ -43,13 +43,28 @@ export class VTScreen {
   private curCol = 0
   private style: VTStyle = { ...DEFAULT_STYLE }
 
+  // Scroll region (VT-GAP-03): default = full screen
+  private scrollTop = 0
+  private scrollBottom: number
+
+  // Alternate screen (VT-GAP-02)
+  private altGrid: VTCell[][] | null = null
+  private altCurRow = 0
+  private altCurCol = 0
+  private altStyle: VTStyle = { ...DEFAULT_STYLE }
+
+  // Cursor visibility
+  private cursorVisible = true
+
   // Parser state
   private state: ParseState = 'normal'
   private seqBuf = ''
+  private privateMode = false
 
   constructor(rows: number, cols: number) {
     this.rows = rows
     this.cols = cols
+    this.scrollBottom = rows - 1
     this.grid = this.makeGrid(rows, cols)
   }
 
@@ -63,19 +78,27 @@ export class VTScreen {
   get cursorCol(): number { return this.curCol }
 
   resize(rows: number, cols: number): void {
-    const newGrid = this.makeGrid(rows, cols)
-    const copyRows = Math.min(rows, this.rows)
-    const copyCols = Math.min(cols, this.cols)
-    for (let r = 0; r < copyRows; r++) {
-      for (let c = 0; c < copyCols; c++) {
-        newGrid[r]![c] = this.grid[r]![c]!
-      }
-    }
+    this.grid = this.resizeGrid(this.grid, rows, cols)
+    if (this.altGrid) this.altGrid = this.resizeGrid(this.altGrid, rows, cols)
     this.rows = rows
     this.cols = cols
-    this.grid = newGrid
     this.curRow = Math.min(this.curRow, rows - 1)
     this.curCol = Math.min(this.curCol, cols - 1)
+    // Reset scroll region to full screen on resize (same as xterm behaviour)
+    this.scrollTop = 0
+    this.scrollBottom = rows - 1
+  }
+
+  private resizeGrid(grid: VTCell[][], rows: number, cols: number): VTCell[][] {
+    const newGrid = this.makeGrid(rows, cols)
+    const copyRows = Math.min(rows, grid.length)
+    const copyCols = Math.min(cols, grid[0]?.length ?? 0)
+    for (let r = 0; r < copyRows; r++) {
+      for (let c = 0; c < copyCols; c++) {
+        newGrid[r]![c] = grid[r]![c]!
+      }
+    }
+    return newGrid
   }
 
   feed(data: string): void {
@@ -102,6 +125,7 @@ export class VTScreen {
       if (ch === '[') {
         this.state = 'csi'
         this.seqBuf = ''
+        this.privateMode = false
         return
       }
       if (ch === ']') {
@@ -109,17 +133,24 @@ export class VTScreen {
         this.seqBuf = ''
         return
       }
-      // Other ESC sequences (e.g. ESC M = reverse index) — ignore, reset
+      // Other ESC sequences — ignore, reset
       this.state = 'normal'
       return
     }
 
     if (this.state === 'csi') {
+      // Detect private-mode marker as first char of param string
+      if (this.seqBuf === '' && '?>='.includes(ch)) {
+        this.privateMode = ch === '?'
+        this.seqBuf += ch
+        return
+      }
       // CSI ends on a byte in range 0x40–0x7e (@..~)
       if (code >= 0x40 && code <= 0x7e) {
-        this.handleCSI(this.seqBuf, ch)
+        this.handleCSI(this.seqBuf, ch, this.privateMode)
         this.state = 'normal'
         this.seqBuf = ''
+        this.privateMode = false
         return
       }
       this.seqBuf += ch
@@ -144,10 +175,10 @@ export class VTScreen {
       return
     }
     if (code === 0x0a) { // LF
-      this.curRow++
-      if (this.curRow >= this.rows) {
+      if (this.curRow === this.scrollBottom) {
         this.scrollUp()
-        this.curRow = this.rows - 1
+      } else {
+        this.curRow = Math.min(this.rows - 1, this.curRow + 1)
       }
       return
     }
@@ -177,18 +208,36 @@ export class VTScreen {
   }
 
   private scrollUp(): void {
-    this.grid.shift()
-    this.grid.push(Array.from({ length: this.cols }, () => blankCell()))
+    // Scroll only within the defined scroll region (VT-GAP-03)
+    this.grid.splice(this.scrollTop, 1)
+    this.grid.splice(this.scrollBottom, 0, Array.from({ length: this.cols }, () => blankCell()))
   }
 
-  private handleCSI(params: string, final: string): void {
-    // Strip leading private-mode markers (?, >, =)
+  private handleCSI(params: string, final: string, isPrivate: boolean): void {
+    // Strip leading private-mode marker from param string for numeric parsing
     let p = params
     if (p.length > 0 && '?>='.includes(p[0]!)) p = p.slice(1)
 
     const nums = p === '' ? [] : p.split(/[;:]/).map((s) => (s === '' ? 0 : parseInt(s, 10)))
     const p0 = nums[0] ?? 0
     const p1 = nums[1] ?? 0
+
+    // Private-mode set/reset: CSI ? Pn h/l
+    if (isPrivate && (final === 'h' || final === 'l')) {
+      const enable = final === 'h'
+      switch (p0) {
+        case 25:  // cursor visibility
+          this.cursorVisible = enable
+          break
+        case 47:  // alternate screen (simple, no save/restore cursor)
+        case 1049: // alternate screen with save/restore cursor
+          if (enable) this.enterAltScreen(p0 === 1049)
+          else        this.exitAltScreen(p0 === 1049)
+          break
+        // mouse tracking modes, bracketed paste, focus events — ignore
+      }
+      return
+    }
 
     switch (final) {
       case 'm': this.applySGR(nums); break
@@ -206,6 +255,19 @@ export class VTScreen {
       case 'G': this.curCol = Math.max(0, Math.min(this.cols - 1, Math.max(1, p0) - 1)); break // CHA
       case 'd': this.curRow = Math.max(0, Math.min(this.rows - 1, Math.max(1, p0) - 1)); break // VPA
 
+      // Scroll region (DECSTBM): CSI Pt;Pb r — VT-GAP-03
+      case 'r':
+        this.scrollTop    = Math.max(0, (p0 === 0 ? 1 : p0) - 1)
+        this.scrollBottom = Math.min(this.rows - 1, (p1 === 0 ? this.rows : p1) - 1)
+        if (this.scrollTop >= this.scrollBottom) {
+          this.scrollTop = 0
+          this.scrollBottom = this.rows - 1
+        }
+        // DECSTBM moves cursor to home position
+        this.curRow = 0
+        this.curCol = 0
+        break
+
       // Erase display (ED)
       case 'J':
         if (p0 === 0) this.eraseToDisplayEnd()
@@ -220,9 +282,40 @@ export class VTScreen {
         else if (p0 === 2) this.eraseLine(this.curRow)
         break
 
-      // All other CSI sequences (cursor style, mouse modes, etc.) — ignore
+      // All other CSI sequences — ignore
     }
   }
+
+  private enterAltScreen(saveCursor: boolean): void {
+    if (this.altGrid) return // already in alt screen
+    this.altGrid = this.grid
+    if (saveCursor) {
+      this.altCurRow = this.curRow
+      this.altCurCol = this.curCol
+      this.altStyle  = { ...this.style }
+    }
+    this.grid = this.makeGrid(this.rows, this.cols)
+    this.curRow = 0
+    this.curCol = 0
+    this.style  = { ...DEFAULT_STYLE }
+    this.scrollTop    = 0
+    this.scrollBottom = this.rows - 1
+  }
+
+  private exitAltScreen(restoreCursor: boolean): void {
+    if (!this.altGrid) return
+    this.grid    = this.altGrid
+    this.altGrid = null
+    if (restoreCursor) {
+      this.curRow = this.altCurRow
+      this.curCol = this.altCurCol
+      this.style  = { ...this.altStyle }
+    }
+    this.scrollTop    = 0
+    this.scrollBottom = this.rows - 1
+  }
+
+  get isCursorVisible(): boolean { return this.cursorVisible }
 
   private applySGR(params: number[]): void {
     if (params.length === 0) {

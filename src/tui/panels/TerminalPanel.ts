@@ -6,10 +6,11 @@ import { Colors } from '../renderer/theme.js'
 import { VTScreen } from '../input/vt.js'
 
 export class TerminalPanel extends Panel {
-  private pty: pty.IPty
+  private ptyInstance: pty.IPty | null = null
   private screen: VTScreen
   private scheduleRender: () => void
   private alive = true
+  private spawnError: string | null = null
 
   constructor(rect: Rect, scheduleRender: () => void) {
     super(rect)
@@ -21,28 +22,34 @@ export class TerminalPanel extends Panel {
 
     this.screen = new VTScreen(rows, cols)
 
-    this.pty = pty.spawn(
-      process.env['SHELL'] ?? 'bash',
-      [],
-      {
-        cols,
-        rows,
-        name: 'xterm-256color',
-        cwd: process.cwd(),
-        env: process.env as Record<string, string>,
-      },
-    )
+    // VT-GAP-09: graceful PTY unavailable error
+    try {
+      this.ptyInstance = pty.spawn(
+        process.env['SHELL'] ?? 'bash',
+        [],
+        {
+          cols,
+          rows,
+          name: 'xterm-256color',
+          cwd: process.cwd(),
+          env: process.env as Record<string, string>,
+        },
+      )
 
-    this.pty.onData((chunk: string) => {
-      if (!this.alive) return
-      this.screen.feed(chunk)
-      this.scheduleRender()
-    })
+      this.ptyInstance.onData((chunk: string) => {
+        if (!this.alive) return
+        this.screen.feed(chunk)
+        this.scheduleRender()
+      })
 
-    this.pty.onExit(() => {
+      this.ptyInstance.onExit(() => {
+        this.alive = false
+        this.scheduleRender()
+      })
+    } catch (err) {
       this.alive = false
-      this.scheduleRender()
-    })
+      this.spawnError = err instanceof Error ? err.message : String(err)
+    }
   }
 
   override render(buf: CellBuffer): void {
@@ -51,41 +58,40 @@ export class TerminalPanel extends Panel {
     buf.fill(inner.row, inner.col, inner.height, inner.width, ' ', { bg: Colors.bg })
 
     if (!this.alive) {
-      buf.write(inner.row, inner.col, '[terminal exited — press F1–F3 to switch panel]', {
-        fg: Colors.textDim,
-        bg: Colors.bg,
-      })
+      const msg = this.spawnError
+        ? `[PTY unavailable: ${this.spawnError}]`
+        : '[terminal exited — press F1–F3 to switch panel]'
+      buf.write(inner.row, inner.col, msg.substring(0, inner.width), { fg: Colors.textDim, bg: Colors.bg })
       return
     }
 
     this.screen.render(buf, inner)
 
-    // Cursor indicator: draw a block at the PTY cursor position
+    // Cursor indicator — only when focused and PTY hasn't hidden it
     const cr = this.screen.cursorRow
     const cc = this.screen.cursorCol
-    if (this.focused && cr < inner.height && cc < inner.width) {
+    if (this.focused && this.screen.isCursorVisible && cr < inner.height && cc < inner.width) {
       buf.write(inner.row + cr, inner.col + cc, '█', { fg: Colors.accent, bg: Colors.bg })
     }
   }
 
   /** Forward raw bytes from stdin directly to the PTY. */
   write(data: Buffer): void {
-    if (this.alive) this.pty.write(data.toString('binary'))
+    if (this.alive && this.ptyInstance) this.ptyInstance.write(data.toString('binary'))
   }
 
   resize(rows: number, cols: number): void {
-    if (!this.alive) return
     const r = Math.max(1, rows)
     const c = Math.max(1, cols)
     this.screen.resize(r, c)
-    this.pty.resize(c, r)
+    if (this.alive && this.ptyInstance) this.ptyInstance.resize(c, r)
   }
 
   destroy(): void {
     if (!this.alive) return
     this.alive = false
     try {
-      this.pty.kill()
+      this.ptyInstance?.kill()
     } catch {
       // PTY may already be dead
     }

@@ -201,4 +201,76 @@ describe('VTScreen', () => {
     expect(buf.getChar(0, 0)).toBe('H')
     expect(buf.getChar(0, 1)).toBe('i')
   })
+
+  // ── VT-GAP-03: scroll regions ─────────────────────────────────────────────
+
+  it('DECSTBM sets scroll region and moves cursor to home', () => {
+    screen.feed(csi('2;4r')) // scroll region rows 2–4 (1-based)
+    expect(screen.cursorRow).toBe(0)
+    expect(screen.cursorCol).toBe(0)
+  })
+
+  it('LF scrolls only within the scroll region', () => {
+    // Set scroll region to rows 1–3 (0-based: scrollTop=1, scrollBottom=3)
+    screen.feed(csi('2;4r'))
+    // Position cursor at bottom of region
+    screen.feed(csi('4;1H'))  // row 4, col 1 (1-based) → (3, 0)
+    // Write a marker at region bottom
+    screen.feed('Z')
+    // LF at scrollBottom should scroll region, not full screen
+    screen.feed('\n')
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    // 'Z' should have scrolled up one row within region (now at row 2)
+    expect(buf.getChar(2, 0)).toBe('Z')
+  })
+
+  // ── VT-GAP-02: alternate screen ───────────────────────────────────────────
+
+  it('CSI ?1049h switches to blank alternate screen', () => {
+    screen.feed('HELLO')
+    screen.feed(csi('?1049h')) // enter alt screen
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    // Alt screen should be blank
+    expect(buf.getChar(0, 0)).toBe(' ')
+  })
+
+  it('CSI ?1049l restores primary screen content', () => {
+    screen.feed('HELLO')
+    screen.feed(csi('?1049h')) // enter alt screen
+    screen.feed('WORLD')       // write in alt screen
+    screen.feed(csi('?1049l')) // exit alt screen — restore primary
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    // Primary screen content (HELLO) restored
+    expect(buf.getChar(0, 0)).toBe('H')
+    expect(buf.getChar(0, 4)).toBe('O')
+  })
+
+  it('CSI ?1049l restores saved cursor position', () => {
+    screen.feed(csi('3;5H'))   // cursor at (2,4)
+    screen.feed(csi('?1049h')) // save cursor, enter alt screen
+    screen.feed(csi('1;1H'))   // move cursor in alt screen
+    screen.feed(csi('?1049l')) // exit alt, restore cursor
+    expect(screen.cursorRow).toBe(2)
+    expect(screen.cursorCol).toBe(4)
+  })
+
+  it('entering alt screen twice is a no-op (idempotent)', () => {
+    screen.feed('PRIMARY')
+    screen.feed(csi('?1049h'))
+    screen.feed('ALT1')
+    screen.feed(csi('?1049h')) // second enter — ignored
+    screen.feed(csi('?1049l')) // first exit
+    screen.render(buf as never, { row: 0, col: 0, height: 5, width: 10 })
+    expect(buf.getChar(0, 0)).toBe('P') // primary restored
+  })
+
+  // ── cursor visibility ──────────────────────────────────────────────────────
+
+  it('CSI ?25l hides cursor, CSI ?25h shows it', () => {
+    expect(screen.isCursorVisible).toBe(true)
+    screen.feed(csi('?25l'))
+    expect(screen.isCursorVisible).toBe(false)
+    screen.feed(csi('?25h'))
+    expect(screen.isCursorVisible).toBe(true)
+  })
 })
