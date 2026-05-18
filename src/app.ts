@@ -364,6 +364,13 @@ export class App {
             this.activeTab = clickedTab
           }
         }
+        // Config panel owns the right column when active — dispatch directly so it
+        // is not shadowed by canvasPanel/agentsPanel which share the same rect slot.
+        if (this.activeTab === TAB_CONFIG) {
+          const consumed = this.configPanel!.onMouse(mouse)
+          if (!consumed) this.render()
+          return
+        }
         const consumed = this.router.dispatch(mouse, this.panels, this.activeTab)
         if (!consumed) this.render()
         return
@@ -383,12 +390,19 @@ export class App {
         return
       }
 
-      // F1–F4 switch panels without stealing printable characters
+      // F1–F5 switch panels without stealing printable characters
       if (key.key === 'f1') { this.activeTab = 0;           this.render(); return }
       if (key.key === 'f2') { this.activeTab = 1;           this.render(); return }
       if (key.key === 'f3') { this.activeTab = 2;           this.render(); return }
       if (key.key === 'f4') { this.activeTab = TAB_CONFIG;   this.render(); return }
       if (key.key === 'f5') { this.activeTab = TAB_TERMINAL; this.render(); return }
+
+      // Config panel: dispatch keys directly (TAB_CONFIG=4 doesn't match panels[] index)
+      if (this.activeTab === TAB_CONFIG) {
+        const consumed = this.configPanel!.onKey(key)
+        if (!consumed) this.render()
+        return
+      }
 
       // Ctrl+R — run the loaded plan (no-op if no plan or already running)
       if (key.key === 'ctrl+r') {
