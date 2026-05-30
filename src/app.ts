@@ -348,6 +348,17 @@ export class App {
         if (data[0] === 0x11) { this.stop(); return }                  // Ctrl+Q
         if (data[0] === 0x10) { this.paletteOpen = !this.paletteOpen; if (this.paletteOpen) this.palette.openPalette(); this.render(); return } // Ctrl+P
 
+        // When palette is open in terminal mode, route input to palette — never to PTY
+        if (this.paletteOpen) {
+          const key = parseKey(data)
+          if (key) {
+            this.palette.onKey(key)
+            if (!this.palette.isOpen) this.paletteOpen = false
+          }
+          this.render()
+          return
+        }
+
         // VT-GAP-04: match both xterm (\x1bOP) and VT100 (\x1b[11~) F-key forms
         const s = data.toString('binary')
         if (s === '\x1bOP' || s === '\x1b[11~') { this.activeTab = 0;           this.render(); return } // F1
@@ -363,10 +374,18 @@ export class App {
         // SGR mouse events: intercept tab bar clicks, suppress the rest from reaching PTY
         if (s.startsWith('\x1b[<')) {
           const mouse = parseMouse(data)
-          if (mouse?.button === 'left' && mouse.action === 'press' && mouse.row === 0) {
-            if (this.isExitBtn(mouse.col)) { this.stop(); return }
-            const tab = this.tabAt(mouse.col)
-            if (tab >= 0) { this.activeTab = tab; this.render() }
+          if (mouse) {
+            if (this.paletteOpen) {
+              this.palette.onMouse(mouse, this.rows, this.cols)
+              if (!this.palette.isOpen) this.paletteOpen = false
+              this.render()
+              return
+            }
+            if (mouse.button === 'left' && mouse.action === 'press' && mouse.row === 0) {
+              if (this.isExitBtn(mouse.col)) { this.stop(); return }
+              const tab = this.tabAt(mouse.col)
+              if (tab >= 0) { this.activeTab = tab; this.render() }
+            }
           }
           return
         }
@@ -378,6 +397,13 @@ export class App {
       // Mouse event — try before keyboard (non-terminal tabs only)
       const mouse = parseMouse(data)
       if (mouse) {
+        // Palette overlay intercepts ALL mouse when open — nothing behind it is clickable
+        if (this.paletteOpen) {
+          this.palette.onMouse(mouse, this.rows, this.cols)
+          if (!this.palette.isOpen) this.paletteOpen = false
+          this.render()
+          return
+        }
         if (mouse.button === 'left' && mouse.action === 'press') {
           // Tab bar click
           if (mouse.row === 0) {

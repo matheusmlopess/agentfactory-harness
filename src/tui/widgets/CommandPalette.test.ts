@@ -160,3 +160,63 @@ describe('CommandPalette', () => {
     expect(chars).toContain('F9')
   })
 })
+
+// ── CommandPalette.onMouse ───────────────────────────────────────────────────
+
+describe('CommandPalette.onMouse', () => {
+  const ROWS = 40
+  const COLS = 80
+
+  function paletteAt(): CommandPalette {
+    const cp = new CommandPalette(makeCommands(3))
+    cp.openPalette()
+    return cp
+  }
+
+  it('click on first item executes its action and closes', () => {
+    const cmds = makeCommands(3)
+    const cp = new CommandPalette(cmds)
+    cp.openPalette()
+    // startRow = max(1, floor(40*0.25)-1) = max(1,9) = 9
+    // item rows start at startRow + 3 = 12
+    const result = cp.onMouse({ button: 'left', action: 'press', row: 12, col: 20, shift: false, ctrl: false, alt: false }, ROWS, COLS)
+    expect(result).toBe('close')
+    expect(cp.isOpen).toBe(false)
+    expect(cmds[0]!.action).toHaveBeenCalled()
+  })
+
+  it('click on second item executes correct action', () => {
+    const cmds = makeCommands(3)
+    const cp = new CommandPalette(cmds)
+    cp.openPalette()
+    cp.onMouse({ button: 'left', action: 'press', row: 13, col: 20, shift: false, ctrl: false, alt: false }, ROWS, COLS)
+    expect(cmds[1]!.action).toHaveBeenCalled()
+  })
+
+  it('click outside overlay closes without executing', () => {
+    const cmds = makeCommands(3)
+    const cp = new CommandPalette(cmds)
+    cp.openPalette()
+    // row 0 is above the overlay (startRow=9)
+    const result = cp.onMouse({ button: 'left', action: 'press', row: 0, col: 20, shift: false, ctrl: false, alt: false }, ROWS, COLS)
+    expect(result).toBe('close')
+    expect(cp.isOpen).toBe(false)
+    expect(cmds[0]!.action).not.toHaveBeenCalled()
+  })
+
+  it('non-left-click is consumed without executing', () => {
+    const cp = paletteAt()
+    const result = cp.onMouse({ button: 'right', action: 'press', row: 12, col: 20, shift: false, ctrl: false, alt: false }, ROWS, COLS)
+    expect(result).toBe('consumed')
+    expect(cp.isOpen).toBe(true)
+  })
+
+  it('release event is consumed without executing', () => {
+    const cmds = makeCommands(3)
+    const cp = new CommandPalette(cmds)
+    cp.openPalette()
+    const result = cp.onMouse({ button: 'left', action: 'release', row: 12, col: 20, shift: false, ctrl: false, alt: false }, ROWS, COLS)
+    expect(result).toBe('consumed')
+    expect(cmds[0]!.action).not.toHaveBeenCalled()
+  })
+})

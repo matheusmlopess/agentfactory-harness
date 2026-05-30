@@ -1,5 +1,6 @@
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import type { KeyEvent } from '../input/keyboard.js'
+import type { MouseEvent } from '../input/mouse.js'
 import { Colors } from '../renderer/theme.js'
 
 export interface PaletteCommand {
@@ -147,5 +148,36 @@ export class CommandPalette {
       return 'consumed'
     }
     return 'passthrough'
+  }
+
+  /** Handle a mouse event. Returns 'close' if the palette should be dismissed. */
+  onMouse(e: MouseEvent, rows: number, cols: number): 'consumed' | 'close' {
+    if (!this.open) return 'close'
+    // Only act on left press; ignore motion/release/scroll
+    if (e.button !== 'left' || e.action !== 'press') return 'consumed'
+
+    const w        = Math.min(PALETTE_WIDTH, cols - 4)
+    const items    = this.filtered()
+    const nItems   = Math.min(items.length, MAX_VISIBLE)
+    const startRow = Math.max(1, Math.floor(rows * 0.25) - 1)
+    const startCol = Math.floor((cols - w) / 2)
+    const botRow   = startRow + 3 + Math.max(1, nItems)  // matches render()
+
+    // Click outside the overlay → close
+    if (e.row < startRow || e.row > botRow || e.col < startCol || e.col >= startCol + w) {
+      this.open = false
+      return 'close'
+    }
+
+    // Click on an item row → execute and close
+    const itemIdx = e.row - (startRow + 3)
+    if (itemIdx >= 0 && itemIdx < nItems && itemIdx < items.length) {
+      this.selIdx = itemIdx
+      items[itemIdx]!.action()
+      this.open = false
+      return 'close'
+    }
+
+    return 'consumed'
   }
 }
