@@ -126,6 +126,13 @@ export class SessionPanel extends Panel {
     void this.runAgentLoop()
   }
 
+  clearSession(): void {
+    this.session.clear()
+    this.lines = [{ role: 'system', text: 'Session cleared.' }]
+    this.scrollOffset = 0
+    this.onUpdate()
+  }
+
   private handleSlashCommand(cmd: string): void {
     const parts = cmd.slice(1).split(' ')
     const name = parts[0] ?? ''
