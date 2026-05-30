@@ -1,13 +1,38 @@
 import * as A from './ansi.js'
 
+/** Color value: 256-palette index (≥0), -1 = terminal default, or [r,g,b] truecolour. */
+export type Color = number | readonly [number, number, number]
+
 export interface Cell {
   char: string
-  fg: number   // 256-color index, -1 = default
-  bg: number   // 256-color index, -1 = default
+  fg: Color   // -1 = default
+  bg: Color   // -1 = default
   bold: boolean
+  dim: boolean
+  underline: boolean
+  reverse: boolean
 }
 
-const BLANK: Cell = { char: ' ', fg: -1, bg: -1, bold: false }
+const BLANK: Cell = {
+  char: ' ', fg: -1, bg: -1,
+  bold: false, dim: false, underline: false, reverse: false,
+}
+
+function colorEq(a: Color, b: Color): boolean {
+  if (typeof a === 'number' && typeof b === 'number') return a === b
+  if (!Array.isArray(a) || !Array.isArray(b)) return false
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
+}
+
+function fgCodes(color: Color): number[] {
+  if (typeof color === 'number') return color >= 0 ? [38, 5, color] : []
+  return [38, 2, color[0]!, color[1]!, color[2]!]
+}
+
+function bgCodes(color: Color): number[] {
+  if (typeof color === 'number') return color >= 0 ? [48, 5, color] : []
+  return [48, 2, color[0]!, color[1]!, color[2]!]
+}
 
 export class CellBuffer {
   readonly rows: number
@@ -38,6 +63,9 @@ export class CellBuffer {
         fg: style.fg ?? -1,
         bg: style.bg ?? -1,
         bold: style.bold ?? false,
+        dim: style.dim ?? false,
+        underline: style.underline ?? false,
+        reverse: style.reverse ?? false,
       }
     }
   }
@@ -70,21 +98,25 @@ export class CellBuffer {
         if (
           old &&
           old.char === cur.char &&
-          old.fg === cur.fg &&
-          old.bg === cur.bg &&
-          old.bold === cur.bold
+          colorEq(old.fg, cur.fg) &&
+          colorEq(old.bg, cur.bg) &&
+          old.bold === cur.bold &&
+          old.dim === cur.dim &&
+          old.underline === cur.underline &&
+          old.reverse === cur.reverse
         ) continue
 
-        // Move cursor only when not contiguous
         if (lastRow !== r || lastCol !== c) {
-          out += A.moveTo(r + 1, c + 1)  // ANSI is 1-indexed
+          out += A.moveTo(r + 1, c + 1)
         }
 
-        // Build SGR
         const codes: number[] = [0]
-        if (cur.bold) codes.push(1)
-        if (cur.fg >= 0) codes.push(38, 5, cur.fg)
-        if (cur.bg >= 0) codes.push(48, 5, cur.bg)
+        if (cur.bold)      codes.push(1)
+        if (cur.dim)       codes.push(2)
+        if (cur.underline) codes.push(4)
+        if (cur.reverse)   codes.push(7)
+        codes.push(...fgCodes(cur.fg))
+        codes.push(...bgCodes(cur.bg))
         out += A.sgr(...codes)
         out += cur.char
 
@@ -93,11 +125,10 @@ export class CellBuffer {
       }
     }
 
-    if (out) out += A.sgr(0)  // reset after last write
+    if (out) out += A.sgr(0)
     return out
   }
 
-  /** Full flush — write every cell (used on initial render or resize). */
   flush(): string {
     const empty = new CellBuffer(this.rows, this.cols)
     return this.diff(empty)

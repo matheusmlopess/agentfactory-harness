@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, appendFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { CellBuffer } from './tui/renderer/cell-buffer.js'
 import { computeLayout, drawBorder } from './tui/renderer/layout.js'
@@ -11,6 +11,7 @@ import { InputRouter } from './tui/input/router.js'
 import { SessionPanel } from './tui/panels/SessionPanel.js'
 import { AgentsPanel } from './tui/panels/AgentsPanel.js'
 import { OrchestrationCanvas } from './tui/panels/OrchestrationCanvas.js'
+import { TerminalPanel } from './tui/panels/TerminalPanel.js'
 import type { Panel } from './tui/panels/Panel.js'
 import { registerTool } from './core/tools/index.js'
 import { BashTool } from './core/tools/bash.js'
@@ -22,8 +23,13 @@ import { Executor } from './orchestration/executor.js'
 import { Session } from './core/session.js'
 import { agentLoop } from './core/agent-loop.js'
 import { createAdapter, defaultProvider } from './core/llm/index.js'
+import { ConfigPanel } from './tui/panels/ConfigPanel.js'
+import { store } from './core/config/store.js'
 
-const TABS = ['Session', 'Orchestration', 'Agents']
+const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config']
+const TAB_TERMINAL = 3
+const TAB_CONFIG   = 4
+const EXIT_BTN = ' ✕ Quit '
 
 export class App {
   private rows = process.stdout.rows ?? 24
@@ -35,9 +41,13 @@ export class App {
   private renderPending = false
   private currentPlan: Plan | null = null
   private planRunning = false
+  private statusError: string | null = null
+  private statusErrorTimer: ReturnType<typeof setTimeout> | null = null
   private sessionPanel!: SessionPanel
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
+  private terminalPanel: TerminalPanel | null = null
+  private configPanel: ConfigPanel | null = null
   private panels!: Panel[]
   private router = new InputRouter()
 
@@ -57,6 +67,7 @@ export class App {
   async start(): Promise<void> {
     this.running = true
     this.setup()
+    await store.init()
     this.initPanels()
     await this.tryLoadPlan()
     this.render()
@@ -78,7 +89,17 @@ export class App {
     this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
     this.agentsPanel  = new AgentsPanel(layout.agents)
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
-    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
+    this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender())
+    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel, this.configPanel]
+  }
+
+  // VT-GAP-08: lazy PTY spawn — only on first switch to Terminal tab
+  private ensureTerminalPanel(): TerminalPanel {
+    if (!this.terminalPanel) {
+      const layout = computeLayout(this.rows, this.cols)
+      this.terminalPanel = new TerminalPanel(layout.terminal, () => this.scheduleRender())
+    }
+    return this.terminalPanel
   }
 
   private async tryLoadPlan(): Promise<void> {
@@ -87,9 +108,23 @@ export class App {
       const plan = PlanSchema.parse(raw)
       this.currentPlan = plan
       this.canvasPanel.syncFromPlan(plan)
-    } catch {
-      // No plan file or invalid plan — canvas stays empty, no error shown
+    } catch (err) {
+      const isNoFile = err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT'
+      if (!isNoFile) {
+        this.showError(err instanceof Error ? err.message : String(err))
+      }
     }
+  }
+
+  private showError(msg: string): void {
+    this.statusError = msg.substring(0, 120)
+    if (this.statusErrorTimer) clearTimeout(this.statusErrorTimer)
+    this.statusErrorTimer = setTimeout(() => {
+      this.statusError = null
+      this.statusErrorTimer = null
+      this.scheduleRender()
+    }, 5000)
+    this.scheduleRender()
   }
 
   private async runPlan(): Promise<void> {
@@ -139,14 +174,28 @@ export class App {
       this.buf  = new CellBuffer(this.rows, this.cols)
       this.prev = new CellBuffer(this.rows, this.cols)
       const layout = computeLayout(this.rows, this.cols)
-      this.sessionPanel.rect = layout.session
-      this.canvasPanel.rect  = layout.canvas
-      this.agentsPanel.rect  = layout.agents
+      this.sessionPanel.rect  = layout.session
+      this.canvasPanel.rect   = layout.canvas
+      this.agentsPanel.rect   = layout.agents
+      if (this.terminalPanel) {
+        this.terminalPanel.rect = layout.terminal
+        const inner = this.terminalPanel.inner
+        this.terminalPanel.resize(inner.height, inner.width)
+      }
+      if (this.configPanel) this.configPanel.rect = layout.config
       this.render()
     })
 
     process.on('SIGINT',  () => this.stop())
     process.on('SIGTERM', () => this.stop())
+
+    // Log uncaught errors to /tmp/factory-err.log so they survive the alt-screen
+    const logErr = (err: unknown): void => {
+      const msg = `[${new Date().toISOString()}] ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`
+      void appendFile('/tmp/factory-err.log', msg)
+    }
+    process.on('uncaughtException', (err) => { logErr(err); this.stop() })
+    process.on('unhandledRejection', (reason) => { logErr(reason) })
 
     // Last-resort cleanup: runs on normal exit and on uncaught exceptions,
     // but NOT on SIGKILL. Ensures mouse tracking and alt-screen are always
@@ -159,6 +208,7 @@ export class App {
   stop(): void {
     if (!this.running) return
     this.running = false
+    this.terminalPanel?.destroy()
     // Drain stdin before exit so buffered mouse events don't leak into the shell
     process.stdin.removeAllListeners('data')
     process.stdin.setRawMode(false)
@@ -174,27 +224,42 @@ export class App {
     if (!this.running) return
 
     const layout = computeLayout(this.rows, this.cols)
+    const onTerminal = this.activeTab === TAB_TERMINAL
 
     this.buf.fill(0, 0, this.rows, this.cols, ' ', { bg: Colors.bg })
     this.renderTabBar(layout.tabBar.row)
 
-    drawBorder(this.buf, layout.session, 'Session',       this.activeTab === 0)
-    drawBorder(this.buf, layout.canvas,  'Orchestration', this.activeTab === 1)
-    drawBorder(this.buf, layout.agents,  'Agents',        this.activeTab === 2)
-
+    // Left column — always visible
+    drawBorder(this.buf, layout.session, 'Session', this.activeTab === 0)
     this.sessionPanel.rect    = layout.session
     this.sessionPanel.focused = this.activeTab === 0
     this.sessionPanel.render(this.buf)
 
-    this.canvasPanel.rect    = layout.canvas
-    this.canvasPanel.focused = this.activeTab === 1
-    this.canvasPanel.render(this.buf)
+    if (this.activeTab === TAB_CONFIG) {
+      drawBorder(this.buf, layout.config, 'Config', true)
+      this.configPanel!.rect    = layout.config
+      this.configPanel!.focused = true
+      this.configPanel!.render(this.buf)
+    } else if (onTerminal) {
+      const tp = this.ensureTerminalPanel()
+      drawBorder(this.buf, layout.terminal, 'Terminal', true)
+      tp.rect    = layout.terminal
+      tp.focused = true
+      tp.render(this.buf)
+    } else {
+      drawBorder(this.buf, layout.canvas, 'Orchestration', this.activeTab === 1)
+      drawBorder(this.buf, layout.agents, 'Agents',        this.activeTab === 2)
 
-    this.agentsPanel.rect    = layout.agents
-    this.agentsPanel.focused = this.activeTab === 2
-    this.agentsPanel.render(this.buf)
+      this.canvasPanel.rect    = layout.canvas
+      this.canvasPanel.focused = this.activeTab === 1
+      this.canvasPanel.render(this.buf)
 
-    renderStatusBar(this.buf, layout.statusBar, this.planRunning ? 'running' : undefined)
+      this.agentsPanel.rect    = layout.agents
+      this.agentsPanel.focused = this.activeTab === 2
+      this.agentsPanel.render(this.buf)
+    }
+
+    renderStatusBar(this.buf, layout.statusBar, this.planRunning ? 'running' : undefined, this.statusError ?? undefined)
 
     const diff = this.buf.diff(this.prev)
     if (diff) process.stdout.write(diff)
@@ -213,16 +278,110 @@ export class App {
       })
       col += label.length + 1
     }
+    // Exit button — right-aligned in the tab bar
+    const exitCol = this.cols - EXIT_BTN.length - 1
+    this.buf.write(row, exitCol, EXIT_BTN, { fg: Colors.bg, bg: 196, bold: true })
+  }
+
+  /** True if a click at (row=0, col) lands on the exit button. */
+  private isExitBtn(col: number): boolean {
+    const exitCol = this.cols - EXIT_BTN.length - 1
+    return col >= exitCol && col < exitCol + EXIT_BTN.length
+  }
+
+  /** Returns tab index (0-based) for a click on the tab bar row, or -1. */
+  private tabAt(col: number): number {
+    let c = 1
+    for (let i = 0; i < TABS.length; i++) {
+      const label = ` ${TABS[i]!} `
+      if (col >= c && col < c + label.length) return i
+      c += label.length + 1
+    }
+    return -1
+  }
+
+  /** Returns the tab index that a click at (row, col) should focus, or -1. */
+  private panelTabAt(row: number, col: number): number {
+    const layout = computeLayout(this.rows, this.cols)
+    const s = layout.session
+    if (row >= s.row && row < s.row + s.height && col >= s.col && col < s.col + s.width) return 0
+    if (this.activeTab === TAB_CONFIG) {
+      const cfg = layout.config
+      if (row >= cfg.row && row < cfg.row + cfg.height && col >= cfg.col && col < cfg.col + cfg.width) return TAB_CONFIG
+    } else if (this.activeTab === TAB_TERMINAL) {
+      const t = layout.terminal
+      if (row >= t.row && row < t.row + t.height && col >= t.col && col < t.col + t.width) return TAB_TERMINAL
+    } else {
+      const cv = layout.canvas
+      if (row >= cv.row && row < cv.row + cv.height && col >= cv.col && col < cv.col + cv.width) return 1
+      const ag = layout.agents
+      if (row >= ag.row && row < ag.row + ag.height && col >= ag.col && col < ag.col + ag.width) return 2
+    }
+    return -1
   }
 
   private listenInput(): void {
     process.stdin.setRawMode(true)
     process.stdin.resume()
     process.stdin.on('data', (data: Buffer) => {
-      // Mouse event — try before keyboard
+      // When Terminal tab is active, bypass parseKey and forward raw bytes
+      // to the PTY. Only intercept Ctrl+Q and F1–F4 via raw byte patterns.
+      if (this.activeTab === TAB_TERMINAL) {
+        if (data[0] === 0x11) { this.stop(); return }                  // Ctrl+Q
+
+        // VT-GAP-04: match both xterm (\x1bOP) and VT100 (\x1b[11~) F-key forms
+        const s = data.toString('binary')
+        if (s === '\x1bOP' || s === '\x1b[11~') { this.activeTab = 0; this.render(); return }          // F1
+        if (s === '\x1bOQ' || s === '\x1b[12~') { this.activeTab = 1; this.render(); return }          // F2
+        if (s === '\x1bOR' || s === '\x1b[13~') { this.activeTab = 2; this.render(); return }          // F3
+        if (s === '\x1bOS' || s === '\x1b[14~') { this.activeTab = TAB_CONFIG; this.render(); return } // F4 → Config
+        if (s === '\x1bOt' || s === '\x1b[15~') return                                                 // F5 — already here
+
+        // Shift+PgUp / Shift+PgDn — scroll terminal scrollback
+        if (s === '\x1b[5;2~') { this.ensureTerminalPanel().scrollBack();   this.render(); return }
+        if (s === '\x1b[6;2~') { this.ensureTerminalPanel().scrollForward(); this.render(); return }
+
+        // SGR mouse events: intercept tab bar clicks, suppress the rest from reaching PTY
+        if (s.startsWith('\x1b[<')) {
+          const mouse = parseMouse(data)
+          if (mouse?.button === 'left' && mouse.action === 'press' && mouse.row === 0) {
+            if (this.isExitBtn(mouse.col)) { this.stop(); return }
+            const tab = this.tabAt(mouse.col)
+            if (tab >= 0) { this.activeTab = tab; this.render() }
+          }
+          return
+        }
+
+        this.ensureTerminalPanel().write(data)
+        return
+      }
+
+      // Mouse event — try before keyboard (non-terminal tabs only)
       const mouse = parseMouse(data)
       if (mouse) {
+        if (mouse.button === 'left' && mouse.action === 'press') {
+          // Tab bar click
+          if (mouse.row === 0) {
+            if (this.isExitBtn(mouse.col)) { this.stop(); return }
+            const tab = this.tabAt(mouse.col)
+            if (tab >= 0) { this.activeTab = tab; this.render(); return }
+          }
+          // Panel body click — focus the panel under the cursor
+          const clickedTab = this.panelTabAt(mouse.row, mouse.col)
+          if (clickedTab >= 0 && clickedTab !== this.activeTab) {
+            this.activeTab = clickedTab
+          }
+        }
+        // Config panel owns the right column when active — dispatch directly so it
+        // is not shadowed by canvasPanel/agentsPanel which share the same rect slot.
+        // Always render after — scroll/click both mutate state that needs immediate repaint.
+        if (this.activeTab === TAB_CONFIG) {
+          this.configPanel!.onMouse(mouse)
+          this.render()
+          return
+        }
         this.router.dispatch(mouse, this.panels, this.activeTab)
+        this.render()
         return
       }
 
@@ -240,10 +399,19 @@ export class App {
         return
       }
 
-      // F1–F3 switch panels without stealing printable characters
-      if (key.key === 'f1') { this.activeTab = 0; this.render(); return }
-      if (key.key === 'f2') { this.activeTab = 1; this.render(); return }
-      if (key.key === 'f3') { this.activeTab = 2; this.render(); return }
+      // F1–F5 switch panels without stealing printable characters
+      if (key.key === 'f1') { this.activeTab = 0;           this.render(); return }
+      if (key.key === 'f2') { this.activeTab = 1;           this.render(); return }
+      if (key.key === 'f3') { this.activeTab = 2;           this.render(); return }
+      if (key.key === 'f4') { this.activeTab = TAB_CONFIG;   this.render(); return }
+      if (key.key === 'f5') { this.activeTab = TAB_TERMINAL; this.render(); return }
+
+      // Config panel: dispatch keys directly (TAB_CONFIG=4 doesn't match panels[] index)
+      if (this.activeTab === TAB_CONFIG) {
+        const consumed = this.configPanel!.onKey(key)
+        if (!consumed) this.render()
+        return
+      }
 
       // Ctrl+R — run the loaded plan (no-op if no plan or already running)
       if (key.key === 'ctrl+r') {

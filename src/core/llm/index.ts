@@ -2,14 +2,15 @@ export type { LLMAdapter, StreamChunk, LLMStreamOptions, ToolDef, Provider } fro
 import type { LLMAdapter, Provider } from './types.js'
 import { AnthropicAdapter } from './anthropic-adapter.js'
 import { OpenAIAdapter } from './openai-adapter.js'
+import { store } from '../config/store.js'
 
 export { AnthropicAdapter } from './anthropic-adapter.js'
 export { OpenAIAdapter } from './openai-adapter.js'
 
 export function createAdapter(provider: Provider, apiKey?: string): LLMAdapter {
   switch (provider) {
-    case 'anthropic': return new AnthropicAdapter(apiKey)
-    case 'openai':    return new OpenAIAdapter(apiKey)
+    case 'anthropic': return new AnthropicAdapter(apiKey ?? store.getKey('anthropic', 'ANTHROPIC_API_KEY'))
+    case 'openai':    return new OpenAIAdapter(apiKey ?? store.getKey('openai', 'OPENAI_API_KEY'))
   }
 }
 

@@ -13,6 +13,8 @@ export interface PanelLayout {
   session: Rect
   canvas: Rect
   agents: Rect
+  terminal: Rect
+  config: Rect
   statusBar: Rect
 }
 
@@ -21,10 +23,11 @@ export interface PanelLayout {
  *
  * Layout:
  *   row 0         : tab bar (1 row)
- *   rows 1..H-2   : main area (split: session left 40%, canvas+agents right 60%)
+ *   rows 1..H-2   : main area (split: session left 40%, right column 60%)
  *   row H-1       : status bar (1 row)
  *
- * Right column: canvas top 70%, agents bottom 30%
+ * Right column (tabs 1-2): canvas top 70%, agents bottom 30%
+ * Right column (tab 3):    terminal fills full right column
  */
 export function computeLayout(rows: number, cols: number): PanelLayout {
   const sessionWidth = Math.floor(cols * 0.4)
@@ -38,6 +41,8 @@ export function computeLayout(rows: number, cols: number): PanelLayout {
     session:   { row: 1, col: 0, height: mainHeight, width: sessionWidth },
     canvas:    { row: 1, col: sessionWidth, height: canvasHeight, width: rightWidth },
     agents:    { row: 1 + canvasHeight, col: sessionWidth, height: agentsHeight, width: rightWidth },
+    terminal:  { row: 1, col: sessionWidth, height: mainHeight, width: rightWidth },
+    config:    { row: 1, col: sessionWidth, height: mainHeight, width: rightWidth },
     statusBar: { row: rows - 1, col: 0, height: 1, width: cols },
   }
 }

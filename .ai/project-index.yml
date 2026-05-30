@@ -1,6 +1,6 @@
 meta:
-  version: "1.3.0"
-  wave: 3
+  version: "1.5.0"
+  wave: 4
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
     Updated each wave: add entries for new files, flip status to
@@ -146,7 +146,29 @@ tui_panels:
     exports:
       - TerminalPanel (class extends Panel)
     wave: 4
-    status: planned
+    status: implemented
+
+  - path: src/tui/input/vt.ts
+    purpose: VTScreen — streaming ANSI parser + virtual cell grid for PTY output
+    exports:
+      - VTStyle (interface)
+      - VTScreen (class)
+      - "feed(data: string): void"
+      - "resize(rows, cols): void"
+      - "render(buf, inner): void"
+      - "cursorRow / cursorCol: number"
+    wave: 4
+    status: implemented
+
+  - path: src/tui/input/vt.test.ts
+    purpose: VTScreen unit tests — text, cursor, SGR, erase, scroll, resize
+    wave: 4
+    status: implemented
+
+  - path: src/tui/panels/TerminalPanel.test.ts
+    purpose: TerminalPanel lifecycle tests with mocked IPty
+    wave: 4
+    status: implemented
 
 tui_widgets:
   - path: src/tui/widgets/Block.ts
@@ -178,6 +200,8 @@ tui_widgets:
       - CommandPalette (class)
     wave: 1
     status: planned
+
+  # layout.ts extended in Wave 4 to add terminal: Rect
 
 core:
   - path: src/core/agent-loop.ts
@@ -466,6 +490,21 @@ docs:
     wave: 3
     status: implemented
 
+  - path: specs/docs/approvedPlans/2026-05-18-wave-4-terminal-panel.md
+    purpose: Approved plan for Wave 4 — TerminalPanel / PTY embed
+    wave: 4
+    status: planned
+
+  - path: docs/features/FEATURE-SYSTEM-ARCHITECTURE-v0.4.0.md
+    purpose: System architecture + operational reference for Waves 0–3.5; E2E test plan, gap analysis, docs audit, infra audit
+    wave: 4
+    status: implemented
+
+  - path: docs/features/FEATURE-WAVE-4-TERMINAL-PANEL.md
+    purpose: "Wave 4 feature doc — VTScreen + TerminalPanel: architecture, ANSI matrix, 9 E2E tests, design trade-offs, 9 gaps, infra notes"
+    wave: 4
+    status: implemented
+
   - path: docs/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md
     purpose: "Security & architecture review — component matrix, 7 Mermaid diagrams, SEV findings, design gaps, recommendations"
     wave: 0
@@ -519,6 +558,11 @@ config:
       scripts: [dev, build, test]
       dependencies: ["@anthropic-ai/sdk", commander, node-pty, zod]
       devDependencies: [typescript, tsup, tsx, "@types/node", vitest]
+
+  - path: vitest.config.ts
+    purpose: Vitest config — scopes test discovery to src/ only, excludes .refs/
+    wave: 4
+    status: implemented
 
   - path: tsconfig.json
     purpose: TypeScript compiler config

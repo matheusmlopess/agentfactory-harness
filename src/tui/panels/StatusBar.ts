@@ -2,13 +2,19 @@ import type { CellBuffer } from '../renderer/cell-buffer.js'
 import { Colors } from '../renderer/theme.js'
 import type { Rect } from '../renderer/layout.js'
 
-const VERSION = '0.3.0'
+const VERSION = '0.4.0'
 
-export function renderStatusBar(buf: CellBuffer, rect: Rect, mode = 'NORMAL'): void {
+export function renderStatusBar(buf: CellBuffer, rect: Rect, mode = 'NORMAL', error?: string): void {
   const { row, col, width } = rect
   const bg = Colors.bgActive
 
   buf.write(row, col, ' '.repeat(width), { bg })
+
+  if (error) {
+    const msg = ` ⚠ ${error} `.substring(0, width)
+    buf.write(row, col, msg, { fg: Colors.bg, bg: 196, bold: true })
+    return
+  }
 
   const left = ` factory v${VERSION}  [${mode}] `
   buf.write(row, col, left, { fg: Colors.textBright, bg, bold: true })

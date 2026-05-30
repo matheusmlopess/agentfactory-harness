@@ -62,10 +62,11 @@ Raw ANSI cell-buffer renderer (no Ink, no blessed) · node-pty terminal embed ·
 | Wave | Status | Scope |
 |------|--------|-------|
 | 0 | ✓ done | Scaffold: renderer, layout, doctor |
-| 1 | pending | Claude session, tools, hooks |
-| 2 | pending | ITUI mouse canvas, drag-drop |
-| 3 | pending | DAG executor, /run |
-| 4 | pending | PTY terminal panel |
+| 1 | ✓ done | Claude session, tools, hooks |
+| 2 | ✓ done | ITUI mouse canvas, drag-drop |
+| 3 | ✓ done | DAG executor, /run |
+| 3.5 | ✓ done | Multi-LLM provider layer (Anthropic + OpenAI) |
+| 4 | ✓ done | PTY terminal panel, VTScreen ANSI, mouse navigation (PR #15) |
 | 5 | pending | Registry integration |
 
 ## Governance

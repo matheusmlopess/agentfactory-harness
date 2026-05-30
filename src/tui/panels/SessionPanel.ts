@@ -1,6 +1,7 @@
 import { Panel } from './Panel.js'
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import type { KeyEvent } from '../input/keyboard.js'
+import type { MouseEvent } from '../input/mouse.js'
 import type { Rect } from '../renderer/layout.js'
 import { Colors } from '../renderer/theme.js'
 import { Session } from '../../core/session.js'
@@ -24,7 +25,7 @@ export class SessionPanel extends Panel {
     super(rect)
     this.session = new Session()
     this.onUpdate = onUpdate
-    this.lines.push({ role: 'system', text: 'factory v0.2.0 — type a message or /help' })
+    this.lines.push({ role: 'system', text: 'factory v0.4.0 — type a message or /help' })
   }
 
   getSession(): Session {
@@ -73,7 +74,7 @@ export class SessionPanel extends Panel {
       return true
     }
     if (e.key === 'arrow_up') {
-      this.scrollOffset = Math.min(this.scrollOffset + 1, Math.max(0, this.lines.length - 1))
+      this.scrollOffset = Math.min(this.scrollOffset + 1, this.maxScroll())
       this.onUpdate()
       return true
     }
@@ -88,6 +89,24 @@ export class SessionPanel extends Panel {
       return true
     }
     return false
+  }
+
+  override onMouse(e: MouseEvent): boolean {
+    if (e.button === 'scroll_up') {
+      this.scrollOffset = Math.min(this.scrollOffset + 3, this.maxScroll())
+      this.onUpdate(); return true
+    }
+    if (e.button === 'scroll_down') {
+      this.scrollOffset = Math.max(0, this.scrollOffset - 3)
+      this.onUpdate(); return true
+    }
+    return false
+  }
+
+  private maxScroll(): number {
+    const r = this.inner
+    const displayRows = r.height - 1
+    return Math.max(0, this.wrapLines(r.width).length - displayRows)
   }
 
   private submit(): void {

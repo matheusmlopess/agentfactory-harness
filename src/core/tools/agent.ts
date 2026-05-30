@@ -28,12 +28,17 @@ export const AgentTool: Tool<AgentInput, string> = {
     const session = new Session()
     session.addMessage({ role: 'user', content: prompt })
 
+    const ac = new AbortController()
+    const timer = setTimeout(() => ac.abort(new Error('AgentTool timeout (120 s)')), 120_000)
+
     let output = ''
-    const loopOpts = { maxTurns: 10, ...(model !== undefined && { model }) }
-    for await (const event of agentLoop(session, loopOpts)) {
-      if (event.type === 'text_delta') {
-        output += event.delta
+    try {
+      const loopOpts = { maxTurns: 10, signal: ac.signal, ...(model !== undefined && { model }) }
+      for await (const event of agentLoop(session, loopOpts)) {
+        if (event.type === 'text_delta') output += event.delta
       }
+    } finally {
+      clearTimeout(timer)
     }
     return output.trim()
   },
