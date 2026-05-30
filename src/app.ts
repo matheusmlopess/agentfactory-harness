@@ -90,7 +90,9 @@ export class App {
     this.agentsPanel  = new AgentsPanel(layout.agents)
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
     this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender())
-    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel, this.configPanel]
+    // ConfigPanel (TAB_CONFIG=4) is dispatched explicitly — keep it out of panels[]
+    // so router.dispatch(key/mouse, this.panels, activeTab) is never called with index 4.
+    this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
   }
 
   // VT-GAP-08: lazy PTY spawn — only on first switch to Terminal tab
@@ -331,11 +333,11 @@ export class App {
 
         // VT-GAP-04: match both xterm (\x1bOP) and VT100 (\x1b[11~) F-key forms
         const s = data.toString('binary')
-        if (s === '\x1bOP' || s === '\x1b[11~') { this.activeTab = 0; this.render(); return }          // F1
-        if (s === '\x1bOQ' || s === '\x1b[12~') { this.activeTab = 1; this.render(); return }          // F2
-        if (s === '\x1bOR' || s === '\x1b[13~') { this.activeTab = 2; this.render(); return }          // F3
-        if (s === '\x1bOS' || s === '\x1b[14~') { this.activeTab = TAB_CONFIG; this.render(); return } // F4 → Config
-        if (s === '\x1bOt' || s === '\x1b[15~') return                                                 // F5 — already here
+        if (s === '\x1bOP' || s === '\x1b[11~') { this.activeTab = 0;           this.render(); return } // F1
+        if (s === '\x1bOQ' || s === '\x1b[12~') { this.activeTab = 1;           this.render(); return } // F2
+        if (s === '\x1bOR' || s === '\x1b[13~') { this.activeTab = 2;           this.render(); return } // F3
+        if (s === '\x1bOS' || s === '\x1b[14~') return                                                  // F4 — already on Terminal, no-op
+        if (s === '\x1b[15~')                   { this.activeTab = TAB_CONFIG;  this.render(); return } // F5 → Config
 
         // Shift+PgUp / Shift+PgDn — scroll terminal scrollback
         if (s === '\x1b[5;2~') { this.ensureTerminalPanel().scrollBack();   this.render(); return }
@@ -403,8 +405,8 @@ export class App {
       if (key.key === 'f1') { this.activeTab = 0;           this.render(); return }
       if (key.key === 'f2') { this.activeTab = 1;           this.render(); return }
       if (key.key === 'f3') { this.activeTab = 2;           this.render(); return }
-      if (key.key === 'f4') { this.activeTab = TAB_CONFIG;   this.render(); return }
-      if (key.key === 'f5') { this.activeTab = TAB_TERMINAL; this.render(); return }
+      if (key.key === 'f4') { this.activeTab = TAB_TERMINAL; this.render(); return }
+      if (key.key === 'f5') { this.activeTab = TAB_CONFIG;   this.render(); return }
 
       // Config panel: dispatch keys directly (TAB_CONFIG=4 doesn't match panels[] index)
       if (this.activeTab === TAB_CONFIG) {

@@ -113,4 +113,21 @@ describe('TerminalPanel', () => {
     const hasExitMsg = buf.writes.some((w) => w.text.includes('exited'))
     expect(hasExitMsg).toBe(true)
   })
+
+  it('scrollBack() and scrollForward() delegate to VTScreen', () => {
+    // large rect so scrollback lines can accumulate
+    const panel = new TerminalPanel({ row: 0, col: 0, height: 6, width: 40 }, vi.fn())
+    // feed enough LFs to push lines into scrollback (inner height = 4)
+    mockOnData!('A\r\nB\r\nC\r\nD\r\nE\r\nF\r\n')
+    expect(panel.isScrolledBack).toBe(false)
+    panel.scrollBack()
+    expect(panel.isScrolledBack).toBe(true)
+    panel.scrollForward()
+    expect(panel.isScrolledBack).toBe(false)
+  })
+
+  it('isScrolledBack is false on a fresh panel', () => {
+    const panel = new TerminalPanel({ row: 0, col: 0, height: 10, width: 20 }, vi.fn())
+    expect(panel.isScrolledBack).toBe(false)
+  })
 })

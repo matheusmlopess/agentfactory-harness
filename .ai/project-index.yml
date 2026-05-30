@@ -170,6 +170,23 @@ tui_panels:
     wave: 4
     status: implemented
 
+  - path: src/tui/input/terminal-bypass.test.ts
+    purpose: Unit tests for Terminal tab raw-byte bypass — F1–F5, Ctrl+Q, Shift+PgUp/Dn, mouse intercept
+    wave: 4
+    status: implemented
+
+  - path: src/tui/panels/ConfigPanel.ts
+    purpose: Config tab — persistent API key manager for 35+ AI providers; double-click to edit overlay
+    exports:
+      - ConfigPanel (class extends Panel)
+    wave: 4
+    status: implemented
+
+  - path: src/tui/panels/ConfigPanel.test.ts
+    purpose: ConfigPanel render, scroll, key nav, and edit-overlay tests
+    wave: 4
+    status: implemented
+
 tui_widgets:
   - path: src/tui/widgets/Block.ts
     purpose: ASCII box for one agent node — title, version, status, ports
@@ -271,6 +288,27 @@ core:
   - path: src/core/tools/agent.test.ts
     purpose: AgentTool tests — text concat, empty output, metadata
     wave: 3
+    status: implemented
+
+  - path: src/core/config/store.ts
+    purpose: Persistent config store — read/write provider API keys to ~/.config/agentfactory/config.json
+    exports:
+      - store (singleton)
+      - ConfigStore (class)
+    wave: 4
+    status: implemented
+
+  - path: src/core/config/store.test.ts
+    purpose: ConfigStore tests — init, get/set, persist, missing file
+    wave: 4
+    status: implemented
+
+  - path: src/core/config/providers.ts
+    purpose: Registry of 35+ AI provider definitions — name, env var, placeholder
+    exports:
+      - PROVIDERS (readonly array)
+      - ProviderDef (interface)
+    wave: 4
     status: implemented
 
 orchestration:
@@ -493,7 +531,7 @@ docs:
   - path: specs/docs/approvedPlans/2026-05-18-wave-4-terminal-panel.md
     purpose: Approved plan for Wave 4 — TerminalPanel / PTY embed
     wave: 4
-    status: planned
+    status: implemented
 
   - path: docs/features/FEATURE-SYSTEM-ARCHITECTURE-v0.4.0.md
     purpose: System architecture + operational reference for Waves 0–3.5; E2E test plan, gap analysis, docs audit, infra audit
