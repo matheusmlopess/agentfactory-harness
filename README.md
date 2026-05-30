@@ -11,7 +11,7 @@ ITUI is a novel terminal interaction model: a full-screen TUI with **mouse drag-
 ╔═════════════╗              ╔══════════════╗              ╔══════════╗
 ║  data-fetch ║              ║  transform   ║              ║   load   ║
 ║  v1.2.0     ║              ║  v1.0.0      ║              ║  v1.1.0  ║
-║  ✓ done     ║              ║  ⏳ running  ║              ║  ○ idle  ║
+║  ✓ done     ║              ║  ⏳ running  ║             ║  ○ idle  ║
 ╠═════════════╣              ╠══════════════╣              ╠══════════╣
 ║ ○───────────╫──────────────╫►●            ║──────────────╫►●        ║
 ╚═════════════╝              ╚══════════════╝              ╚══════════╝
