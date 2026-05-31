@@ -36,22 +36,38 @@ export class SessionPanel extends Panel {
     const r = this.inner
     const displayRows = r.height - 1   // last row is input bar
     const inputRow = r.row + r.height - 1
+    const maxScroll = this.maxScroll()
+    const hasScrollbar = maxScroll > 0
+    // Reserve right column for scrollbar when content overflows
+    const contentWidth = hasScrollbar ? r.width - 1 : r.width
+    const scrollbarCol = r.col + r.width - 1
 
     // Render scrollback
-    const wrappedLines = this.wrapLines(r.width)
+    const wrappedLines = this.wrapLines(contentWidth)
     const start = Math.max(0, wrappedLines.length - displayRows - this.scrollOffset)
     const visible = wrappedLines.slice(start, start + displayRows)
 
     for (let i = 0; i < displayRows; i++) {
       const line = visible[i]
-      buf.fill(r.row + i, r.col, 1, r.width, ' ', { bg: Colors.bgPanel })
+      buf.fill(r.row + i, r.col, 1, contentWidth, ' ', { bg: Colors.bgPanel })
       if (line) {
         const fg = line.role === 'user'
           ? Colors.accent
           : line.role === 'system'
           ? Colors.textDim
           : Colors.text
-        buf.write(r.row + i, r.col, line.text.substring(0, r.width), { fg, bg: Colors.bgPanel })
+        buf.write(r.row + i, r.col, line.text.substring(0, contentWidth), { fg, bg: Colors.bgPanel })
+      }
+    }
+
+    // Scrollbar
+    if (hasScrollbar) {
+      const thumbRow = Math.floor(
+        (1 - this.scrollOffset / maxScroll) * (displayRows - 1)
+      )
+      for (let i = 0; i < displayRows; i++) {
+        const ch = i === thumbRow ? '█' : '│'
+        buf.write(r.row + i, scrollbarCol, ch, { fg: Colors.textDim, bg: Colors.bgPanel })
       }
     }
 

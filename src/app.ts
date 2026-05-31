@@ -90,7 +90,7 @@ export class App {
     const layout = computeLayout(this.rows, this.cols)
     this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender())
     this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
-    this.agentsPanel  = new AgentsPanel(layout.agents)
+    this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender())
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
     this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender())
     // ConfigPanel (TAB_CONFIG=4) is dispatched explicitly — keep it out of panels[]

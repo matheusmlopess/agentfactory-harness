@@ -266,6 +266,45 @@ export class ConfigPanel extends Panel {
     if (e.button === 'scroll_down') { this.moveSelection(1);  this.onUpdate(); return true }
 
     if (e.button !== 'left' || e.action !== 'press') return false
+
+    // ── Edit modal intercepts all clicks when open ────────────────────────
+    if (this.mode === 'edit') {
+      const r = this.inner
+      const modalW   = Math.min(r.width - 4, 56)
+      const modalH   = 10
+      const modalRow = r.row + Math.floor((r.height - modalH) / 2)
+      const modalCol = r.col + Math.floor((r.width  - modalW) / 2)
+      const modalEndRow = modalRow + modalH - 1
+      const modalEndCol = modalCol + modalW - 1
+
+      // Click outside modal → cancel
+      if (e.row < modalRow || e.row > modalEndRow || e.col < modalCol || e.col > modalEndCol) {
+        this.mode = 'browse'
+        this.editBuf = ''
+        this.onUpdate()
+        return true
+      }
+
+      // Click on button row (modalRow + 7): left half = Save, right half = Cancel
+      if (e.row === modalRow + 7) {
+        const midCol = modalCol + Math.floor(modalW / 2)
+        if (e.col < midCol) {
+          // Save — same as Enter
+          const def = this.entries[this.selectedIdx]
+          if (def && this.editBuf.length > 0) {
+            store.setKey(def.configKey, this.editBuf, def.fieldType)
+          }
+        }
+        this.mode = 'browse'
+        this.editBuf = ''
+        this.onUpdate()
+        return true
+      }
+
+      // Other clicks inside modal are consumed (no-op)
+      return true
+    }
+
     const r = this.inner
     const listHeight = this.visibleListHeight()
     const clickRow = e.row - r.row

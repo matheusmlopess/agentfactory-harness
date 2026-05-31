@@ -1,6 +1,7 @@
 import { Panel } from './Panel.js'
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import type { Rect } from '../renderer/layout.js'
+import type { MouseEvent } from '../input/mouse.js'
 import { Colors } from '../renderer/theme.js'
 
 export interface AgentEntry {
@@ -10,13 +11,17 @@ export interface AgentEntry {
 
 export class AgentsPanel extends Panel {
   private agents: AgentEntry[] = []
+  private selectedIdx = -1
+  private onUpdate: () => void
 
-  constructor(rect: Rect) {
+  constructor(rect: Rect, onUpdate: () => void) {
     super(rect)
+    this.onUpdate = onUpdate
   }
 
   setAgents(agents: AgentEntry[]): void {
     this.agents = agents
+    this.selectedIdx = -1
   }
 
   render(buf: CellBuffer): void {
@@ -37,10 +42,33 @@ export class AgentsPanel extends Panel {
     for (let i = 0; i < Math.min(this.agents.length, r.height); i++) {
       const agent = this.agents[i]
       if (!agent) continue
+      const selected = i === this.selectedIdx
       const badge = statusBadge(agent.status)
-      const line = `${badge} ${agent.name}`.substring(0, r.width)
-      buf.write(r.row + i, r.col, line, { fg: statusColor(agent.status), bg: Colors.bgPanel })
+      const line = `${badge} ${agent.name}`.padEnd(r.width).substring(0, r.width)
+      const bg = selected ? Colors.bgActive : Colors.bgPanel
+      const fg = selected ? Colors.textBright : statusColor(agent.status)
+      buf.write(r.row + i, r.col, line, { fg, bg, bold: selected })
     }
+  }
+
+  override onMouse(e: MouseEvent): boolean {
+    if (e.button === 'scroll_up') {
+      this.selectedIdx = Math.max(0, this.selectedIdx - 1)
+      this.onUpdate(); return true
+    }
+    if (e.button === 'scroll_down') {
+      this.selectedIdx = Math.min(this.agents.length - 1, this.selectedIdx + 1)
+      this.onUpdate(); return true
+    }
+    if (e.button !== 'left' || e.action !== 'press') return false
+    const r = this.inner
+    const clickRow = e.row - r.row
+    if (clickRow >= 0 && clickRow < this.agents.length) {
+      this.selectedIdx = clickRow
+      this.onUpdate()
+      return true
+    }
+    return false
   }
 }
 
