@@ -116,6 +116,20 @@ export class SessionPanel extends Panel {
       this.scrollOffset = Math.max(0, this.scrollOffset - 3)
       this.onUpdate(); return true
     }
+    // Click on scrollbar column → jump to proportional scroll position
+    if (e.button === 'left' && e.action === 'press') {
+      const r = this.inner
+      const maxScroll = this.maxScroll()
+      const displayRows = r.height - 1
+      if (maxScroll > 0 && e.col === r.col + r.width - 1 &&
+          e.row >= r.row && e.row < r.row + displayRows) {
+        const i = e.row - r.row  // 0 = top, displayRows-1 = bottom
+        this.scrollOffset = Math.round((1 - i / (displayRows - 1)) * maxScroll)
+        this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxScroll))
+        this.onUpdate()
+        return true
+      }
+    }
     return false
   }
 
