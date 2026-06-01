@@ -58,6 +58,7 @@ export class App {
   private statusBarModelTagLen = 0
   private panels!: Panel[]
   private router = new InputRouter()
+  private mouseEnabled = true   // toggled off (Ctrl+E) to allow native text selection/copy
 
   constructor() {
     this.buf  = new CellBuffer(this.rows, this.cols)
@@ -95,7 +96,20 @@ export class App {
 
   private initPanels(): void {
     const layout = computeLayout(this.rows, this.cols)
-    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender())
+    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender(), (stats) => {
+      this.agentsPanel.updateAgent('session-0', {
+        status:       stats.status,
+        model:        stats.model,
+        inputTokens:  stats.inputTokens,
+        outputTokens: stats.outputTokens,
+        toolCalls:    stats.toolCalls,
+        turns:        stats.turns,
+        startTime:    stats.startTime,
+        ...(stats.status !== 'running' ? { endTime: Date.now() } : {}),
+      })
+    }, (target) => {
+      if (target === 'config') { this.activeTab = TAB_CONFIG; this.render() }
+    })
     this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
     this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender())
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
@@ -259,6 +273,14 @@ export class App {
     })
   }
 
+  /** Toggle mouse reporting. When off, the terminal handles native text
+   *  selection so the user can copy output; when on, the TUI gets clicks. */
+  private toggleMouseCapture(): void {
+    this.mouseEnabled = !this.mouseEnabled
+    process.stdout.write(this.mouseEnabled ? A.enableMouse() : A.disableMouse())
+    this.render()
+  }
+
   stop(): void {
     if (!this.running) return
     this.running = false
@@ -315,9 +337,10 @@ export class App {
 
     // Always show a model tag — selected ID or "select model" as a click prompt
     const modelLabel = this.sessionPanel.getSelectedModel()?.id ?? 'select model'
+    const mode = this.planRunning ? 'running' : this.mouseEnabled ? 'NORMAL' : 'SELECT'
     const sbLayout = renderStatusBar(
       this.buf, layout.statusBar,
-      this.planRunning ? 'running' : undefined,
+      mode,
       this.statusError ?? undefined,
       modelLabel,
     )
@@ -516,6 +539,12 @@ export class App {
 
       if (key.key === 'ctrl+q' || key.key === 'ctrl+c') {
         this.stop()
+        return
+      }
+
+      // Ctrl+E — toggle mouse capture so native terminal text selection/copy works
+      if (key.key === 'ctrl+e') {
+        this.toggleMouseCapture()
         return
       }
 

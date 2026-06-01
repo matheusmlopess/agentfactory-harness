@@ -29,6 +29,29 @@ interface ChatLine {
   text: string
 }
 
+export interface SessionStats {
+  status:       'running' | 'done' | 'error'
+  model:        string
+  inputTokens:  number
+  outputTokens: number
+  toolCalls:    number
+  turns:        number
+  startTime:    number
+}
+
+interface SlashCommand {
+  name: string
+  desc: string
+}
+
+const SLASH_COMMANDS: readonly SlashCommand[] = [
+  { name: '/help',   desc: 'Show available commands'            },
+  { name: '/model',  desc: 'Select model (provider → model)'    },
+  { name: '/config', desc: 'Open Config tab (API keys, login)'  },
+  { name: '/clear',  desc: 'Clear the conversation'             },
+  { name: '/tokens', desc: 'Show approximate token count'       },
+] as const
+
 export class SessionPanel extends Panel {
   private session: Session
   private lines: ChatLine[] = []
@@ -36,9 +59,13 @@ export class SessionPanel extends Panel {
   private scrollOffset = 0
   private streaming = false
   private onUpdate: () => void
+  private onStats?: (s: SessionStats) => void
+  private onNavigate?: (target: 'config') => void
+  private acIndex = 0   // autocomplete selection index
   private scrollbarDragging = false
   private scrollbarDragStartY = 0
   private scrollbarDragStartOffset = 0
+  private hScroll = 0   // horizontal scroll offset for wide content (tables)
   private selectedModel: ModelEntry | null = null
   private modelPickerOpen = false
   // step 1 — provider selection
@@ -51,10 +78,12 @@ export class SessionPanel extends Panel {
   private pickerLoading = false
   private pickerScrollOffset = 0
 
-  constructor(rect: Rect, onUpdate: () => void) {
+  constructor(rect: Rect, onUpdate: () => void, onStats?: (s: SessionStats) => void, onNavigate?: (target: 'config') => void) {
     super(rect)
     this.session = new Session()
     this.onUpdate = onUpdate
+    if (onStats) this.onStats = onStats
+    if (onNavigate) this.onNavigate = onNavigate
     this.lines.push({ role: 'system', text: 'factory v0.4.0 — type a message or /help' })
   }
 
@@ -109,11 +138,17 @@ export class SessionPanel extends Panel {
     const contentWidth = hasScrollbar ? r.width - 1 : r.width
     const scrollbarCol = r.col + r.width - 1
 
-    // Render scrollback
-    const wrappedLines = this.wrapLines(contentWidth)
-    const start = Math.max(0, wrappedLines.length - displayRows - this.scrollOffset)
-    const visible = wrappedLines.slice(start, start + displayRows)
+    // Build display lines: word-wrap prose, keep table/code lines intact (h-scroll)
+    const lines = this.buildDisplayLines(contentWidth)
+    const start = Math.max(0, lines.length - displayRows - this.scrollOffset)
+    const visible = lines.slice(start, start + displayRows)
 
+    // Clamp horizontal scroll to the widest visible line
+    const widest = visible.reduce((m, l) => Math.max(m, l.text.length), 0)
+    const maxH = Math.max(0, widest - contentWidth)
+    if (this.hScroll > maxH) this.hScroll = maxH
+
+    let anyClipped = false
     for (let i = 0; i < displayRows; i++) {
       const line = visible[i]
       buf.fill(r.row + i, r.col, 1, contentWidth, ' ', { bg: Colors.bgPanel })
@@ -123,8 +158,16 @@ export class SessionPanel extends Panel {
           : line.role === 'system'
           ? Colors.textDim
           : Colors.text
-        buf.write(r.row + i, r.col, line.text.substring(0, contentWidth), { fg, bg: Colors.bgPanel })
+        const clipped = line.text.substring(this.hScroll, this.hScroll + contentWidth)
+        if (line.text.length > this.hScroll + contentWidth) anyClipped = true
+        buf.write(r.row + i, r.col, clipped, { fg, bg: Colors.bgPanel })
       }
+    }
+
+    // Horizontal scroll hint — shown on the last content row when text is clipped
+    if (anyClipped || this.hScroll > 0) {
+      const hint = `[← →  h:${this.hScroll}]`
+      buf.write(r.row + displayRows - 1, r.col + contentWidth - hint.length, hint, { fg: Colors.warning, bg: Colors.bgPanel })
     }
 
     // Scrollbar
@@ -152,8 +195,41 @@ export class SessionPanel extends Panel {
       buf.write(inputRow, r.col + r.width - modelTag.length, modelTag, { fg: Colors.textDim, bg: Colors.bg })
     }
 
+    // Slash command autocomplete (above the input bar)
+    this.renderAutocomplete(buf, r, inputRow)
+
     // Model picker overlay
     if (this.modelPickerOpen) this.renderModelPicker(buf, r)
+  }
+
+  /** Commands matching the current input, or [] if autocomplete isn't active. */
+  private acMatches(): SlashCommand[] {
+    const buf = this.inputBuf
+    if (!buf.startsWith('/') || buf.includes(' ')) return []
+    const q = buf.toLowerCase()
+    return SLASH_COMMANDS.filter(c => c.name.startsWith(q))
+  }
+
+  private renderAutocomplete(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }, inputRow: number): void {
+    const matches = this.acMatches()
+    if (matches.length === 0) return
+    if (this.acIndex >= matches.length) this.acIndex = 0
+
+    const popupH = Math.min(matches.length, 6)
+    const nameW  = Math.max(...matches.map(m => m.name.length)) + 2
+    const popupW = Math.min(r.width, nameW + 32)
+    const startRow = inputRow - popupH  // sits directly above input bar
+
+    for (let i = 0; i < popupH; i++) {
+      const m = matches[i]!
+      const selected = i === this.acIndex
+      const fg = selected ? Colors.bg : Colors.accent
+      const bg = selected ? Colors.accent : Colors.bgActive
+      const namePart = m.name.padEnd(nameW)
+      const line = (namePart + m.desc).substring(0, popupW).padEnd(popupW)
+      buf.write(startRow + i, r.col, line, { fg: selected ? Colors.bg : Colors.text, bg })
+      buf.write(startRow + i, r.col, namePart.substring(0, popupW), { fg, bg, bold: true })
+    }
   }
 
   // ── Picker geometry helper ────────────────────────────────────────────────
@@ -326,6 +402,31 @@ export class SessionPanel extends Panel {
       return true
     }
 
+    // ── Slash command autocomplete ───────────────────────────────────────
+    const acMatches = this.acMatches()
+    if (acMatches.length > 0) {
+      if (e.key === 'arrow_up')   { this.acIndex = (this.acIndex - 1 + acMatches.length) % acMatches.length; this.onUpdate(); return true }
+      if (e.key === 'arrow_down') { this.acIndex = (this.acIndex + 1) % acMatches.length; this.onUpdate(); return true }
+      if (e.key === 'tab') {
+        const pick = acMatches[this.acIndex] ?? acMatches[0]!
+        this.inputBuf = pick.name + ' '
+        this.acIndex = 0
+        this.onUpdate(); return true
+      }
+      if (e.key === 'enter') {
+        // If exactly one match or a selection, run it; else complete
+        const pick = acMatches[this.acIndex] ?? acMatches[0]!
+        if (this.inputBuf === pick.name || acMatches.length === 1) {
+          this.inputBuf = pick.name
+          this.submit()
+        } else {
+          this.inputBuf = pick.name + ' '
+        }
+        this.acIndex = 0
+        this.onUpdate(); return true
+      }
+    }
+
     if (e.key === 'enter') {
       this.submit()
       return true
@@ -342,6 +443,16 @@ export class SessionPanel extends Panel {
     }
     if (e.key === 'arrow_down') {
       this.scrollOffset = Math.max(0, this.scrollOffset - 1)
+      this.onUpdate()
+      return true
+    }
+    if (e.key === 'arrow_left') {
+      this.hScroll = Math.max(0, this.hScroll - 8)
+      this.onUpdate()
+      return true
+    }
+    if (e.key === 'arrow_right') {
+      this.hScroll += 8
       this.onUpdate()
       return true
     }
@@ -418,10 +529,43 @@ export class SessionPanel extends Panel {
     return false
   }
 
+  /** True if a line is structured content (table/code) — kept intact for h-scroll. */
+  private isWideContent(text: string): boolean {
+    return text.includes('│') || text.includes('|') ||
+           /^\s*```/.test(text) || /^\s{4,}/.test(text)
+  }
+
+  /** Word-wrap prose to `width`; keep table/code lines as single (h-scrollable) lines. */
+  private buildDisplayLines(width: number): ChatLine[] {
+    const out: ChatLine[] = []
+    for (const line of this.lines) {
+      if (line.text.length <= width || this.isWideContent(line.text)) {
+        out.push(line)
+        continue
+      }
+      // Word-wrap prose
+      const words = line.text.split(' ')
+      let cur = ''
+      for (const w of words) {
+        if (cur.length === 0) { cur = w }
+        else if (cur.length + 1 + w.length <= width) { cur += ' ' + w }
+        else { out.push({ role: line.role, text: cur }); cur = w }
+        // Hard-break a single word longer than width
+        while (cur.length > width) {
+          out.push({ role: line.role, text: cur.substring(0, width) })
+          cur = cur.substring(width)
+        }
+      }
+      if (cur.length > 0) out.push({ role: line.role, text: cur })
+    }
+    return out
+  }
+
   private maxScroll(): number {
     const r = this.inner
     const displayRows = r.height - 1
-    return Math.max(0, this.wrapLines(r.width).length - displayRows)
+    const contentWidth = r.width
+    return Math.max(0, this.buildDisplayLines(contentWidth).length - displayRows)
   }
 
   private submit(): void {
@@ -453,7 +597,12 @@ export class SessionPanel extends Panel {
     const name = parts[0] ?? ''
     switch (name) {
       case 'help':
-        this.lines.push({ role: 'system', text: 'Commands: /help /clear /tokens /model' })
+        this.lines.push({ role: 'system', text: 'Commands: /help /model /config /clear /tokens' })
+        break
+      case 'config':
+      case 'settings':
+        this.onNavigate?.('config')
+        this.lines.push({ role: 'system', text: 'Opening Config…' })
         break
       case 'clear':
         this.session.clear()
@@ -515,11 +664,17 @@ export class SessionPanel extends Panel {
 
     const provider = this.selectedModel?.provider ?? defaultProvider()
     const adapter  = createAdapter(provider)
+    const modelId  = this.selectedModel?.id ?? adapter.defaultModel
     const loopOpts = this.selectedModel
       ? { adapter, model: this.selectedModel.id, maxTurns: 20 }
       : { adapter, maxTurns: 20 }
 
+    const startTime = Date.now()
+    let lastStats: SessionStats = { status: 'running', model: modelId, inputTokens: 0, outputTokens: 0, toolCalls: 0, turns: 0, startTime }
+    this.onStats?.(lastStats)
+
     let currentLine: ChatLine | undefined
+    let hadError = false
     try {
       for await (const event of agentLoop(this.session, loopOpts)) {
         if (event.type === 'text_delta') {
@@ -541,35 +696,30 @@ export class SessionPanel extends Panel {
           this.onUpdate()
         } else if (event.type === 'turn_end') {
           currentLine = undefined
+        } else if (event.type === 'stats') {
+          lastStats = {
+            status: 'running', model: event.model,
+            inputTokens: event.inputTokens, outputTokens: event.outputTokens,
+            toolCalls: event.toolCalls, turns: event.turns, startTime,
+          }
+          this.onStats?.(lastStats)
         } else if (event.type === 'error') {
+          hadError = true
           this.lines.push({ role: 'system', text: `Error: ${event.error.message}` })
           this.onUpdate()
         }
       }
     } catch (err) {
+      hadError = true
       const msg = err instanceof Error ? err.message : String(err)
       this.lines.push({ role: 'system', text: `Error: ${msg}` })
       this.onUpdate()
     } finally {
       this.streaming = false
+      this.onStats?.({ ...lastStats, status: hadError ? 'error' : 'done' })
       await runHook('SessionStop', {})
       this.onUpdate()
     }
   }
 
-  private wrapLines(width: number): ChatLine[] {
-    const result: ChatLine[] = []
-    for (const line of this.lines) {
-      if (line.text.length <= width) {
-        result.push(line)
-      } else {
-        let remaining = line.text
-        while (remaining.length > 0) {
-          result.push({ role: line.role, text: remaining.substring(0, width) })
-          remaining = remaining.substring(width)
-        }
-      }
-    }
-    return result
-  }
 }

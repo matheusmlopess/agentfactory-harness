@@ -104,6 +104,7 @@ export class OpenAIAdapter implements LLMAdapter {
       max_tokens: maxTokens,
       messages: oaiMessages,
       stream: true,
+      stream_options: { include_usage: true },
       ...(oaiTools.length > 0 ? { tools: oaiTools } : {}),
     })
 
@@ -111,6 +112,15 @@ export class OpenAIAdapter implements LLMAdapter {
 
     for await (const chunk of sdkStream) {
       if (signal?.aborted) return
+
+      // Final chunk (with include_usage) has empty choices but a usage object
+      if (chunk.usage) {
+        yield {
+          type: 'usage',
+          inputTokens:  chunk.usage.prompt_tokens     ?? 0,
+          outputTokens: chunk.usage.completion_tokens ?? 0,
+        }
+      }
 
       const choice = chunk.choices[0]
       if (!choice) continue

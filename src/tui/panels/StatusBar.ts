@@ -44,7 +44,7 @@ export function renderStatusBar(
     }
   }
 
-  const right = ' ^Q quit  Tab/F1-F3 focus  ^R run plan '
+  const right = ' ^Q quit  ^E select/copy  Tab focus  ^R run '
   buf.write(row, col + width - right.length, right, { fg: Colors.textDim, bg })
 
   return { modelTagCol, modelTagLen }
