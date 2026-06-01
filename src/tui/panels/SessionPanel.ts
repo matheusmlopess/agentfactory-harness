@@ -7,23 +7,18 @@ import { Colors } from '../renderer/theme.js'
 import { Session } from '../../core/session.js'
 import { agentLoop } from '../../core/agent-loop.js'
 import { runHook } from '../../core/hooks.js'
-import { createAdapter, defaultProvider } from '../../core/llm/index.js'
-import type { Provider } from '../../core/llm/types.js'
+import { createAdapter, defaultProvider, listModels } from '../../core/llm/index.js'
+import type { Provider, ModelEntry } from '../../core/llm/index.js'
 
-interface ModelOption {
-  provider: Provider
-  model:    string
-  label:    string
-}
-
-const MODEL_OPTIONS: readonly ModelOption[] = [
-  { provider: 'anthropic', model: 'claude-opus-4-8',           label: 'Claude Opus 4.8'             },
-  { provider: 'anthropic', model: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6 (default)' },
-  { provider: 'anthropic', model: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5'            },
-  { provider: 'openai',    model: 'gpt-4o',                    label: 'GPT-4o'                      },
-  { provider: 'openai',    model: 'gpt-4o-mini',               label: 'GPT-4o mini'                 },
-  { provider: 'openai',    model: 'o3',                        label: 'OpenAI o3'                   },
-  { provider: 'openai',    model: 'o4-mini',                   label: 'OpenAI o4-mini'              },
+// Fallback list used when API keys aren't configured or fetch fails
+const FALLBACK_MODELS: readonly ModelEntry[] = [
+  { provider: 'anthropic', id: 'claude-opus-4-8',           label: 'Claude Opus 4.8'    },
+  { provider: 'anthropic', id: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6'  },
+  { provider: 'anthropic', id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5'   },
+  { provider: 'openai',    id: 'gpt-4o',                    label: 'gpt-4o'             },
+  { provider: 'openai',    id: 'gpt-4o-mini',               label: 'gpt-4o-mini'        },
+  { provider: 'openai',    id: 'o3',                        label: 'o3'                 },
+  { provider: 'openai',    id: 'o4-mini',                   label: 'o4-mini'            },
 ] as const
 
 interface ChatLine {
@@ -41,9 +36,11 @@ export class SessionPanel extends Panel {
   private scrollbarDragging = false
   private scrollbarDragStartY = 0
   private scrollbarDragStartOffset = 0
-  private selectedModel: ModelOption | null = null
+  private selectedModel: ModelEntry | null = null
   private modelPickerOpen = false
-  private modelPickerIdx = 1  // default: Sonnet
+  private modelPickerIdx = 0
+  private pickerModels: ModelEntry[] = []
+  private pickerLoading = false
 
   constructor(rect: Rect, onUpdate: () => void) {
     super(rect)
@@ -52,8 +49,18 @@ export class SessionPanel extends Panel {
     this.lines.push({ role: 'system', text: 'factory v0.4.0 — type a message or /help' })
   }
 
-  getSession(): Session {
-    return this.session
+  getSession(): Session { return this.session }
+
+  getSelectedModel(): ModelEntry | null { return this.selectedModel }
+
+  /** Open the model picker, fetching models from configured providers. */
+  openModelPicker(): void {
+    this.modelPickerOpen = true
+    this.pickerLoading   = true
+    this.pickerModels    = []
+    this.modelPickerIdx  = 0
+    this.onUpdate()
+    void this.fetchPickerModels()
   }
 
   render(buf: CellBuffer): void {
@@ -99,7 +106,7 @@ export class SessionPanel extends Panel {
     buf.fill(inputRow, r.col, 1, r.width, ' ', { bg: Colors.bg })
     const prompt = this.streaming ? '… ' : '> '
     const cursor = this.focused && !this.streaming ? '█' : ''
-    const modelTag = this.selectedModel ? ` [${this.selectedModel.model}]` : ''
+    const modelTag = this.selectedModel ? ` [${this.selectedModel.id}]` : ''
     const available = r.width - modelTag.length - 1
     const inputDisplay = (prompt + this.inputBuf + cursor).substring(0, available)
     buf.write(inputRow, r.col, inputDisplay, { fg: Colors.text, bg: Colors.bg })
@@ -112,12 +119,44 @@ export class SessionPanel extends Panel {
   }
 
   private renderModelPicker(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
-    const n = MODEL_OPTIONS.length
-    const modalW = Math.min(r.width - 4, 54)
-    const modalH = n + 3  // border top + items + border bottom + blank
+    const modalW = Math.min(r.width - 4, 56)
+    const inner  = modalW - 2
+
+    if (this.pickerLoading) {
+      const modalH   = 4
+      const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
+      const modalCol = r.col + Math.floor((r.width - modalW) / 2)
+      buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
+      const hLine = '─'.repeat(inner)
+      buf.write(modalRow,             modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      for (let i = 1; i < modalH - 1; i++) {
+        buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+        buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      }
+      buf.write(modalRow, modalCol + 2, ' Select Model ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+      buf.write(modalRow + 2, modalCol + 2, '⣾ Fetching models from providers…', { fg: Colors.textDim, bg: Colors.bgPanel })
+      return
+    }
+
+    const models = this.pickerModels
+
+    // Build display rows with provider headers
+    type Row = { kind: 'header'; label: string } | { kind: 'model'; entry: ModelEntry; idx: number }
+    const displayRows: Row[] = []
+    let lastProv = ''
+    for (let i = 0; i < models.length; i++) {
+      const m = models[i]!
+      if (m.provider !== lastProv) {
+        displayRows.push({ kind: 'header', label: m.provider === 'anthropic' ? '── Anthropic ──' : '── OpenAI ──' })
+        lastProv = m.provider
+      }
+      displayRows.push({ kind: 'model', entry: m, idx: i })
+    }
+
+    const modalH   = Math.min(displayRows.length + 3, r.height - 4)
     const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
     const modalCol = r.col + Math.floor((r.width - modalW) / 2)
-    const inner = modalW - 2
 
     buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
     const hLine = '─'.repeat(inner)
@@ -129,21 +168,24 @@ export class SessionPanel extends Panel {
     }
     buf.write(modalRow, modalCol + 2, ' Select Model ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
 
-    for (let i = 0; i < n; i++) {
-      const opt = MODEL_OPTIONS[i]!
-      const selected = i === this.modelPickerIdx
-      const isCurrent = this.selectedModel?.model === opt.model
-      const prefix = selected ? '► ' : '  '
-      const suffix = isCurrent ? ' ✓' : '  '
-      const provTag = opt.provider === 'anthropic' ? 'Anthropic' : 'OpenAI   '
-      const labelMax = inner - provTag.length - suffix.length - 2
-      const label = (prefix + opt.label).substring(0, labelMax).padEnd(labelMax)
-      const fg  = selected ? Colors.bg          : Colors.text
-      const bg  = selected ? Colors.accent      : Colors.bgPanel
-      const pfg = selected ? Colors.bg          : Colors.textDim
-      buf.write(modalRow + 1 + i, modalCol + 1, label, { fg, bg, bold: selected })
-      buf.write(modalRow + 1 + i, modalCol + 1 + labelMax, suffix, { fg, bg })
-      buf.write(modalRow + 1 + i, modalCol + 1 + labelMax + suffix.length, provTag, { fg: pfg, bg })
+    const visible = modalH - 2  // rows available for content
+    for (let i = 0; i < Math.min(displayRows.length, visible); i++) {
+      const dr = displayRows[i]!
+      const absRow = modalRow + 1 + i
+      if (dr.kind === 'header') {
+        buf.write(absRow, modalCol + 1, ` ${dr.label}`.padEnd(inner), { fg: Colors.accent, bg: Colors.bgPanel, bold: true })
+      } else {
+        const selected  = dr.idx === this.modelPickerIdx
+        const isCurrent = this.selectedModel?.id === dr.entry.id
+        const prefix  = selected ? '► ' : '  '
+        const suffix  = isCurrent ? ' ✓' : ''
+        const label   = (prefix + dr.entry.label + suffix).substring(0, inner).padEnd(inner)
+        buf.write(absRow, modalCol + 1, label, {
+          fg:   selected ? Colors.bg    : Colors.text,
+          bg:   selected ? Colors.accent : Colors.bgPanel,
+          bold: selected,
+        })
+      }
     }
   }
 
@@ -154,20 +196,24 @@ export class SessionPanel extends Panel {
         this.modelPickerOpen = false
         this.onUpdate(); return true
       }
-      if (e.key === 'arrow_up') {
-        this.modelPickerIdx = Math.max(0, this.modelPickerIdx - 1)
-        this.onUpdate(); return true
-      }
-      if (e.key === 'arrow_down') {
-        this.modelPickerIdx = Math.min(MODEL_OPTIONS.length - 1, this.modelPickerIdx + 1)
-        this.onUpdate(); return true
-      }
-      if (e.key === 'enter') {
-        this.selectedModel = MODEL_OPTIONS[this.modelPickerIdx] ?? null
-        this.modelPickerOpen = false
-        const label = this.selectedModel?.label ?? ''
-        this.lines.push({ role: 'system', text: `Model set to ${label}` })
-        this.onUpdate(); return true
+      if (!this.pickerLoading) {
+        if (e.key === 'arrow_up') {
+          this.modelPickerIdx = Math.max(0, this.modelPickerIdx - 1)
+          this.onUpdate(); return true
+        }
+        if (e.key === 'arrow_down') {
+          this.modelPickerIdx = Math.min(this.pickerModels.length - 1, this.modelPickerIdx + 1)
+          this.onUpdate(); return true
+        }
+        if (e.key === 'enter') {
+          const picked = this.pickerModels[this.modelPickerIdx]
+          if (picked) {
+            this.selectedModel = picked
+            this.lines.push({ role: 'system', text: `Model set to ${picked.label}` })
+          }
+          this.modelPickerOpen = false
+          this.onUpdate(); return true
+        }
       }
       return true
     }
@@ -296,7 +342,8 @@ export class SessionPanel extends Panel {
       case 'model': {
         const arg = parts.slice(1).join(' ').trim()
         if (arg) {
-          const found = MODEL_OPTIONS.find(m => m.model === arg || m.label.toLowerCase() === arg.toLowerCase())
+          const pool = this.pickerModels.length > 0 ? this.pickerModels : [...FALLBACK_MODELS]
+          const found = pool.find(m => m.id === arg || m.label.toLowerCase() === arg.toLowerCase())
           if (found) {
             this.selectedModel = found
             this.lines.push({ role: 'system', text: `Model set to ${found.label}` })
@@ -304,15 +351,32 @@ export class SessionPanel extends Panel {
             this.lines.push({ role: 'system', text: `Unknown model: "${arg}". Type /model to browse.` })
           }
         } else {
-          this.modelPickerOpen = true
-          this.modelPickerIdx = Math.max(0, MODEL_OPTIONS.findIndex(m => m.model === this.selectedModel?.model))
-          if (this.modelPickerIdx === 0 && this.selectedModel === null) this.modelPickerIdx = 1
+          this.openModelPicker()
         }
         break
       }
       default:
         this.lines.push({ role: 'system', text: `Unknown command: /${name}` })
     }
+    this.onUpdate()
+  }
+
+  private async fetchPickerModels(): Promise<void> {
+    const results: ModelEntry[] = []
+    for (const p of ['anthropic', 'openai'] as Provider[]) {
+      try {
+        const models = await listModels(p)
+        results.push(...models)
+      } catch { /* no key or network error — skip provider */ }
+    }
+    // Fall back to hardcoded list if nothing was fetched
+    this.pickerModels = results.length > 0 ? results : [...FALLBACK_MODELS]
+    // Restore selection index to current model
+    if (this.selectedModel) {
+      const idx = this.pickerModels.findIndex(m => m.id === this.selectedModel!.id)
+      this.modelPickerIdx = idx >= 0 ? idx : 0
+    }
+    this.pickerLoading = false
     this.onUpdate()
   }
 
@@ -323,7 +387,7 @@ export class SessionPanel extends Panel {
     const provider = this.selectedModel?.provider ?? defaultProvider()
     const adapter  = createAdapter(provider)
     const loopOpts = this.selectedModel
-      ? { adapter, model: this.selectedModel.model, maxTurns: 20 }
+      ? { adapter, model: this.selectedModel.id, maxTurns: 20 }
       : { adapter, maxTurns: 20 }
 
     let currentLine: ChatLine | undefined

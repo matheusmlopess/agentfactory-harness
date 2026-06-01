@@ -54,6 +54,8 @@ export class App {
   private configPanel: ConfigPanel | null = null
   private palette!: CommandPalette
   private paletteOpen = false
+  private statusBarModelTagCol = -1
+  private statusBarModelTagLen = 0
   private panels!: Panel[]
   private router = new InputRouter()
 
@@ -216,6 +218,7 @@ export class App {
       A.enterAltScreen() +
       A.hideCursor() +
       A.enableMouse() +
+      A.enableBracketedPaste() +
       A.clearScreen()
     )
 
@@ -252,7 +255,7 @@ export class App {
     // but NOT on SIGKILL. Ensures mouse tracking and alt-screen are always
     // disabled even if stop() was never called.
     process.on('exit', () => {
-      process.stdout.write(A.disableMouse() + A.showCursor() + A.exitAltScreen())
+      process.stdout.write(A.disableMouse() + A.disableBracketedPaste() + A.showCursor() + A.exitAltScreen())
     })
   }
 
@@ -266,7 +269,7 @@ export class App {
     process.stdin.pause()
     // Write cleanup sequences and exit only after they are flushed to the terminal
     process.stdout.write(
-      A.disableMouse() + A.showCursor() + A.exitAltScreen(),
+      A.disableMouse() + A.disableBracketedPaste() + A.showCursor() + A.exitAltScreen(),
       () => process.exit(0),
     )
   }
@@ -310,7 +313,14 @@ export class App {
       this.agentsPanel.render(this.buf)
     }
 
-    renderStatusBar(this.buf, layout.statusBar, this.planRunning ? 'running' : undefined, this.statusError ?? undefined)
+    const sbLayout = renderStatusBar(
+      this.buf, layout.statusBar,
+      this.planRunning ? 'running' : undefined,
+      this.statusError ?? undefined,
+      this.sessionPanel.getSelectedModel()?.id,
+    )
+    this.statusBarModelTagCol = sbLayout.modelTagCol
+    this.statusBarModelTagLen = sbLayout.modelTagLen
 
     if (this.paletteOpen) this.palette.render(this.buf, this.rows, this.cols)
 
@@ -446,6 +456,16 @@ export class App {
             const tab = this.tabAt(mouse.col)
             if (tab >= 0) { this.activeTab = tab; this.render(); return }
           }
+          // Status bar model tag click → open model picker in session panel
+          if (mouse.row === this.rows - 1 &&
+              this.statusBarModelTagCol >= 0 &&
+              mouse.col >= this.statusBarModelTagCol &&
+              mouse.col < this.statusBarModelTagCol + this.statusBarModelTagLen) {
+            this.activeTab = 0  // switch to Session tab
+            this.sessionPanel.openModelPicker()
+            this.render()
+            return
+          }
           // Panel body click — focus the panel under the cursor
           const clickedTab = this.panelTabAt(mouse.row, mouse.col)
           if (clickedTab >= 0 && clickedTab !== this.activeTab) {
@@ -466,7 +486,28 @@ export class App {
       }
 
       const key = parseKey(data)
-      if (!key) return
+      if (!key) {
+        // Bracketed paste or raw multi-char paste — strip markers, dispatch each printable char
+        let str = data.toString('utf8')
+        str = str.replace(/^\x1b\[200~/, '').replace(/\x1b\[201~$/, '')
+        if (str.length > 0 && !str.startsWith('\x1b')) {
+          for (const ch of str) {
+            if (ch >= ' ' && ch !== '\x7f') {
+              const fakeKey = { key: ch, raw: Buffer.from(ch) }
+              if (this.paletteOpen) {
+                this.palette.onKey(fakeKey)
+                if (!this.palette.isOpen) this.paletteOpen = false
+              } else if (this.activeTab === TAB_CONFIG) {
+                this.configPanel!.onKey(fakeKey)
+              } else {
+                this.router.dispatch(fakeKey, this.panels, this.activeTab)
+              }
+            }
+          }
+          this.render()
+        }
+        return
+      }
 
       if (key.key === 'ctrl+q' || key.key === 'ctrl+c') {
         this.stop()

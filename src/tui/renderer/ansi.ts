@@ -50,6 +50,11 @@ export const reverse = (): string => sgr(7)
 export const clearLine = (): string => `${CSI}2K`
 export const clearToEol = (): string => `${CSI}0K`
 
+// Bracketed paste — wraps pasted text in ESC[200~...ESC[201~ so it is not
+// misinterpreted as keystrokes (e.g. a pasted newline won't accidentally submit)
+export const enableBracketedPaste  = (): string => `${CSI}?2004h`
+export const disableBracketedPaste = (): string => `${CSI}?2004l`
+
 // OSC 8 hyperlinks (supported by most modern terminals)
 const OSC = `${ESC}]`
 const ST  = `${ESC}\\`  // String Terminator

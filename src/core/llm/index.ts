@@ -3,6 +3,8 @@ import type { LLMAdapter, Provider } from './types.js'
 import { AnthropicAdapter } from './anthropic-adapter.js'
 import { OpenAIAdapter } from './openai-adapter.js'
 import { store } from '../config/store.js'
+import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 
 export { AnthropicAdapter } from './anthropic-adapter.js'
 export { OpenAIAdapter } from './openai-adapter.js'
@@ -19,4 +21,38 @@ export function defaultProvider(): Provider {
   const p = process.env['LLM_PROVIDER']
   if (p === 'openai') return 'openai'
   return 'anthropic'
+}
+
+export interface ModelEntry { id: string; label: string; provider: Provider }
+
+/**
+ * Fetch available models from the provider's API.
+ * Only call when the provider has an API key configured.
+ * Throws if the request fails (caller should catch and fall back).
+ */
+export async function listModels(provider: Provider, apiKey?: string): Promise<ModelEntry[]> {
+  const key = apiKey ?? store.getKey(provider, provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY')
+  if (!key) return []
+
+  if (provider === 'anthropic') {
+    const client = new Anthropic({ apiKey: key })
+    const resp = await client.models.list({ limit: 100 })
+    return (resp.data as { id: string; display_name?: string }[])
+      .map(m => ({ id: m.id, label: m.display_name ?? m.id, provider: 'anthropic' as Provider }))
+      .sort((a, b) => b.id.localeCompare(a.id))  // newest first
+  }
+
+  if (provider === 'openai') {
+    const client = new OpenAI({ apiKey: key })
+    const entries: ModelEntry[] = []
+    for await (const m of client.models.list()) {
+      // Keep only chat-capable models: gpt-*, o1, o3, o4, chatgpt-*
+      if (/^(gpt-|o\d|chatgpt-)/.test(m.id) && m.owned_by === 'openai') {
+        entries.push({ id: m.id, label: m.id, provider: 'openai' })
+      }
+    }
+    return entries.sort((a, b) => b.id.localeCompare(a.id))
+  }
+
+  return []
 }
