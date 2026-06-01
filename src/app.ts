@@ -109,6 +109,9 @@ export class App {
       })
     }, (target) => {
       if (target === 'config') { this.activeTab = TAB_CONFIG; this.render() }
+    }, (text) => {
+      // Copy to OS clipboard via OSC 52 (works over SSH/WSL)
+      process.stdout.write(A.osc52Copy(text))
     })
     this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
     this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender())
@@ -541,7 +544,19 @@ export class App {
         return
       }
 
-      if (key.key === 'ctrl+q' || key.key === 'ctrl+c') {
+      if (key.key === 'ctrl+q') {
+        this.stop()
+        return
+      }
+
+      // Ctrl+C — copy session selection if one exists; otherwise quit
+      if (key.key === 'ctrl+c') {
+        if (this.activeTab === 0 && this.sessionPanel.hasSelection()) {
+          this.sessionPanel.copySelection()
+          this.sessionPanel.clearSelection()
+          this.render()
+          return
+        }
         this.stop()
         return
       }

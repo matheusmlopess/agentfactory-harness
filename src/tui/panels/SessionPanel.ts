@@ -86,7 +86,14 @@ export class SessionPanel extends Panel {
   private onUpdate: () => void
   private onStats?: (s: SessionStats) => void
   private onNavigate?: (target: 'config') => void
+  private onCopy?: (text: string) => void
   private acIndex = 0   // autocomplete selection index
+  // Text selection (viewport content coords: 0-based within inner rect)
+  private selAnchor: { row: number; col: number } | null = null
+  private selFocus:  { row: number; col: number } | null = null
+  private selecting = false
+  private lastVisible: ChatLine[] = []   // snapshot of rendered lines for text extraction
+  private lastContentWidth = 0
   private scrollbarDragging = false
   private scrollbarDragStartY = 0
   private scrollbarDragStartOffset = 0
@@ -107,12 +114,19 @@ export class SessionPanel extends Panel {
   private newSessionList = new ScrollableList(8)
   private newSessionTargets: ({ kind: 'standard' } | { kind: 'provider'; provider: Provider })[] = []
 
-  constructor(rect: Rect, onUpdate: () => void, onStats?: (s: SessionStats) => void, onNavigate?: (target: 'config') => void) {
+  constructor(
+    rect: Rect,
+    onUpdate: () => void,
+    onStats?: (s: SessionStats) => void,
+    onNavigate?: (target: 'config') => void,
+    onCopy?: (text: string) => void,
+  ) {
     super(rect)
     this.session = new Session()
     this.onUpdate = onUpdate
     if (onStats) this.onStats = onStats
     if (onNavigate) this.onNavigate = onNavigate
+    if (onCopy) this.onCopy = onCopy
     this.lines.push({ role: 'system', text: 'factory v0.4.0 — type a message or /help' })
   }
 
@@ -225,11 +239,16 @@ export class SessionPanel extends Panel {
     const start = Math.max(0, lines.length - displayRows - this.scrollOffset)
     const visible = lines.slice(start, start + displayRows)
 
+    // Snapshot for text extraction on copy
+    this.lastVisible = visible
+    this.lastContentWidth = contentWidth
+
     // Clamp horizontal scroll to the widest visible line
     const widest = visible.reduce((m, l) => Math.max(m, l.text.length), 0)
     const maxH = Math.max(0, widest - contentWidth)
     if (this.hScroll > maxH) this.hScroll = maxH
 
+    const selRange = this.normalizedSelection()
     let anyClipped = false
     for (let i = 0; i < displayRows; i++) {
       const line = visible[i]
@@ -243,6 +262,17 @@ export class SessionPanel extends Panel {
         const clipped = line.text.substring(this.hScroll, this.hScroll + contentWidth)
         if (line.text.length > this.hScroll + contentWidth) anyClipped = true
         buf.write(r.row + i, r.col, clipped, { fg, bg: Colors.bgPanel })
+
+        // Selection highlight (reverse video) for cells inside the range
+        if (selRange) {
+          const sel = this.rowSelectionCols(selRange, i, clipped.length)
+          if (sel) {
+            for (let c = sel.from; c < sel.to; c++) {
+              const ch = clipped[c] ?? ' '
+              buf.write(r.row + i, r.col + c, ch, { fg: Colors.bg, bg: Colors.accent })
+            }
+          }
+        }
       }
     }
 
@@ -570,6 +600,7 @@ export class SessionPanel extends Panel {
     }
     if (e.key.length === 1 && e.key >= ' ') {
       this.inputBuf += e.key
+      this.clearSelection()
       this.onUpdate()
       return true
     }
@@ -626,10 +657,38 @@ export class SessionPanel extends Panel {
     const displayRows = r.height - 1
     const scrollbarCol = r.col + r.width - 1
 
-    // Release — always ends drag
+    // Release — ends drag or finalises a text selection (auto-copy)
     if (e.button === 'left' && e.action === 'release') {
       if (this.scrollbarDragging) { this.scrollbarDragging = false; return true }
+      if (this.selecting) {
+        this.selecting = false
+        if (this.hasSelection()) this.copySelection()
+        this.onUpdate()
+        return true
+      }
       return false
+    }
+
+    // Text selection: press (in content area, not scrollbar) starts a selection
+    const inContent = e.row >= r.row && e.row < r.row + displayRows && e.col >= r.col && e.col < scrollbarCol
+    if (e.button === 'left' && e.action === 'press' && inContent &&
+        !(maxScroll > 0 && e.col === scrollbarCol)) {
+      const vRow = e.row - r.row
+      const vCol = e.col - r.col + this.hScroll
+      this.selAnchor = { row: vRow, col: vCol }
+      this.selFocus  = { row: vRow, col: vCol }
+      this.selecting = true
+      this.onUpdate()
+      return true
+    }
+
+    // Drag move while selecting → extend the focus
+    if (e.button === 'left' && e.action === 'move' && this.selecting) {
+      const vRow = Math.max(0, Math.min(displayRows - 1, e.row - r.row))
+      const vCol = Math.max(0, e.col - r.col) + this.hScroll
+      this.selFocus = { row: vRow, col: vCol }
+      this.onUpdate()
+      return true
     }
 
     // Drag move — update offset proportionally to how far the thumb moved
@@ -699,6 +758,67 @@ export class SessionPanel extends Panel {
     const displayRows = r.height - 1
     const contentWidth = r.width
     return Math.max(0, this.buildDisplayLines(contentWidth).length - displayRows)
+  }
+
+  // ── Text selection / clipboard ──────────────────────────────────────────────
+
+  hasSelection(): boolean {
+    const s = this.normalizedSelection()
+    return s !== null && !(s.startRow === s.endRow && s.startCol === s.endCol)
+  }
+
+  clearSelection(): void {
+    this.selAnchor = null
+    this.selFocus = null
+    this.selecting = false
+  }
+
+  /** Normalised selection so start ≤ end in reading order. Null if none. */
+  private normalizedSelection(): { startRow: number; startCol: number; endRow: number; endCol: number } | null {
+    if (!this.selAnchor || !this.selFocus) return null
+    const a = this.selAnchor, b = this.selFocus
+    const before = a.row < b.row || (a.row === b.row && a.col <= b.col)
+    const s = before ? a : b
+    const e = before ? b : a
+    return { startRow: s.row, startCol: s.col, endRow: e.row, endCol: e.col }
+  }
+
+  /** Column span [from,to) selected on viewport row `vRow`, accounting for hScroll. */
+  private rowSelectionCols(
+    sel: { startRow: number; startCol: number; endRow: number; endCol: number },
+    vRow: number, lineLen: number,
+  ): { from: number; to: number } | null {
+    if (vRow < sel.startRow || vRow > sel.endRow) return null
+    // Selection cols are in content coords; convert to clipped (subtract hScroll)
+    const startC = vRow === sel.startRow ? sel.startCol : 0
+    const endC   = vRow === sel.endRow   ? sel.endCol   : this.lastContentWidth
+    const from = Math.max(0, startC - this.hScroll)
+    const to   = Math.min(lineLen, Math.max(0, endC - this.hScroll))
+    if (to <= from) return null
+    return { from, to }
+  }
+
+  /** Extract the selected text from the last rendered viewport. */
+  getSelectedText(): string {
+    const sel = this.normalizedSelection()
+    if (!sel) return ''
+    const parts: string[] = []
+    for (let row = sel.startRow; row <= sel.endRow; row++) {
+      const line = this.lastVisible[row]
+      if (!line) continue
+      const startC = row === sel.startRow ? sel.startCol : 0
+      const endC   = row === sel.endRow   ? sel.endCol   : line.text.length
+      parts.push(line.text.substring(startC, endC).replace(/\s+$/, ''))
+    }
+    return parts.join('\n')
+  }
+
+  /** Copy the current selection (or whole visible buffer if none) to clipboard. */
+  copySelection(): void {
+    const text = this.hasSelection()
+      ? this.getSelectedText()
+      : this.lastVisible.map(l => l.text.replace(/\s+$/, '')).join('\n')
+    if (text.length > 0) this.onCopy?.(text)
   }
 
   private submit(): void {

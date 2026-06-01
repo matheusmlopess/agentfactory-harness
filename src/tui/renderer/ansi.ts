@@ -60,3 +60,8 @@ const OSC = `${ESC}]`
 const ST  = `${ESC}\\`  // String Terminator
 export const osc8Open  = (url: string): string => `${OSC}8;;${url}${ST}`
 export const osc8Close = (): string => `${OSC}8;;${ST}`
+
+// OSC 52 — set the system clipboard from the terminal (works over SSH/WSL).
+// Portable across iTerm2, kitty, Windows Terminal, most xterm-likes.
+export const osc52Copy = (text: string): string =>
+  `${OSC}52;c;${Buffer.from(text, 'utf8').toString('base64')}${ST}`
