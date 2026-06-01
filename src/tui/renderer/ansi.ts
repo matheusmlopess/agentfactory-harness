@@ -49,3 +49,9 @@ export const reverse = (): string => sgr(7)
 
 export const clearLine = (): string => `${CSI}2K`
 export const clearToEol = (): string => `${CSI}0K`
+
+// OSC 8 hyperlinks (supported by most modern terminals)
+const OSC = `${ESC}]`
+const ST  = `${ESC}\\`  // String Terminator
+export const osc8Open  = (url: string): string => `${OSC}8;;${url}${ST}`
+export const osc8Close = (): string => `${OSC}8;;${ST}`
