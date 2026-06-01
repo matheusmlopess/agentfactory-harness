@@ -247,6 +247,32 @@ core:
     wave: 1
     status: implemented
 
+  - path: src/core/rollout.ts
+    purpose: "Append-only JSONL session persistence (Codex-style rollout files) — ~/.config/agentfactory/sessions/<day>/rollout-*.jsonl"
+    exports:
+      - RolloutEvent (type union)
+      - RolloutMeta (interface)
+      - RolloutHandle (interface)
+      - RolloutStore (class)
+      - rolloutStore (singleton)
+    wave: 5
+    status: implemented
+
+  - path: src/core/rollout.test.ts
+    purpose: RolloutStore tests — create/meta, append order, list newest-first, load, sanitize
+    wave: 5
+    status: implemented
+
+  - path: src/core/nobel.ts
+    purpose: "Nobel laureate names + quotes/contributions for session naming and hover tooltips"
+    exports:
+      - Laureate (interface)
+      - LAUREATES (array)
+      - nextLaureate (function)
+      - findLaureate (function)
+    wave: 5
+    status: implemented
+
   - path: src/core/hooks.ts
     purpose: "Hook runner — PreToolUse PostToolUse SessionStart SessionStop StepStart StepComplete AgentSpawn"
     exports:

@@ -12,6 +12,7 @@ import type { Provider, ModelEntry } from '../../core/llm/index.js'
 import { store } from '../../core/config/store.js'
 import { ScrollableList } from '../widgets/ScrollableList.js'
 import { nextLaureate, type Laureate } from '../../core/nobel.js'
+import { rolloutStore, type RolloutHandle, type RolloutEvent } from '../../core/rollout.js'
 
 const MAX_PICKER_VISIBLE = 10
 
@@ -74,6 +75,7 @@ const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: '/help',   desc: 'Show available commands'                  },
   { name: '/model',  desc: 'Select model (provider → model)'          },
   { name: '/chat',   desc: 'Toggle plain chat (no tools, cheaper)'    },
+  { name: '/resume', desc: 'List & reload saved sessions (/resume N)' },
   { name: '/config', desc: 'Open Config tab (API keys, login)'        },
   { name: '/clear',  desc: 'Clear the conversation'                   },
   { name: '/tokens', desc: 'Show approximate token count'             },
@@ -91,6 +93,7 @@ interface SessionRecord {
   chatMode:      boolean
   status:        'idle' | 'running' | 'done' | 'error'
   lastStats:     SessionStats | null
+  rollout:       RolloutHandle | null   // append-only JSONL persistence
 }
 
 export class SessionPanel extends Panel {
@@ -160,6 +163,7 @@ export class SessionPanel extends Panel {
       chatMode,
       status:        'idle',
       lastStats:     null,
+      rollout:       rolloutStore.create(l.name, model?.id ?? 'default'),
     }
   }
 
@@ -196,6 +200,31 @@ export class SessionPanel extends Panel {
       this.clearSelection()
       this.onUpdate()
     }
+  }
+
+  /** Reload a saved rollout into a new active session (replays its events). */
+  private resumeFrom(id: string, name: string): void {
+    const events: RolloutEvent[] = rolloutStore.load(id)
+    const rec = this.makeRecord(nextLaureate(new Set(this.sessions.map(s => s.name))))
+    rec.name = `${name}*`   // resumed marker
+    rec.lines = [{ role: 'system', text: `Resumed session "${name}" (${events.length} events).` }]
+    for (const ev of events) {
+      if (ev.type === 'user') {
+        rec.lines.push({ role: 'user', text: ev.text })
+        rec.session.addMessage({ role: 'user', content: ev.text })
+      } else if (ev.type === 'assistant') {
+        rec.lines.push({ role: 'assistant', text: ev.text })
+        rec.session.addMessage({ role: 'assistant', content: ev.text })
+      } else if (ev.type === 'system') {
+        rec.lines.push({ role: 'system', text: ev.text })
+      } else if (ev.type === 'tool') {
+        rec.lines.push({ role: 'system', text: ev.name === 'result' ? `  → ${ev.result ?? ''}` : `  tool: ${ev.name}` })
+      }
+    }
+    this.sessions.push(rec)
+    this.activeIdx = this.sessions.length - 1
+    this.clearSelection()
+    this.onUpdate()
   }
 
   /** Toggle chat mode (tools off/on) for the active session. */
@@ -944,6 +973,7 @@ export class SessionPanel extends Panel {
 
     this.lines.push({ role: 'user', text })
     this.session.addMessage({ role: 'user', content: text })
+    this.active.rollout?.append({ type: 'user', text })
     this.scrollOffset = 0
     this.onUpdate()
     void this.runAgentLoop(this.active)   // capture record so switching is safe
@@ -961,11 +991,28 @@ export class SessionPanel extends Panel {
     const name = parts[0] ?? ''
     switch (name) {
       case 'help':
-        this.lines.push({ role: 'system', text: 'Commands: /help /model /chat /config /clear /tokens' })
+        this.lines.push({ role: 'system', text: 'Commands: /help /model /chat /resume /config /clear /tokens' })
         break
       case 'chat':
         this.toggleChatMode()
         break
+      case 'resume': {
+        const arg = parts.slice(1).join(' ').trim()
+        const saved = rolloutStore.list()
+        if (!arg) {
+          if (saved.length === 0) { this.lines.push({ role: 'system', text: 'No saved sessions yet.' }); break }
+          this.lines.push({ role: 'system', text: 'Saved sessions (use /resume N):' })
+          saved.slice(0, 12).forEach((m, i) => {
+            this.lines.push({ role: 'system', text: `  ${i + 1}. ${m.name} · ${m.model} · ${m.createdAt.slice(0, 16).replace('T', ' ')}` })
+          })
+        } else {
+          const n = parseInt(arg, 10)
+          const meta = saved[n - 1]
+          if (!meta) { this.lines.push({ role: 'system', text: `No saved session #${arg}.` }); break }
+          this.resumeFrom(meta.id, meta.name)
+        }
+        break
+      }
       case 'config':
       case 'settings':
         this.onNavigate?.('config')
@@ -1057,13 +1104,18 @@ export class SessionPanel extends Panel {
         } else if (event.type === 'tool_start') {
           currentLine = undefined
           rec.lines.push({ role: 'system', text: `  tool: ${event.name}` })
+          rec.rollout?.append({ type: 'tool', name: event.name })
           this.onUpdate()
         } else if (event.type === 'tool_result') {
           const preview = event.content.substring(0, 80).replace(/\n/g, ' ')
           rec.lines.push({ role: 'system', text: `  → ${preview}` })
+          rec.rollout?.append({ type: 'tool', name: 'result', result: preview })
           currentLine = undefined
           this.onUpdate()
         } else if (event.type === 'turn_end') {
+          if (currentLine && currentLine.text.length > 0) {
+            rec.rollout?.append({ type: 'assistant', text: currentLine.text })
+          }
           currentLine = undefined
         } else if (event.type === 'stats') {
           lastStats = {
@@ -1071,10 +1123,12 @@ export class SessionPanel extends Panel {
             inputTokens: event.inputTokens, outputTokens: event.outputTokens,
             toolCalls: event.toolCalls, turns: event.turns, startTime,
           }
+          rec.rollout?.append({ type: 'stats', input: event.inputTokens, output: event.outputTokens, toolCalls: event.toolCalls, turns: event.turns })
           pushStats(lastStats)
         } else if (event.type === 'error') {
           hadError = true
           rec.lines.push({ role: 'system', text: `Error: ${event.error.message}` })
+          rec.rollout?.append({ type: 'system', text: `Error: ${event.error.message}` })
           this.onUpdate()
         }
       }
