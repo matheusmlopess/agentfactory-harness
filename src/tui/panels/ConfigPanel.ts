@@ -190,6 +190,17 @@ export class ConfigPanel extends Panel {
     // Format hint
     buf.write(modalRow + 3, modalCol + 2, `Format: ${def.hint}`.substring(0, modalW - 4), { fg: Colors.textDim, bg: Colors.bgPanel })
 
+    // Token URL — row 4; OSC 8 makes it Ctrl+clickable in modern terminals
+    if (def.tokenUrl) {
+      const urlLabel = `  ↗  ${def.tokenUrl}`
+      buf.write(modalRow + 4, modalCol + 2, urlLabel.substring(0, modalW - 4), {
+        fg: Colors.info,
+        bg: Colors.bgPanel,
+        underline: true,
+        link: `https://${def.tokenUrl}`,
+      })
+    }
+
     // Input field
     const prompt = '  > '
     const cursor = '█'
@@ -197,6 +208,11 @@ export class ConfigPanel extends Panel {
     const inputDisplay = this.editBuf.length > fieldW ? this.editBuf.slice(-fieldW) + cursor : this.editBuf + cursor
     const inputLine = (prompt + inputDisplay).substring(0, modalW - 2).padEnd(modalW - 2)
     buf.write(modalRow + 5, modalCol + 1, inputLine, { fg: Colors.text, bg: Colors.bgActive })
+
+    // Ctrl+click hint — row 6 (only when a link is shown)
+    if (def.tokenUrl) {
+      buf.write(modalRow + 6, modalCol + 2, 'Ctrl+click ↗ to open in browser', { fg: Colors.textDim, bg: Colors.bgPanel })
+    }
 
     // Save/cancel hint
     buf.write(modalRow + 7, modalCol + 2, '[Enter] Save    [Esc] Cancel', { fg: Colors.textDim, bg: Colors.bgPanel })

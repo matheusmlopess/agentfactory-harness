@@ -11,6 +11,7 @@ export interface Cell {
   dim: boolean
   underline: boolean
   reverse: boolean
+  link?: string  // OSC 8 hyperlink URL (undefined = no link)
 }
 
 const BLANK: Cell = {
@@ -66,6 +67,7 @@ export class CellBuffer {
         dim: style.dim ?? false,
         underline: style.underline ?? false,
         reverse: style.reverse ?? false,
+        ...(style.link !== undefined ? { link: style.link } : {}),
       }
     }
   }
@@ -89,6 +91,7 @@ export class CellBuffer {
     let out = ''
     let lastRow = -1
     let lastCol = -1
+    let currentLink = ''  // tracks the OSC 8 link state emitted to the terminal
 
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
@@ -103,7 +106,8 @@ export class CellBuffer {
           old.bold === cur.bold &&
           old.dim === cur.dim &&
           old.underline === cur.underline &&
-          old.reverse === cur.reverse
+          old.reverse === cur.reverse &&
+          old.link === cur.link
         ) continue
 
         if (lastRow !== r || lastCol !== c) {
@@ -118,6 +122,14 @@ export class CellBuffer {
         codes.push(...fgCodes(cur.fg))
         codes.push(...bgCodes(cur.bg))
         out += A.sgr(...codes)
+
+        // OSC 8 hyperlink — emit open/close only on transitions
+        const linkUrl = cur.link ?? ''
+        if (linkUrl !== currentLink) {
+          out += linkUrl ? A.osc8Open(linkUrl) : A.osc8Close()
+          currentLink = linkUrl
+        }
+
         out += cur.char
 
         lastRow = r
@@ -125,6 +137,7 @@ export class CellBuffer {
       }
     }
 
+    if (currentLink) out += A.osc8Close()  // close any open link before SGR reset
     if (out) out += A.sgr(0)
     return out
   }
