@@ -99,9 +99,16 @@ export class OpenAIAdapter implements LLMAdapter {
     const oaiMessages = toOpenAIMessages(messages, systemPrompt)
     const oaiTools = toOpenAITools(tools)
 
+    // Reasoning models (o1/o3/o4, gpt-5) require max_completion_tokens and reject
+    // the legacy max_tokens parameter. Pick the right field per model.
+    const isReasoning = /^(o\d|gpt-5)/.test(model)
+    const tokenParam = isReasoning
+      ? { max_completion_tokens: maxTokens }
+      : { max_tokens: maxTokens }
+
     const sdkStream = await this.#client.chat.completions.create({
       model,
-      max_tokens: maxTokens,
+      ...tokenParam,
       messages: oaiMessages,
       stream: true,
       stream_options: { include_usage: true },

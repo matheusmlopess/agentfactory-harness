@@ -482,7 +482,11 @@ export class App {
           if (mouse.row === 0) {
             if (this.isExitBtn(mouse.col)) { this.stop(); return }
             const tab = this.tabAt(mouse.col)
-            if (tab >= 0) { this.activeTab = tab; this.render(); return }
+            if (tab >= 0) {
+              // Clicking the Session tab while already on it opens the New Session menu
+              if (tab === 0 && this.activeTab === 0) { this.sessionPanel.openNewSessionMenu() }
+              this.activeTab = tab; this.render(); return
+            }
           }
           // Status bar model tag click → open model picker in session panel
           if (mouse.row === this.rows - 1 &&
@@ -571,7 +575,7 @@ export class App {
       }
 
       // F1–F5 switch panels without stealing printable characters
-      if (key.key === 'f1') { this.activeTab = 0;           this.render(); return }
+      if (key.key === 'f1') { if (this.activeTab === 0) this.sessionPanel.openNewSessionMenu(); this.activeTab = 0; this.render(); return }
       if (key.key === 'f2') { this.activeTab = 1;           this.render(); return }
       if (key.key === 'f3') { this.activeTab = 2;           this.render(); return }
       if (key.key === 'f4') { this.activeTab = TAB_TERMINAL; this.render(); return }

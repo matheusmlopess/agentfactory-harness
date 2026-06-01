@@ -10,6 +10,7 @@ import { runHook } from '../../core/hooks.js'
 import { createAdapter, defaultProvider, listModels } from '../../core/llm/index.js'
 import type { Provider, ModelEntry } from '../../core/llm/index.js'
 import { store } from '../../core/config/store.js'
+import { ScrollableList } from '../widgets/ScrollableList.js'
 
 const MAX_PICKER_VISIBLE = 10
 
@@ -27,6 +28,30 @@ const FALLBACK_MODELS: readonly ModelEntry[] = [
 interface ChatLine {
   role: 'user' | 'assistant' | 'system'
   text: string
+}
+
+/**
+ * Make text safe for the single-width monospace cell buffer.
+ *
+ * The buffer writes one UTF-16 code unit per cell, so astral characters
+ * (emoji, which are surrogate pairs) split into two broken cells ("◆◆").
+ * We replace common emoji with a tasteful ASCII glyph and strip the rest,
+ * plus zero-width joiners and variation selectors that leave stray cells.
+ */
+function sanitizeForDisplay(text: string): string {
+  let out = ''
+  for (const ch of text) {                         // iterate by code point
+    const cp = ch.codePointAt(0) ?? 0
+    if (cp === 0x200d || (cp >= 0xfe00 && cp <= 0xfe0f)) continue  // ZWJ / VS
+    if (cp > 0xffff) { out += EMOJI_ASCII[ch] ?? '' ; continue }   // astral → glyph or drop
+    out += ch
+  }
+  return out
+}
+
+const EMOJI_ASCII: Record<string, string> = {
+  '👋': ':)', '😀': ':)', '😊': ':)', '🙂': ':)', '👍': '(y)',
+  '🎉': '*', '✨': '*', '🚀': '^', '🔥': '!', '❤️': '<3', '💡': '(i)',
 }
 
 export interface SessionStats {
@@ -77,6 +102,10 @@ export class SessionPanel extends Panel {
   private pickerModels: ModelEntry[] = []
   private pickerLoading = false
   private pickerScrollOffset = 0
+  // New-session menu (uses the reusable ScrollableList)
+  private newSessionOpen = false
+  private newSessionList = new ScrollableList(8)
+  private newSessionTargets: ({ kind: 'standard' } | { kind: 'provider'; provider: Provider })[] = []
 
   constructor(rect: Rect, onUpdate: () => void, onStats?: (s: SessionStats) => void, onNavigate?: (target: 'config') => void) {
     super(rect)
@@ -90,6 +119,59 @@ export class SessionPanel extends Panel {
   getSession(): Session { return this.session }
 
   getSelectedModel(): ModelEntry | null { return this.selectedModel }
+
+  /** Open the "New Session" menu: standard agent or a configured provider. */
+  openNewSessionMenu(): void {
+    const ALL: { provider: Provider; name: string }[] = [
+      { provider: 'anthropic', name: 'Anthropic Claude' },
+      { provider: 'openai',    name: 'OpenAI'           },
+    ]
+    const configured = ALL.filter(p =>
+      !!(store.getKey(p.provider, p.provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'))
+    )
+
+    this.newSessionTargets = [{ kind: 'standard' }]
+    const rows = [{ text: '⚡ Standard AgentFactory agent' }]
+    if (configured.length > 0) {
+      rows.push({ text: '── Providers ──', header: true } as never)
+      for (const p of configured) {
+        this.newSessionTargets.push({ kind: 'provider', provider: p.provider })
+        rows.push({ text: `◆ ${p.name} session` })
+      }
+    }
+    this.newSessionList.setRows(rows)
+    this.newSessionOpen = true
+    this.onUpdate()
+  }
+
+  private confirmNewSession(): void {
+    // selectedIndex counts headers too; map via row position to a target.
+    // Build the same row→target mapping used when constructing rows.
+    const sel = this.newSessionList.selectedIndex
+    // Count non-header rows up to and including sel to find target index.
+    // Simpler: targets are in order, header is the only non-target row.
+    // standard=row0→target0; header=row1; provider rows → targets 1..n
+    let targetIdx: number
+    if (sel === 0) targetIdx = 0
+    else targetIdx = sel - 1  // one header row sits at index 1
+    const target = this.newSessionTargets[targetIdx]
+    this.newSessionOpen = false
+
+    this.session.clear()
+    if (!target || target.kind === 'standard') {
+      this.selectedModel = null
+      this.lines = [{ role: 'system', text: 'New standard AgentFactory session started.' }]
+      this.onUpdate()
+      return
+    }
+    // Provider session → reset and open the model picker for that provider
+    this.lines = [{ role: 'system', text: `New ${target.provider} session — choose a model.` }]
+    this.onUpdate()
+    this.pickerProviders   = [{ provider: target.provider, name: target.provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI' }]
+    this.pickerProviderIdx = 0
+    this.modelPickerOpen   = true
+    this.selectProvider(0)
+  }
 
   /** Open the model picker — shows provider selection first. */
   openModelPicker(): void {
@@ -198,8 +280,29 @@ export class SessionPanel extends Panel {
     // Slash command autocomplete (above the input bar)
     this.renderAutocomplete(buf, r, inputRow)
 
-    // Model picker overlay
+    // Overlays
+    if (this.newSessionOpen) this.renderNewSessionMenu(buf, r)
     if (this.modelPickerOpen) this.renderModelPicker(buf, r)
+  }
+
+  private renderNewSessionMenu(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
+    const modalW   = Math.min(r.width - 4, 46)
+    const rows     = this.newSessionList.shownCount + (this.newSessionList.isScrollable ? 1 : 0)
+    const modalH   = rows + 2
+    const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
+    const modalCol = r.col + Math.floor((r.width - modalW) / 2)
+    const inner    = modalW - 2
+
+    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
+    const hLine = '─'.repeat(inner)
+    buf.write(modalRow,              modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    for (let i = 1; i < modalH - 1; i++) {
+      buf.write(modalRow + i, modalCol,            '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.write(modalRow + i, modalCol + modalW-1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    }
+    buf.write(modalRow, modalCol + 2, ' New Session ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+    this.newSessionList.render(buf, modalRow + 1, modalCol + 1, inner)
   }
 
   /** Commands matching the current input, or [] if autocomplete isn't active. */
@@ -364,6 +467,15 @@ export class SessionPanel extends Panel {
   }
 
   onKey(e: KeyEvent): boolean {
+    // New-session menu intercepts all keys when open
+    if (this.newSessionOpen) {
+      if (e.key === 'escape')     { this.newSessionOpen = false; this.onUpdate(); return true }
+      if (e.key === 'arrow_up')   { this.newSessionList.moveUp();   this.onUpdate(); return true }
+      if (e.key === 'arrow_down') { this.newSessionList.moveDown(); this.onUpdate(); return true }
+      if (e.key === 'enter')      { this.confirmNewSession(); return true }
+      return true
+    }
+
     if (this.modelPickerOpen) {
       if (e.key === 'escape') {
         if (this.pickerStep === 'model' && this.pickerProviders.length > 1) {
@@ -465,6 +577,26 @@ export class SessionPanel extends Panel {
   }
 
   override onMouse(e: MouseEvent): boolean {
+    // New-session menu intercepts all mouse when open
+    if (this.newSessionOpen) {
+      if (e.button === 'scroll_up')   { this.newSessionList.scrollUp();   this.onUpdate(); return true }
+      if (e.button === 'scroll_down') { this.newSessionList.scrollDown(); this.onUpdate(); return true }
+      if (e.button === 'left' && e.action === 'press') {
+        const r = this.inner
+        const modalW   = Math.min(r.width - 4, 46)
+        const rows     = this.newSessionList.shownCount + (this.newSessionList.isScrollable ? 1 : 0)
+        const modalH   = rows + 2
+        const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
+        const modalCol = r.col + Math.floor((r.width - modalW) / 2)
+        if (e.row < modalRow || e.row >= modalRow + modalH || e.col < modalCol || e.col >= modalCol + modalW) {
+          this.newSessionOpen = false; this.onUpdate(); return true
+        }
+        const vRow = e.row - (modalRow + 1)
+        if (this.newSessionList.selectAtViewportRow(vRow) >= 0) this.confirmNewSession()
+      }
+      return true
+    }
+
     // Model picker intercepts all mouse when open
     if (this.modelPickerOpen) {
       if (e.button === 'scroll_up' && this.pickerStep === 'model') {
@@ -538,7 +670,8 @@ export class SessionPanel extends Panel {
   /** Word-wrap prose to `width`; keep table/code lines as single (h-scrollable) lines. */
   private buildDisplayLines(width: number): ChatLine[] {
     const out: ChatLine[] = []
-    for (const line of this.lines) {
+    for (const raw of this.lines) {
+      const line = { role: raw.role, text: sanitizeForDisplay(raw.text) }
       if (line.text.length <= width || this.isWideContent(line.text)) {
         out.push(line)
         continue
