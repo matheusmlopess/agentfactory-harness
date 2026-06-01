@@ -247,6 +247,32 @@ core:
     wave: 1
     status: implemented
 
+  - path: src/core/rollout.ts
+    purpose: "Append-only JSONL session persistence (Codex-style rollout files) — ~/.config/agentfactory/sessions/<day>/rollout-*.jsonl"
+    exports:
+      - RolloutEvent (type union)
+      - RolloutMeta (interface)
+      - RolloutHandle (interface)
+      - RolloutStore (class)
+      - rolloutStore (singleton)
+    wave: 5
+    status: implemented
+
+  - path: src/core/rollout.test.ts
+    purpose: RolloutStore tests — create/meta, append order, list newest-first, load, sanitize
+    wave: 5
+    status: implemented
+
+  - path: src/core/nobel.ts
+    purpose: "Nobel laureate names + quotes/contributions for session naming and hover tooltips"
+    exports:
+      - Laureate (interface)
+      - LAUREATES (array)
+      - nextLaureate (function)
+      - findLaureate (function)
+    wave: 5
+    status: implemented
+
   - path: src/core/hooks.ts
     purpose: "Hook runner — PreToolUse PostToolUse SessionStart SessionStop StepStart StepComplete AgentSpawn"
     exports:
@@ -404,22 +430,45 @@ harness:
     status: planned
 
 registry:
-  - path: src/registry/client.ts
-    purpose: agentfactory.dev REST client — publish, fetch, list
-    exports:
-      - RegistryClient (class)
-      - "publish(agent)"
-      - "fetch(slug)"
-    wave: 5
-    status: planned
-
   - path: src/registry/auth.ts
-    purpose: "Token auth — reads ~/.agentfactory/token"
+    purpose: "Registry auth — read/write/clear ~/.agentfactory/token; decode JWT to AuthUser"
     exports:
-      - "getToken(): string | null"
-      - "saveToken(t: string)"
+      - AuthUser (interface)
+      - "getToken(): Promise<string | null>"
+      - "saveToken(t: string): Promise<void>"
+      - "clearToken(): Promise<void>"
+      - "decodeUser(token: string): AuthUser | null"
+      - "getUser(): Promise<AuthUser | null>"
     wave: 5
-    status: planned
+    status: implemented
+
+  - path: src/registry/auth.test.ts
+    purpose: decodeUser unit tests — valid JWT, missing handle, malformed, default plan
+    wave: 5
+    status: implemented
+
+  - path: src/registry/client.ts
+    purpose: "agentfactory.dev typed fetch wrapper — reads Bearer token from auth.ts; get/post/put/delete"
+    exports:
+      - registryClient (singleton)
+    wave: 5
+    status: implemented
+
+  - path: src/registry/login.ts
+    purpose: "Device-code login flow — POST /auth/cli/device, open browser, poll for token, save on success"
+    exports:
+      - LoginEvent (type union)
+      - "startDeviceLogin(): AsyncIterable<LoginEvent>"
+    wave: 5
+    status: implemented
+
+  - path: src/registry/import-keys.ts
+    purpose: "Scan ~/.claude/.credentials.json and env vars for known API keys; return candidates for user confirmation"
+    exports:
+      - ImportCandidate (interface)
+      - "importFromTools(): Promise<ImportCandidate[]>"
+    wave: 5
+    status: implemented
 
 cli:
   - path: src/index.ts
@@ -548,6 +597,11 @@ docs:
   - path: docs/features/FEATURE-WAVE-4-TERMINAL-PANEL.md
     purpose: "Wave 4 feature doc — VTScreen + TerminalPanel: architecture, ANSI matrix, 9 E2E tests, design trade-offs, 9 gaps, infra notes"
     wave: 4
+    status: implemented
+
+  - path: docs/features/FEATURE-TOOLS-AND-TOKEN-FLOW.md
+    purpose: "Tool catalog, request anatomy, token cost breakdown, agent vs /chat mode — mermaid diagrams, tree views, 10 worked scenarios"
+    wave: 5
     status: implemented
 
   - path: docs/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md

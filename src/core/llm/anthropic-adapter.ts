@@ -33,8 +33,15 @@ export class AnthropicAdapter implements LLMAdapter {
       ...(apiTools.length > 0 ? { tools: apiTools } : {}),
     })
 
+    let inputTokens = 0
+
     for await (const event of sdkStream) {
       if (signal?.aborted) return
+
+      // message_start carries input_tokens (real count from the API)
+      if (event.type === 'message_start') {
+        inputTokens = event.message.usage?.input_tokens ?? 0
+      }
 
       if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
         yield { type: 'tool_start', id: event.content_block.id, name: event.content_block.name }
@@ -49,6 +56,9 @@ export class AnthropicAdapter implements LLMAdapter {
       }
 
       if (event.type === 'message_delta') {
+        // message_delta carries cumulative output_tokens
+        const outputTokens = event.usage?.output_tokens ?? 0
+        yield { type: 'usage', inputTokens, outputTokens }
         yield { type: 'message_end', stop_reason: event.delta.stop_reason ?? 'end_turn' }
       }
     }

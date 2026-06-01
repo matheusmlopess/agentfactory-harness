@@ -26,6 +26,9 @@ import { createAdapter, defaultProvider } from './core/llm/index.js'
 import { ConfigPanel } from './tui/panels/ConfigPanel.js'
 import { store } from './core/config/store.js'
 import { CommandPalette } from './tui/widgets/CommandPalette.js'
+import { getUser, clearToken } from './registry/auth.js'
+import { startDeviceLogin } from './registry/login.js'
+import { importFromTools } from './registry/import-keys.js'
 
 const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config']
 const TAB_TERMINAL = 3
@@ -51,8 +54,11 @@ export class App {
   private configPanel: ConfigPanel | null = null
   private palette!: CommandPalette
   private paletteOpen = false
+  private statusBarModelTagCol = -1
+  private statusBarModelTagLen = 0
   private panels!: Panel[]
   private router = new InputRouter()
+  private mouseEnabled = true   // toggled off (Ctrl+E) to allow native text selection/copy
 
   constructor() {
     this.buf  = new CellBuffer(this.rows, this.cols)
@@ -73,6 +79,8 @@ export class App {
     await store.init()
     this.initPanels()
     await this.tryLoadPlan()
+    // Load registry auth user in background — don't block startup
+    void getUser().then(user => { this.configPanel?.setAuthUser(user) })
     this.render()
     this.listenInput()
   }
@@ -88,11 +96,20 @@ export class App {
 
   private initPanels(): void {
     const layout = computeLayout(this.rows, this.cols)
-    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender())
+    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender(),
+      () => { this.scheduleRender() },                                  // onStats: records hold state; just repaint
+      (target) => { if (target === 'config') { this.activeTab = TAB_CONFIG; this.render() } },
+      (text) => { process.stdout.write(A.osc52Copy(text)) },           // onCopy via OSC 52
+    )
     this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
-    this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender())
-    this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
-    this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender())
+    this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender(),
+      (idx) => { this.sessionPanel.switchTo(idx); this.render() },     // click a session → switch active
+    )
+    this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender(), {
+      onLogin:  () => { void this.runLoginFlow() },
+      onLogout: () => { void this.runLogout()    },
+      onImport: () => { void this.runImport()    },
+    })
     // ConfigPanel (TAB_CONFIG=4) is dispatched explicitly — keep it out of panels[]
     // so router.dispatch(key/mouse, this.panels, activeTab) is never called with index 4.
     this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
@@ -103,6 +120,8 @@ export class App {
       { id: 'switch-agents',        label: 'Switch to Agents',        hint: 'F3',     action: () => { this.activeTab = 2;           this.render() } },
       { id: 'switch-terminal',      label: 'Switch to Terminal',      hint: 'F4',     action: () => { this.activeTab = TAB_TERMINAL; this.render() } },
       { id: 'switch-config',        label: 'Switch to Config',        hint: 'F5',     action: () => { this.activeTab = TAB_CONFIG;   this.render() } },
+      { id: 'login',                label: 'Login to AgentFactory',   hint: '',       action: () => { this.activeTab = TAB_CONFIG; void this.runLoginFlow() } },
+      { id: 'logout',               label: 'Logout from AgentFactory',hint: '',       action: () => { void this.runLogout() } },
       { id: 'run-plan',             label: 'Run Plan',                hint: 'Ctrl+R', action: () => { void this.runPlan() } },
       { id: 'clear-session',        label: 'Clear Session',           hint: '',       action: () => { this.sessionPanel.clearSession(); this.render() } },
       { id: 'quit',                 label: 'Quit',                    hint: 'Ctrl+Q', action: () => { this.stop() } },
@@ -143,6 +162,30 @@ export class App {
     this.scheduleRender()
   }
 
+  private async runLoginFlow(): Promise<void> {
+    if (!this.configPanel) return
+    this.activeTab = TAB_CONFIG
+    this.render()
+    for await (const ev of startDeviceLogin()) {
+      this.configPanel.updateLoginEvent(ev)
+      this.render()
+      if (ev.kind === 'success' || ev.kind === 'error') break
+    }
+  }
+
+  private async runLogout(): Promise<void> {
+    await clearToken()
+    this.configPanel?.setAuthUser(null)
+    this.render()
+  }
+
+  private async runImport(): Promise<void> {
+    if (!this.configPanel) return
+    const candidates = await importFromTools()
+    this.configPanel.showImportCandidates(candidates)
+    this.render()
+  }
+
   private async runPlan(): Promise<void> {
     if (!this.currentPlan || this.planRunning) return
     this.planRunning = true
@@ -181,6 +224,7 @@ export class App {
       A.enterAltScreen() +
       A.hideCursor() +
       A.enableMouse() +
+      A.enableBracketedPaste() +
       A.clearScreen()
     )
 
@@ -217,8 +261,35 @@ export class App {
     // but NOT on SIGKILL. Ensures mouse tracking and alt-screen are always
     // disabled even if stop() was never called.
     process.on('exit', () => {
-      process.stdout.write(A.disableMouse() + A.showCursor() + A.exitAltScreen())
+      process.stdout.write(A.disableMouse() + A.disableBracketedPaste() + A.showCursor() + A.exitAltScreen())
     })
+  }
+
+  /** Push the SessionPanel's session list into the Agents panel (switcher + stats). */
+  private refreshAgents(): void {
+    const metas = this.sessionPanel.sessionMetas()
+    this.agentsPanel.setAgents(metas.map(m => ({
+      name:         m.name,
+      status:       m.status,
+      active:       m.active,
+      ...(m.stats ? {
+        model:        m.stats.model,
+        inputTokens:  m.stats.inputTokens,
+        outputTokens: m.stats.outputTokens,
+        toolCalls:    m.stats.toolCalls,
+        turns:        m.stats.turns,
+        startTime:    m.stats.startTime,
+        ...(m.status !== 'running' ? { endTime: Date.now() } : {}),
+      } : {}),
+    })))
+  }
+
+  /** Toggle mouse reporting. When off, the terminal handles native text
+   *  selection so the user can copy output; when on, the TUI gets clicks. */
+  private toggleMouseCapture(): void {
+    this.mouseEnabled = !this.mouseEnabled
+    process.stdout.write(this.mouseEnabled ? A.enableMouse() : A.disableMouse())
+    this.render()
   }
 
   stop(): void {
@@ -231,7 +302,7 @@ export class App {
     process.stdin.pause()
     // Write cleanup sequences and exit only after they are flushed to the terminal
     process.stdout.write(
-      A.disableMouse() + A.showCursor() + A.exitAltScreen(),
+      A.disableMouse() + A.disableBracketedPaste() + A.showCursor() + A.exitAltScreen(),
       () => process.exit(0),
     )
   }
@@ -270,12 +341,23 @@ export class App {
       this.canvasPanel.focused = this.activeTab === 1
       this.canvasPanel.render(this.buf)
 
+      this.refreshAgents()
       this.agentsPanel.rect    = layout.agents
       this.agentsPanel.focused = this.activeTab === 2
       this.agentsPanel.render(this.buf)
     }
 
-    renderStatusBar(this.buf, layout.statusBar, this.planRunning ? 'running' : undefined, this.statusError ?? undefined)
+    // Always show a model tag — selected ID or "select model" as a click prompt
+    const modelLabel = this.sessionPanel.getSelectedModel()?.id ?? 'select model'
+    const mode = this.planRunning ? 'running' : this.mouseEnabled ? 'NORMAL' : 'SELECT'
+    const sbLayout = renderStatusBar(
+      this.buf, layout.statusBar,
+      mode,
+      this.statusError ?? undefined,
+      modelLabel,
+    )
+    this.statusBarModelTagCol = sbLayout.modelTagCol
+    this.statusBarModelTagLen = sbLayout.modelTagLen
 
     if (this.paletteOpen) this.palette.render(this.buf, this.rows, this.cols)
 
@@ -397,6 +479,9 @@ export class App {
       // Mouse event — try before keyboard (non-terminal tabs only)
       const mouse = parseMouse(data)
       if (mouse) {
+        // Shift+click: pass through to terminal for native text selection
+        if (mouse.shift) return
+
         // Palette overlay intercepts ALL mouse when open — nothing behind it is clickable
         if (this.paletteOpen) {
           this.palette.onMouse(mouse, this.rows, this.cols)
@@ -409,7 +494,21 @@ export class App {
           if (mouse.row === 0) {
             if (this.isExitBtn(mouse.col)) { this.stop(); return }
             const tab = this.tabAt(mouse.col)
-            if (tab >= 0) { this.activeTab = tab; this.render(); return }
+            if (tab >= 0) {
+              // Clicking the Session tab while already on it opens the New Session menu
+              if (tab === 0 && this.activeTab === 0) { this.sessionPanel.openNewSessionMenu() }
+              this.activeTab = tab; this.render(); return
+            }
+          }
+          // Status bar model tag click → open model picker in session panel
+          if (mouse.row === this.rows - 1 &&
+              this.statusBarModelTagCol >= 0 &&
+              mouse.col >= this.statusBarModelTagCol &&
+              mouse.col < this.statusBarModelTagCol + this.statusBarModelTagLen) {
+            this.activeTab = 0  // switch to Session tab
+            this.sessionPanel.openModelPicker()
+            this.render()
+            return
           }
           // Panel body click — focus the panel under the cursor
           const clickedTab = this.panelTabAt(mouse.row, mouse.col)
@@ -425,16 +524,56 @@ export class App {
           this.render()
           return
         }
-        this.router.dispatch(mouse, this.panels, this.activeTab)
-        this.render()
+        // Only repaint when the panel actually consumed the event — avoids a
+        // full render on every passive-motion (mode 1003) event.
+        if (this.router.dispatch(mouse, this.panels, this.activeTab)) this.render()
         return
       }
 
       const key = parseKey(data)
-      if (!key) return
+      if (!key) {
+        // Bracketed paste or raw multi-char paste — strip markers, dispatch each printable char
+        let str = data.toString('utf8')
+        str = str.replace(/^\x1b\[200~/, '').replace(/\x1b\[201~$/, '')
+        if (str.length > 0 && !str.startsWith('\x1b')) {
+          for (const ch of str) {
+            if (ch >= ' ' && ch !== '\x7f') {
+              const fakeKey = { key: ch, raw: Buffer.from(ch) }
+              if (this.paletteOpen) {
+                this.palette.onKey(fakeKey)
+                if (!this.palette.isOpen) this.paletteOpen = false
+              } else if (this.activeTab === TAB_CONFIG) {
+                this.configPanel!.onKey(fakeKey)
+              } else {
+                this.router.dispatch(fakeKey, this.panels, this.activeTab)
+              }
+            }
+          }
+          this.render()
+        }
+        return
+      }
 
-      if (key.key === 'ctrl+q' || key.key === 'ctrl+c') {
+      if (key.key === 'ctrl+q') {
         this.stop()
+        return
+      }
+
+      // Ctrl+C — copy session selection if one exists; otherwise quit
+      if (key.key === 'ctrl+c') {
+        if (this.activeTab === 0 && this.sessionPanel.hasSelection()) {
+          this.sessionPanel.copySelection()
+          this.sessionPanel.clearSelection()
+          this.render()
+          return
+        }
+        this.stop()
+        return
+      }
+
+      // Ctrl+E — toggle mouse capture so native terminal text selection/copy works
+      if (key.key === 'ctrl+e') {
+        this.toggleMouseCapture()
         return
       }
 
@@ -461,7 +600,7 @@ export class App {
       }
 
       // F1–F5 switch panels without stealing printable characters
-      if (key.key === 'f1') { this.activeTab = 0;           this.render(); return }
+      if (key.key === 'f1') { if (this.activeTab === 0) this.sessionPanel.openNewSessionMenu(); this.activeTab = 0; this.render(); return }
       if (key.key === 'f2') { this.activeTab = 1;           this.render(); return }
       if (key.key === 'f3') { this.activeTab = 2;           this.render(); return }
       if (key.key === 'f4') { this.activeTab = TAB_TERMINAL; this.render(); return }

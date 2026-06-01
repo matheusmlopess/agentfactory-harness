@@ -11,6 +11,9 @@ export type StreamChunk =
   | { type: 'tool_start';       id: string; name: string }
   | { type: 'tool_input_delta'; index: number; json: string }
   | { type: 'message_end';      stop_reason: string }
+  // Real token usage straight from the provider API. Field shapes differ per
+  // provider, so each adapter normalises to this common shape.
+  | { type: 'usage';            inputTokens: number; outputTokens: number }
 
 export interface ToolDef {
   name: string

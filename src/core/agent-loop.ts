@@ -15,6 +15,7 @@ export type AgentEvent =
   | { type: 'tool_result'; id: string; content: string }
   | { type: 'turn_end'; stop_reason: string }
   | { type: 'error'; error: Error }
+  | { type: 'stats'; inputTokens: number; outputTokens: number; toolCalls: number; turns: number; model: string }
 
 export interface AgentLoopOptions {
   maxTurns?: number
@@ -22,9 +23,13 @@ export interface AgentLoopOptions {
   signal?: AbortSignal
   systemPrompt?: string
   adapter?: LLMAdapter
+  /** Plain-chat mode: don't send tool definitions (saves ~220 input tokens/call). */
+  noTools?: boolean
 }
 
-const DEFAULT_MAX_TOKENS = 8192
+// Conservative default — keeps total usage well within older models' context windows.
+// Users on large-context models (claude-3+, gpt-4o, o3) won't notice the cap.
+const DEFAULT_MAX_TOKENS = 2048
 const DEFAULT_SYSTEM = 'You are a helpful assistant in the factory ITUI agent shell.'
 
 export async function* agentLoop(
@@ -39,7 +44,7 @@ export async function* agentLoop(
 
   const adapter = opts.adapter ?? createAdapter(defaultProvider())
   const model = opts.model ?? adapter.defaultModel
-  const tools = listTools()
+  const tools = opts.noTools ? [] : listTools()
 
   const toolDefs = tools.map((t) => ({
     name: t.name,
@@ -47,7 +52,11 @@ export async function* agentLoop(
     inputSchemaJson: t.inputSchemaJson,
   }))
 
-  let turns = 0
+  let turns          = 0
+  let totalInputTok  = 0
+  let totalOutputTok = 0
+  let totalToolCalls = 0
+  const startMs      = Date.now()
 
   while (turns < maxTurns) {
     if (signal?.aborted) return
@@ -56,6 +65,11 @@ export async function* agentLoop(
     let textAccum = ''
     let stopReason = 'end_turn'
     const toolBlocks = new Map<number, { id: string; name: string; inputAccum: string }>()
+
+    // Real usage from the provider API (falls back to estimate if absent)
+    let turnInputTok = 0
+    let turnOutputTok = 0
+    let gotUsage = false
 
     await runHook('StepStart', { turn: turns })
 
@@ -85,6 +99,12 @@ export async function* agentLoop(
             if (block) block.inputAccum += chunk.json
             break
           }
+
+          case 'usage':
+            turnInputTok  = chunk.inputTokens
+            turnOutputTok = chunk.outputTokens
+            gotUsage = true
+            break
 
           case 'message_end':
             stopReason = chunk.stop_reason
@@ -128,12 +148,34 @@ export async function* agentLoop(
     }
 
     session.addMessage({ role: 'assistant', content: assistantContent })
+
+    // Accumulate stats — prefer real API usage, fall back to estimate
+    if (!gotUsage) {
+      turnInputTok  = Math.ceil(JSON.stringify(session.getHistory()).length / 4)
+      turnOutputTok = Math.ceil(textAccum.length / 4)
+    }
+    totalInputTok  += turnInputTok
+    totalOutputTok += turnOutputTok
+    totalToolCalls += toolBlocks.size
+    turns++
+
     await runHook('StepComplete', { turn: turns, stop_reason: stopReason })
     yield { type: 'turn_end', stop_reason: stopReason }
+
+    // Emit live stats after every turn so the UI can update progressively
+    yield {
+      type: 'stats',
+      inputTokens:  totalInputTok,
+      outputTokens: totalOutputTok,
+      toolCalls:    totalToolCalls,
+      turns,
+      model,
+    }
 
     if (stopReason === 'end_turn' || toolBlocks.size === 0) break
 
     session.addMessage({ role: 'user', content: toolResultParts })
-    turns++
   }
+
+  void startMs  // suppress unused warning — useful in future for elapsedMs
 }

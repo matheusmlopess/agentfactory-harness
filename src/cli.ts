@@ -92,7 +92,12 @@ export function buildCli(version: string): Command {
       process.stdout.write(`Plan "${result.data.name}" is valid (${result.data.steps.length} steps)\n`)
     })
 
-  registerTool(AgentTool)
+  // NOTE: AgentTool is intentionally NOT registered globally. The tool registry
+  // is a shared singleton; registering it here leaks the `agent` tool into the
+  // interactive Session loop, where the model calls it with input the Zod schema
+  // rejects ("invalid input for 'agent'"). The orchestration executor uses its
+  // own agentRunner, so it doesn't need the tool registered.
+  void AgentTool
 
   return program
 }

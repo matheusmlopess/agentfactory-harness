@@ -31,11 +31,20 @@ export function listTools(): Tool[] {
 
 export async function dispatch(name: string, rawInput: unknown): Promise<string> {
   const tool = registry.get(name)
-  if (!tool) return `Error: tool "${name}" not found`
+  if (!tool) {
+    const avail = [...registry.keys()].join(', ')
+    return `Error: tool "${name}" is not available. Available tools: ${avail}.`
+  }
 
   const parsed = tool.inputSchema.safeParse(rawInput)
   if (!parsed.success) {
-    return `Error: invalid input for "${name}": ${parsed.error.message}`
+    // Concise, model-friendly summary instead of a raw Zod dump — so any
+    // provider's model recovers in one turn rather than looping on the error.
+    const issues = parsed.error.issues
+      .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+      .join('; ')
+    const required = tool.inputSchemaJson.required ?? []
+    return `Error: invalid input for "${name}". ${issues}. Required fields: ${required.join(', ') || 'none'}.`
   }
 
   try {

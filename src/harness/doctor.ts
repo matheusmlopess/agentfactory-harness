@@ -1,6 +1,7 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
+import { decodeUser } from '../registry/auth.js'
 
 interface CheckResult {
   label: string
@@ -44,11 +45,15 @@ export function runDoctor(cwd: string): CheckResult[] {
   // 3. Auth token file
   const tokenPath = join(homedir(), '.agentfactory', 'token')
   const hasToken = existsSync(tokenPath)
-  results.push({
-    label: 'Registry token',
-    ok: hasToken,
-    detail: hasToken ? tokenPath : 'not found — publish/import unavailable',
-  })
+  let tokenDetail = hasToken ? tokenPath : 'not found — publish/import unavailable'
+  if (hasToken) {
+    try {
+      const raw = readFileSync(tokenPath, 'utf8').trim()
+      const user = decodeUser(raw)
+      if (user) tokenDetail = `@${user.github_handle} (${user.plan})`
+    } catch { /* unreadable token — keep path as detail */ }
+  }
+  results.push({ label: 'Registry token', ok: hasToken, detail: tokenDetail })
 
   // 4. .ai/ harness
   const hasHarness = existsSync(join(cwd, '.ai', 'AgentFactory.md'))

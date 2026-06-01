@@ -10,11 +10,11 @@ export const clearScreen = (): string => `${CSI}2J`
 export const hideCursor = (): string => `${CSI}?25l`
 export const showCursor = (): string => `${CSI}?25h`
 
-// Mouse
+// Mouse — 1000 (clicks) + 1003 (any-motion, enables hover) + 1006 (SGR coords)
 export const enableMouse = (): string =>
-  `${CSI}?1000h${CSI}?1002h${CSI}?1006h`
+  `${CSI}?1000h${CSI}?1003h${CSI}?1006h`
 export const disableMouse = (): string =>
-  `${CSI}?1000l${CSI}?1002l${CSI}?1006l`
+  `${CSI}?1000l${CSI}?1003l${CSI}?1006l`
 
 // Cursor movement (1-indexed)
 export const moveTo = (row: number, col: number): string =>
@@ -50,8 +50,18 @@ export const reverse = (): string => sgr(7)
 export const clearLine = (): string => `${CSI}2K`
 export const clearToEol = (): string => `${CSI}0K`
 
+// Bracketed paste — wraps pasted text in ESC[200~...ESC[201~ so it is not
+// misinterpreted as keystrokes (e.g. a pasted newline won't accidentally submit)
+export const enableBracketedPaste  = (): string => `${CSI}?2004h`
+export const disableBracketedPaste = (): string => `${CSI}?2004l`
+
 // OSC 8 hyperlinks (supported by most modern terminals)
 const OSC = `${ESC}]`
 const ST  = `${ESC}\\`  // String Terminator
 export const osc8Open  = (url: string): string => `${OSC}8;;${url}${ST}`
 export const osc8Close = (): string => `${OSC}8;;${ST}`
+
+// OSC 52 — set the system clipboard from the terminal (works over SSH/WSL).
+// Portable across iTerm2, kitty, Windows Terminal, most xterm-likes.
+export const osc52Copy = (text: string): string =>
+  `${OSC}52;c;${Buffer.from(text, 'utf8').toString('base64')}${ST}`
