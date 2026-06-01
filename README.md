@@ -6,6 +6,8 @@ Chat with models, build agent DAGs by dragging ASCII blocks, run a real shell,
 and manage provider keys — all inside the terminal, with no GUI.
 
 ![factory TUI — Session, Orchestration canvas, Agents stats, multi-session](docs/assets/factory-tui.png)
+<img width="1892" height="975" alt="image" src="https://github.com/user-attachments/assets/5e35fd51-8e0a-46ad-ba7f-54287e2c66fd" />
+
 
 > Above: a live session answering in the left **Session** pane, the **Orchestration**
 > canvas (drag-drop agent blocks) top-right, and the **Agents** panel bottom-right
