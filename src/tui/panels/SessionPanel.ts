@@ -7,6 +7,24 @@ import { Colors } from '../renderer/theme.js'
 import { Session } from '../../core/session.js'
 import { agentLoop } from '../../core/agent-loop.js'
 import { runHook } from '../../core/hooks.js'
+import { createAdapter, defaultProvider } from '../../core/llm/index.js'
+import type { Provider } from '../../core/llm/types.js'
+
+interface ModelOption {
+  provider: Provider
+  model:    string
+  label:    string
+}
+
+const MODEL_OPTIONS: readonly ModelOption[] = [
+  { provider: 'anthropic', model: 'claude-opus-4-8',           label: 'Claude Opus 4.8'             },
+  { provider: 'anthropic', model: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6 (default)' },
+  { provider: 'anthropic', model: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5'            },
+  { provider: 'openai',    model: 'gpt-4o',                    label: 'GPT-4o'                      },
+  { provider: 'openai',    model: 'gpt-4o-mini',               label: 'GPT-4o mini'                 },
+  { provider: 'openai',    model: 'o3',                        label: 'OpenAI o3'                   },
+  { provider: 'openai',    model: 'o4-mini',                   label: 'OpenAI o4-mini'              },
+] as const
 
 interface ChatLine {
   role: 'user' | 'assistant' | 'system'
@@ -23,6 +41,9 @@ export class SessionPanel extends Panel {
   private scrollbarDragging = false
   private scrollbarDragStartY = 0
   private scrollbarDragStartOffset = 0
+  private selectedModel: ModelOption | null = null
+  private modelPickerOpen = false
+  private modelPickerIdx = 1  // default: Sonnet
 
   constructor(rect: Rect, onUpdate: () => void) {
     super(rect)
@@ -74,15 +95,83 @@ export class SessionPanel extends Panel {
       }
     }
 
-    // Input bar
+    // Input bar — show selected model tag when one is chosen
     buf.fill(inputRow, r.col, 1, r.width, ' ', { bg: Colors.bg })
     const prompt = this.streaming ? '… ' : '> '
     const cursor = this.focused && !this.streaming ? '█' : ''
-    const inputDisplay = (prompt + this.inputBuf + cursor).substring(0, r.width - 1)
+    const modelTag = this.selectedModel ? ` [${this.selectedModel.model}]` : ''
+    const available = r.width - modelTag.length - 1
+    const inputDisplay = (prompt + this.inputBuf + cursor).substring(0, available)
     buf.write(inputRow, r.col, inputDisplay, { fg: Colors.text, bg: Colors.bg })
+    if (modelTag) {
+      buf.write(inputRow, r.col + r.width - modelTag.length, modelTag, { fg: Colors.textDim, bg: Colors.bg })
+    }
+
+    // Model picker overlay
+    if (this.modelPickerOpen) this.renderModelPicker(buf, r)
+  }
+
+  private renderModelPicker(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
+    const n = MODEL_OPTIONS.length
+    const modalW = Math.min(r.width - 4, 54)
+    const modalH = n + 3  // border top + items + border bottom + blank
+    const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
+    const modalCol = r.col + Math.floor((r.width - modalW) / 2)
+    const inner = modalW - 2
+
+    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
+    const hLine = '─'.repeat(inner)
+    buf.write(modalRow,             modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    for (let i = 1; i < modalH - 1; i++) {
+      buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    }
+    buf.write(modalRow, modalCol + 2, ' Select Model ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+
+    for (let i = 0; i < n; i++) {
+      const opt = MODEL_OPTIONS[i]!
+      const selected = i === this.modelPickerIdx
+      const isCurrent = this.selectedModel?.model === opt.model
+      const prefix = selected ? '► ' : '  '
+      const suffix = isCurrent ? ' ✓' : '  '
+      const provTag = opt.provider === 'anthropic' ? 'Anthropic' : 'OpenAI   '
+      const labelMax = inner - provTag.length - suffix.length - 2
+      const label = (prefix + opt.label).substring(0, labelMax).padEnd(labelMax)
+      const fg  = selected ? Colors.bg          : Colors.text
+      const bg  = selected ? Colors.accent      : Colors.bgPanel
+      const pfg = selected ? Colors.bg          : Colors.textDim
+      buf.write(modalRow + 1 + i, modalCol + 1, label, { fg, bg, bold: selected })
+      buf.write(modalRow + 1 + i, modalCol + 1 + labelMax, suffix, { fg, bg })
+      buf.write(modalRow + 1 + i, modalCol + 1 + labelMax + suffix.length, provTag, { fg: pfg, bg })
+    }
   }
 
   onKey(e: KeyEvent): boolean {
+    // Model picker intercepts all keys when open
+    if (this.modelPickerOpen) {
+      if (e.key === 'escape') {
+        this.modelPickerOpen = false
+        this.onUpdate(); return true
+      }
+      if (e.key === 'arrow_up') {
+        this.modelPickerIdx = Math.max(0, this.modelPickerIdx - 1)
+        this.onUpdate(); return true
+      }
+      if (e.key === 'arrow_down') {
+        this.modelPickerIdx = Math.min(MODEL_OPTIONS.length - 1, this.modelPickerIdx + 1)
+        this.onUpdate(); return true
+      }
+      if (e.key === 'enter') {
+        this.selectedModel = MODEL_OPTIONS[this.modelPickerIdx] ?? null
+        this.modelPickerOpen = false
+        const label = this.selectedModel?.label ?? ''
+        this.lines.push({ role: 'system', text: `Model set to ${label}` })
+        this.onUpdate(); return true
+      }
+      return true
+    }
+
     if (e.key === 'enter') {
       this.submit()
       return true
@@ -195,7 +284,7 @@ export class SessionPanel extends Panel {
     const name = parts[0] ?? ''
     switch (name) {
       case 'help':
-        this.lines.push({ role: 'system', text: 'Commands: /help /clear /tokens' })
+        this.lines.push({ role: 'system', text: 'Commands: /help /clear /tokens /model' })
         break
       case 'clear':
         this.session.clear()
@@ -204,6 +293,23 @@ export class SessionPanel extends Panel {
       case 'tokens':
         this.lines.push({ role: 'system', text: `Approx tokens: ${this.session.tokenCount()}` })
         break
+      case 'model': {
+        const arg = parts.slice(1).join(' ').trim()
+        if (arg) {
+          const found = MODEL_OPTIONS.find(m => m.model === arg || m.label.toLowerCase() === arg.toLowerCase())
+          if (found) {
+            this.selectedModel = found
+            this.lines.push({ role: 'system', text: `Model set to ${found.label}` })
+          } else {
+            this.lines.push({ role: 'system', text: `Unknown model: "${arg}". Type /model to browse.` })
+          }
+        } else {
+          this.modelPickerOpen = true
+          this.modelPickerIdx = Math.max(0, MODEL_OPTIONS.findIndex(m => m.model === this.selectedModel?.model))
+          if (this.modelPickerIdx === 0 && this.selectedModel === null) this.modelPickerIdx = 1
+        }
+        break
+      }
       default:
         this.lines.push({ role: 'system', text: `Unknown command: /${name}` })
     }
@@ -214,9 +320,15 @@ export class SessionPanel extends Panel {
     this.streaming = true
     await runHook('SessionStart', {})
 
+    const provider = this.selectedModel?.provider ?? defaultProvider()
+    const adapter  = createAdapter(provider)
+    const loopOpts = this.selectedModel
+      ? { adapter, model: this.selectedModel.model, maxTurns: 20 }
+      : { adapter, maxTurns: 20 }
+
     let currentLine: ChatLine | undefined
     try {
-      for await (const event of agentLoop(this.session, { maxTurns: 20 })) {
+      for await (const event of agentLoop(this.session, loopOpts)) {
         if (event.type === 'text_delta') {
           if (!currentLine) {
             currentLine = { role: 'assistant', text: '' }

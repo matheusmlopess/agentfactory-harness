@@ -106,12 +106,14 @@ export class ConfigPanel extends Panel {
   }
 
   updateLoginEvent(ev: LoginEvent): void {
+    // Always enter login overlay on first event (including immediate errors)
+    this.mode = 'login'
+
     if (ev.kind === 'code') {
       this.loginUserCode  = ev.userCode
       this.loginVerifyUrl = ev.verifyUrl
       this.loginSeconds   = ev.expiresIn
       this.loginMessage   = ''
-      this.mode = 'login'
     } else if (ev.kind === 'progress') {
       this.loginSeconds = ev.secondsLeft
       this.spinnerFrame = (this.spinnerFrame + 1) % SPINNER.length
