@@ -24,7 +24,9 @@ export interface AgentLoopOptions {
   adapter?: LLMAdapter
 }
 
-const DEFAULT_MAX_TOKENS = 8192
+// Conservative default — keeps total usage well within older models' context windows.
+// Users on large-context models (claude-3+, gpt-4o, o3) won't notice the cap.
+const DEFAULT_MAX_TOKENS = 2048
 const DEFAULT_SYSTEM = 'You are a helpful assistant in the factory ITUI agent shell.'
 
 export async function* agentLoop(

@@ -120,6 +120,52 @@ export class SessionPanel extends Panel {
     if (this.modelPickerOpen) this.renderModelPicker(buf, r)
   }
 
+  private handlePickerClick(row: number, col: number): boolean {
+    if (this.pickerLoading) return true  // consume clicks while loading
+
+    const r = this.inner
+    const modalW = Math.min(r.width - 4, 56)
+    const models = this.pickerModels
+
+    // Rebuild display rows (same logic as render)
+    type DRow = { kind: 'header' } | { kind: 'model'; idx: number }
+    const displayRows: DRow[] = []
+    let lastProv = ''
+    for (let i = 0; i < models.length; i++) {
+      const m = models[i]!
+      if (m.provider !== lastProv) { displayRows.push({ kind: 'header' }); lastProv = m.provider }
+      displayRows.push({ kind: 'model', idx: i })
+    }
+
+    const modalH   = Math.min(displayRows.length + 3, r.height - 4)
+    const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
+    const modalCol = r.col + Math.floor((r.width - modalW) / 2)
+
+    // Click outside overlay → close
+    if (row < modalRow || row >= modalRow + modalH || col < modalCol || col >= modalCol + modalW) {
+      this.modelPickerOpen = false
+      this.onUpdate()
+      return true
+    }
+
+    // Click on a model row (content rows start at modalRow + 1)
+    const itemRow = row - (modalRow + 1)
+    if (itemRow >= 0 && itemRow < displayRows.length) {
+      const dr = displayRows[itemRow]
+      if (dr?.kind === 'model') {
+        const picked = models[dr.idx]
+        if (picked) {
+          this.selectedModel     = picked
+          this.modelPickerIdx    = dr.idx
+          this.lines.push({ role: 'system', text: `Model set to ${picked.label}` })
+          this.modelPickerOpen   = false
+          this.onUpdate()
+        }
+      }
+    }
+    return true
+  }
+
   private renderModelPicker(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
     const modalW = Math.min(r.width - 4, 56)
     const inner  = modalW - 2
@@ -248,6 +294,11 @@ export class SessionPanel extends Panel {
   }
 
   override onMouse(e: MouseEvent): boolean {
+    // Model picker intercepts all mouse when open
+    if (this.modelPickerOpen && e.button === 'left' && e.action === 'press') {
+      return this.handlePickerClick(e.row, e.col)
+    }
+
     if (e.button === 'scroll_up') {
       this.scrollOffset = Math.min(this.scrollOffset + 3, this.maxScroll())
       this.onUpdate(); return true

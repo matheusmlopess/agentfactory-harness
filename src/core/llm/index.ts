@@ -57,8 +57,14 @@ export async function listModels(provider: Provider, apiKey?: string): Promise<M
     const client = new OpenAI({ apiKey: key })
     const entries: ModelEntry[] = []
     for await (const m of client.models.list()) {
-      // Keep only chat-capable models: gpt-*, o1, o3, o4, chatgpt-*
-      if (/^(gpt-|o\d|chatgpt-)/.test(m.id) && m.owned_by === 'openai') {
+      // Keep chat-capable models by ID prefix.
+      // owned_by varies: 'openai' for legacy, 'openai-internal' for gpt-4o/o-series.
+      // Exclude user fine-tunes and instruct variants.
+      if (
+        /^(gpt-|o\d|chatgpt-)/.test(m.id) &&
+        !m.id.includes('instruct') &&
+        !m.owned_by.startsWith('user-')
+      ) {
         entries.push({ id: m.id, label: m.id, provider: 'openai' })
       }
     }
