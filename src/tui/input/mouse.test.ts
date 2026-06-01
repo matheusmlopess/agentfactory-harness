@@ -43,11 +43,30 @@ describe('parseMouse', () => {
     expect(result?.button).toBe('scroll_down')
   })
 
-  it('parses motion event', () => {
-    // button=32 → motion (bit 5 set)
-    const result = parseMouse(buf('\x1b[<32;5;3M'))
+  it('parses passive motion (no button held) — flag 35', () => {
+    // flags=35: motion bit (32) + rawButton=3 (no button) → passive motion
+    const result = parseMouse(buf('\x1b[<35;5;3M'))
     expect(result?.action).toBe('move')
     expect(result?.button).toBe('motion')
+  })
+
+  it('parses left-button drag — flag 32', () => {
+    // flags=32: motion bit (32) + rawButton=0 (left) → left drag
+    const result = parseMouse(buf('\x1b[<32;5;3M'))
+    expect(result?.action).toBe('move')
+    expect(result?.button).toBe('left')
+  })
+
+  it('parses middle-button drag — flag 33', () => {
+    const result = parseMouse(buf('\x1b[<33;5;3M'))
+    expect(result?.action).toBe('move')
+    expect(result?.button).toBe('middle')
+  })
+
+  it('parses right-button drag — flag 34', () => {
+    const result = parseMouse(buf('\x1b[<34;5;3M'))
+    expect(result?.action).toBe('move')
+    expect(result?.button).toBe('right')
   })
 
   it('parses ctrl modifier', () => {

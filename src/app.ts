@@ -25,6 +25,7 @@ import { agentLoop } from './core/agent-loop.js'
 import { createAdapter, defaultProvider } from './core/llm/index.js'
 import { ConfigPanel } from './tui/panels/ConfigPanel.js'
 import { store } from './core/config/store.js'
+import { CommandPalette } from './tui/widgets/CommandPalette.js'
 
 const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config']
 const TAB_TERMINAL = 3
@@ -48,6 +49,8 @@ export class App {
   private agentsPanel!: AgentsPanel
   private terminalPanel: TerminalPanel | null = null
   private configPanel: ConfigPanel | null = null
+  private palette!: CommandPalette
+  private paletteOpen = false
   private panels!: Panel[]
   private router = new InputRouter()
 
@@ -87,12 +90,23 @@ export class App {
     const layout = computeLayout(this.rows, this.cols)
     this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender())
     this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
-    this.agentsPanel  = new AgentsPanel(layout.agents)
+    this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender())
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
     this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender())
     // ConfigPanel (TAB_CONFIG=4) is dispatched explicitly — keep it out of panels[]
     // so router.dispatch(key/mouse, this.panels, activeTab) is never called with index 4.
     this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
+
+    this.palette = new CommandPalette([
+      { id: 'switch-session',       label: 'Switch to Session',       hint: 'F1',     action: () => { this.activeTab = 0;           this.render() } },
+      { id: 'switch-orchestration', label: 'Switch to Orchestration', hint: 'F2',     action: () => { this.activeTab = 1;           this.render() } },
+      { id: 'switch-agents',        label: 'Switch to Agents',        hint: 'F3',     action: () => { this.activeTab = 2;           this.render() } },
+      { id: 'switch-terminal',      label: 'Switch to Terminal',      hint: 'F4',     action: () => { this.activeTab = TAB_TERMINAL; this.render() } },
+      { id: 'switch-config',        label: 'Switch to Config',        hint: 'F5',     action: () => { this.activeTab = TAB_CONFIG;   this.render() } },
+      { id: 'run-plan',             label: 'Run Plan',                hint: 'Ctrl+R', action: () => { void this.runPlan() } },
+      { id: 'clear-session',        label: 'Clear Session',           hint: '',       action: () => { this.sessionPanel.clearSession(); this.render() } },
+      { id: 'quit',                 label: 'Quit',                    hint: 'Ctrl+Q', action: () => { this.stop() } },
+    ])
   }
 
   // VT-GAP-08: lazy PTY spawn — only on first switch to Terminal tab
@@ -263,6 +277,8 @@ export class App {
 
     renderStatusBar(this.buf, layout.statusBar, this.planRunning ? 'running' : undefined, this.statusError ?? undefined)
 
+    if (this.paletteOpen) this.palette.render(this.buf, this.rows, this.cols)
+
     const diff = this.buf.diff(this.prev)
     if (diff) process.stdout.write(diff)
     this.prev = this.buf.clone()
@@ -330,6 +346,18 @@ export class App {
       // to the PTY. Only intercept Ctrl+Q and F1–F4 via raw byte patterns.
       if (this.activeTab === TAB_TERMINAL) {
         if (data[0] === 0x11) { this.stop(); return }                  // Ctrl+Q
+        if (data[0] === 0x10) { this.paletteOpen = !this.paletteOpen; if (this.paletteOpen) this.palette.openPalette(); this.render(); return } // Ctrl+P
+
+        // When palette is open in terminal mode, route input to palette — never to PTY
+        if (this.paletteOpen) {
+          const key = parseKey(data)
+          if (key) {
+            this.palette.onKey(key)
+            if (!this.palette.isOpen) this.paletteOpen = false
+          }
+          this.render()
+          return
+        }
 
         // VT-GAP-04: match both xterm (\x1bOP) and VT100 (\x1b[11~) F-key forms
         const s = data.toString('binary')
@@ -346,10 +374,18 @@ export class App {
         // SGR mouse events: intercept tab bar clicks, suppress the rest from reaching PTY
         if (s.startsWith('\x1b[<')) {
           const mouse = parseMouse(data)
-          if (mouse?.button === 'left' && mouse.action === 'press' && mouse.row === 0) {
-            if (this.isExitBtn(mouse.col)) { this.stop(); return }
-            const tab = this.tabAt(mouse.col)
-            if (tab >= 0) { this.activeTab = tab; this.render() }
+          if (mouse) {
+            if (this.paletteOpen) {
+              this.palette.onMouse(mouse, this.rows, this.cols)
+              if (!this.palette.isOpen) this.paletteOpen = false
+              this.render()
+              return
+            }
+            if (mouse.button === 'left' && mouse.action === 'press' && mouse.row === 0) {
+              if (this.isExitBtn(mouse.col)) { this.stop(); return }
+              const tab = this.tabAt(mouse.col)
+              if (tab >= 0) { this.activeTab = tab; this.render() }
+            }
           }
           return
         }
@@ -361,6 +397,13 @@ export class App {
       // Mouse event — try before keyboard (non-terminal tabs only)
       const mouse = parseMouse(data)
       if (mouse) {
+        // Palette overlay intercepts ALL mouse when open — nothing behind it is clickable
+        if (this.paletteOpen) {
+          this.palette.onMouse(mouse, this.rows, this.cols)
+          if (!this.palette.isOpen) this.paletteOpen = false
+          this.render()
+          return
+        }
         if (mouse.button === 'left' && mouse.action === 'press') {
           // Tab bar click
           if (mouse.row === 0) {
@@ -392,6 +435,22 @@ export class App {
 
       if (key.key === 'ctrl+q' || key.key === 'ctrl+c') {
         this.stop()
+        return
+      }
+
+      // Ctrl+P — toggle palette (works from any non-terminal tab)
+      if (key.key === 'ctrl+p') {
+        this.paletteOpen = !this.paletteOpen
+        if (this.paletteOpen) this.palette.openPalette()
+        this.render()
+        return
+      }
+
+      // Route all keys to palette when open
+      if (this.paletteOpen) {
+        this.palette.onKey(key)
+        if (!this.palette.isOpen) this.paletteOpen = false
+        this.render()
         return
       }
 

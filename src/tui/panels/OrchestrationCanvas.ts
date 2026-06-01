@@ -21,6 +21,7 @@ export interface CanvasWire {
 type DragState =
   | { kind: 'idle' }
   | { kind: 'dragging'; blockId: string; offsetRow: number; offsetCol: number }
+  | { kind: 'wiring';   fromBlockId: string; fromPort: string; cursorRow: number; cursorCol: number }
 
 export interface CanvasState {
   blocks: Block[]
@@ -145,6 +146,23 @@ export class OrchestrationCanvas extends Panel {
       }
     }
 
+    // Wiring preview — drawn after blocks so it floats on top
+    if (drag.kind === 'wiring') {
+      const from = this.portPosition(drag.fromBlockId, drag.fromPort, 'output')
+      if (from) {
+        const preview = routeWire(from, { row: drag.cursorRow, col: drag.cursorCol })
+        for (const pt of preview) {
+          if (pt.row >= 0 && pt.row < r.height && pt.col >= 0 && pt.col < r.width) {
+            buf.write(r.row + pt.row, r.col + pt.col, pt.char, { fg: Colors.warning })
+          }
+        }
+        if (drag.cursorRow >= 0 && drag.cursorRow < r.height &&
+            drag.cursorCol >= 0 && drag.cursorCol < r.width) {
+          buf.write(r.row + drag.cursorRow, r.col + drag.cursorCol, '◎', { fg: Colors.warning })
+        }
+      }
+    }
+
     // Draw context menu on top — pass absolute bottom-right boundary
     if (this.menu) {
       this.menu.render(buf, r.row + r.height, r.col + r.width)
@@ -152,6 +170,12 @@ export class OrchestrationCanvas extends Panel {
   }
 
   onKey(e: KeyEvent): boolean {
+    // Esc cancels wiring mode (checked before menu so a single Esc is enough)
+    if (e.key === 'escape' && this.state.drag.kind === 'wiring') {
+      this.state = { ...this.state, drag: { kind: 'idle' } }
+      this.onUpdate()
+      return true
+    }
     if (this.menu) {
       if (e.key === 'escape') {
         this.menu = null
@@ -198,14 +222,60 @@ export class OrchestrationCanvas extends Panel {
   private ghostCol: number | null = null
 
   private handleLeftPress(row: number, col: number): boolean {
+    const drag = this.state.drag
+
+    // ── Complete or cancel a wire in progress ──────────────────────────────
+    if (drag.kind === 'wiring') {
+      const target = this.hitTestInputPort(row, col)
+      if (target && target.block.id !== drag.fromBlockId) {
+        const wireId = `${drag.fromBlockId}:${drag.fromPort}→${target.block.id}:${target.portName}`
+        const isDuplicate = this.state.wires.some(
+          w => w.fromBlockId === drag.fromBlockId && w.fromPort === drag.fromPort &&
+               w.toBlockId === target.block.id   && w.toPort   === target.portName
+        )
+        if (!isDuplicate) {
+          this.state = {
+            ...this.state,
+            wires: [...this.state.wires, {
+              id: wireId,
+              fromBlockId: drag.fromBlockId,
+              fromPort:    drag.fromPort,
+              toBlockId:   target.block.id,
+              toPort:      target.portName,
+            }],
+          }
+        }
+      }
+      this.state = { ...this.state, drag: { kind: 'idle' } }
+      this.onUpdate()
+      return true
+    }
+
+    // ── Click on output port → start wiring mode ───────────────────────────
+    const outPort = this.hitTestOutputPort(row, col)
+    if (outPort) {
+      this.state = {
+        ...this.state,
+        drag: {
+          kind: 'wiring',
+          fromBlockId: outPort.block.id,
+          fromPort:    outPort.portName,
+          cursorRow:   row,
+          cursorCol:   col,
+        },
+      }
+      this.onUpdate()
+      return true
+    }
+
+    // ── Block header drag ──────────────────────────────────────────────────
     const block = this.hitTestHeader(row, col)
     if (!block) return false
-
     this.state = {
       ...this.state,
       drag: {
         kind: 'dragging',
-        blockId: block.id,
+        blockId:   block.id,
         offsetRow: row - block.row,
         offsetCol: col - block.col,
       },
@@ -217,12 +287,19 @@ export class OrchestrationCanvas extends Panel {
   }
 
   private handleMouseMove(row: number, col: number): boolean {
-    if (this.state.drag.kind !== 'dragging') return false
     const drag = this.state.drag
-    this.ghostRow = row - drag.offsetRow
-    this.ghostCol = col - drag.offsetCol
-    this.onUpdate()
-    return true
+    if (drag.kind === 'dragging') {
+      this.ghostRow = row - drag.offsetRow
+      this.ghostCol = col - drag.offsetCol
+      this.onUpdate()
+      return true
+    }
+    if (drag.kind === 'wiring') {
+      this.state = { ...this.state, drag: { ...drag, cursorRow: row, cursorCol: col } }
+      this.onUpdate()
+      return true
+    }
+    return false
   }
 
   private handleLeftRelease(row: number, col: number): boolean {
@@ -250,14 +327,35 @@ export class OrchestrationCanvas extends Panel {
   }
 
   private openContextMenu(row: number, col: number): void {
-    const block = this.hitTestBlock(row, col)
+    // Cancel any active wiring on right-click
+    if (this.state.drag.kind === 'wiring') {
+      this.state = { ...this.state, drag: { kind: 'idle' } }
+    }
+
+    const wire  = this.hitTestWire(row, col)
+    const block = wire ? undefined : this.hitTestBlock(row, col)
     const r = this.inner
 
-    const items = block
+    const items = wire
+      ? [
+          { label: 'Delete wire', danger: true, action: () => {
+            this.state = { ...this.state, wires: this.state.wires.filter(w => w.id !== wire.id) }
+            this.menu = null
+            this.onUpdate()
+          }},
+        ]
+      : block
       ? [
           { label: 'Open session', action: () => { this.menu = null; this.onUpdate() } },
           { label: 'Delete block', danger: true, action: () => {
-            this.state = { ...this.state, blocks: this.state.blocks.filter(b => b.id !== block.id) }
+            this.state = {
+              ...this.state,
+              blocks: this.state.blocks.filter(b => b.id !== block.id),
+              // Cascade-remove wires that referenced the deleted block
+              wires: this.state.wires.filter(
+                w => w.fromBlockId !== block.id && w.toBlockId !== block.id
+              ),
+            }
             this.menu = null
             this.onUpdate()
           }},
@@ -306,6 +404,39 @@ export class OrchestrationCanvas extends Panel {
 
   private focusedBlockId(): string | undefined {
     if (this.state.drag.kind === 'dragging') return this.state.drag.blockId
+    if (this.state.drag.kind === 'wiring')   return this.state.drag.fromBlockId
+    return undefined
+  }
+
+  private hitTestOutputPort(row: number, col: number): { block: Block; portName: string } | undefined {
+    for (const block of this.state.blocks) {
+      for (let i = 0; i < block.outputs.length; i++) {
+        if (row === block.row + 1 + i && col === block.col + block.width - 1) {
+          return { block, portName: block.outputs[i]! }
+        }
+      }
+    }
+    return undefined
+  }
+
+  private hitTestInputPort(row: number, col: number): { block: Block; portName: string } | undefined {
+    for (const block of this.state.blocks) {
+      for (let i = 0; i < block.inputs.length; i++) {
+        if (row === block.row + 1 + i && col === block.col) {
+          return { block, portName: block.inputs[i]! }
+        }
+      }
+    }
+    return undefined
+  }
+
+  private hitTestWire(row: number, col: number): CanvasWire | undefined {
+    for (const wire of this.state.wires) {
+      const from = this.portPosition(wire.fromBlockId, wire.fromPort, 'output')
+      const to   = this.portPosition(wire.toBlockId,   wire.toPort,   'input')
+      if (!from || !to) continue
+      if (routeWire(from, to).some(pt => pt.row === row && pt.col === col)) return wire
+    }
     return undefined
   }
 

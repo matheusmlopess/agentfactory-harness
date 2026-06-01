@@ -20,6 +20,9 @@ export class SessionPanel extends Panel {
   private scrollOffset = 0
   private streaming = false
   private onUpdate: () => void
+  private scrollbarDragging = false
+  private scrollbarDragStartY = 0
+  private scrollbarDragStartOffset = 0
 
   constructor(rect: Rect, onUpdate: () => void) {
     super(rect)
@@ -36,22 +39,38 @@ export class SessionPanel extends Panel {
     const r = this.inner
     const displayRows = r.height - 1   // last row is input bar
     const inputRow = r.row + r.height - 1
+    const maxScroll = this.maxScroll()
+    const hasScrollbar = maxScroll > 0
+    // Reserve right column for scrollbar when content overflows
+    const contentWidth = hasScrollbar ? r.width - 1 : r.width
+    const scrollbarCol = r.col + r.width - 1
 
     // Render scrollback
-    const wrappedLines = this.wrapLines(r.width)
+    const wrappedLines = this.wrapLines(contentWidth)
     const start = Math.max(0, wrappedLines.length - displayRows - this.scrollOffset)
     const visible = wrappedLines.slice(start, start + displayRows)
 
     for (let i = 0; i < displayRows; i++) {
       const line = visible[i]
-      buf.fill(r.row + i, r.col, 1, r.width, ' ', { bg: Colors.bgPanel })
+      buf.fill(r.row + i, r.col, 1, contentWidth, ' ', { bg: Colors.bgPanel })
       if (line) {
         const fg = line.role === 'user'
           ? Colors.accent
           : line.role === 'system'
           ? Colors.textDim
           : Colors.text
-        buf.write(r.row + i, r.col, line.text.substring(0, r.width), { fg, bg: Colors.bgPanel })
+        buf.write(r.row + i, r.col, line.text.substring(0, contentWidth), { fg, bg: Colors.bgPanel })
+      }
+    }
+
+    // Scrollbar
+    if (hasScrollbar) {
+      const thumbRow = Math.floor(
+        (1 - this.scrollOffset / maxScroll) * (displayRows - 1)
+      )
+      for (let i = 0; i < displayRows; i++) {
+        const ch = i === thumbRow ? '█' : '│'
+        buf.write(r.row + i, scrollbarCol, ch, { fg: Colors.textDim, bg: Colors.bgPanel })
       }
     }
 
@@ -100,6 +119,44 @@ export class SessionPanel extends Panel {
       this.scrollOffset = Math.max(0, this.scrollOffset - 3)
       this.onUpdate(); return true
     }
+
+    const r = this.inner
+    const maxScroll  = this.maxScroll()
+    const displayRows = r.height - 1
+    const scrollbarCol = r.col + r.width - 1
+
+    // Release — always ends drag
+    if (e.button === 'left' && e.action === 'release') {
+      if (this.scrollbarDragging) { this.scrollbarDragging = false; return true }
+      return false
+    }
+
+    // Drag move — update offset proportionally to how far the thumb moved
+    if (e.button === 'left' && e.action === 'move' && this.scrollbarDragging) {
+      if (maxScroll > 0 && displayRows > 1) {
+        const delta = e.row - this.scrollbarDragStartY
+        const scrollDelta = -Math.round(delta * maxScroll / (displayRows - 1))
+        this.scrollOffset = Math.max(0, Math.min(maxScroll, this.scrollbarDragStartOffset + scrollDelta))
+        this.onUpdate()
+      }
+      return true
+    }
+
+    // Press on scrollbar column → jump to position + start drag
+    if (e.button === 'left' && e.action === 'press' &&
+        maxScroll > 0 && e.col === scrollbarCol &&
+        e.row >= r.row && e.row < r.row + displayRows) {
+      const i = e.row - r.row
+      this.scrollOffset = Math.max(0, Math.min(maxScroll,
+        Math.round((1 - i / (displayRows - 1)) * maxScroll)
+      ))
+      this.scrollbarDragging      = true
+      this.scrollbarDragStartY    = e.row
+      this.scrollbarDragStartOffset = this.scrollOffset
+      this.onUpdate()
+      return true
+    }
+
     return false
   }
 
@@ -124,6 +181,13 @@ export class SessionPanel extends Panel {
     this.scrollOffset = 0
     this.onUpdate()
     void this.runAgentLoop()
+  }
+
+  clearSession(): void {
+    this.session.clear()
+    this.lines = [{ role: 'system', text: 'Session cleared.' }]
+    this.scrollOffset = 0
+    this.onUpdate()
   }
 
   private handleSlashCommand(cmd: string): void {

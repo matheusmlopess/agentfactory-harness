@@ -212,11 +212,18 @@ tui_widgets:
     status: implemented
 
   - path: src/tui/widgets/CommandPalette.ts
-    purpose: Ctrl+P fuzzy-search overlay
+    purpose: Ctrl+P fuzzy-search command overlay — fuzzyScore + centered modal + 8 registered commands
     exports:
+      - PaletteCommand (interface)
+      - fuzzyScore (function)
       - CommandPalette (class)
     wave: 1
-    status: planned
+    status: implemented
+
+  - path: src/tui/widgets/CommandPalette.test.ts
+    purpose: CommandPalette unit tests — fuzzyScore (4 cases) + palette render/nav/action (10 cases)
+    wave: 1
+    status: implemented
 
   # layout.ts extended in Wave 4 to add terminal: Rect
 
