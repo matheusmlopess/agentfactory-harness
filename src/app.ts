@@ -313,11 +313,13 @@ export class App {
       this.agentsPanel.render(this.buf)
     }
 
+    // Always show a model tag — selected ID or "select model" as a click prompt
+    const modelLabel = this.sessionPanel.getSelectedModel()?.id ?? 'select model'
     const sbLayout = renderStatusBar(
       this.buf, layout.statusBar,
       this.planRunning ? 'running' : undefined,
       this.statusError ?? undefined,
-      this.sessionPanel.getSelectedModel()?.id,
+      modelLabel,
     )
     this.statusBarModelTagCol = sbLayout.modelTagCol
     this.statusBarModelTagLen = sbLayout.modelTagLen

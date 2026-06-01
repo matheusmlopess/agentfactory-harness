@@ -16,10 +16,21 @@ export function createAdapter(provider: Provider, apiKey?: string): LLMAdapter {
   }
 }
 
-/** Read LLM_PROVIDER from env, fall back to 'anthropic'. */
+/**
+ * Determine the best provider to use.
+ * Priority: LLM_PROVIDER env → provider with a configured API key → 'anthropic'.
+ */
 export function defaultProvider(): Provider {
   const p = process.env['LLM_PROVIDER']
-  if (p === 'openai') return 'openai'
+  if (p === 'openai')    return 'openai'
+  if (p === 'anthropic') return 'anthropic'
+  // Auto-detect: use any provider that has a key configured in the store
+  const hasAnthropic = !!(store.getKey('anthropic', 'ANTHROPIC_API_KEY'))
+  const hasOpenAI    = !!(store.getKey('openai',    'OPENAI_API_KEY'))
+  if (hasOpenAI && !hasAnthropic) return 'openai'
+  if (hasAnthropic)               return 'anthropic'
+  // Neither configured — try OpenAI last (common choice for new users)
+  if (hasOpenAI) return 'openai'
   return 'anthropic'
 }
 

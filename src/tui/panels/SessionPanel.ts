@@ -106,7 +106,9 @@ export class SessionPanel extends Panel {
     buf.fill(inputRow, r.col, 1, r.width, ' ', { bg: Colors.bg })
     const prompt = this.streaming ? '… ' : '> '
     const cursor = this.focused && !this.streaming ? '█' : ''
-    const modelTag = this.selectedModel ? ` [${this.selectedModel.id}]` : ''
+    // Show selected model or the effective default (so user knows what will be used)
+    const effectiveModel = this.selectedModel?.id ?? `${defaultProvider()} default`
+    const modelTag = ` [${effectiveModel}]`
     const available = r.width - modelTag.length - 1
     const inputDisplay = (prompt + this.inputBuf + cursor).substring(0, available)
     buf.write(inputRow, r.col, inputDisplay, { fg: Colors.text, bg: Colors.bg })

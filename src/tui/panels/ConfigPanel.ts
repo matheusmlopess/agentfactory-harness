@@ -182,16 +182,24 @@ export class ConfigPanel extends Panel {
         const nameStr = (namePrefix + def.name).substring(0, nameCol)
         buf.write(screenRow, r.col, nameStr.padEnd(nameCol), { fg: nameFg, bg: nameBg })
 
+        const DEL_BTN = '[✕]'  // 3-char delete button shown when a value is set
         const valCol = r.width - nameCol
         let valStr: string
+        let hasValue = false
         if (isAlias) {
           valStr = `(→ ${def.aliasOf})`
         } else {
           const val = store.getKey(def.configKey, def.envVar)
-          valStr = (val !== undefined && val !== '') ? `${maskValue(val, def)} [set]` : '(not set)'
+          hasValue = (val !== undefined && val !== '')
+          valStr = hasValue ? `${maskValue(val!, def)} [set]` : '(not set)'
         }
-        const valFg = isAlias ? Colors.textDim : (store.getKey(def.configKey, def.envVar) ? Colors.success : Colors.textDim)
-        buf.write(screenRow, r.col + nameCol, valStr.substring(0, valCol - 1).padStart(valCol - 1), { fg: valFg, bg: nameBg })
+        const valFg = isAlias ? Colors.textDim : (hasValue ? Colors.success : Colors.textDim)
+        // Leave room for delete button when value is set
+        const valWidth = hasValue ? valCol - DEL_BTN.length - 1 : valCol - 1
+        buf.write(screenRow, r.col + nameCol, valStr.substring(0, valWidth).padStart(valWidth), { fg: valFg, bg: nameBg })
+        if (hasValue) {
+          buf.write(screenRow, r.col + r.width - DEL_BTN.length, DEL_BTN, { fg: Colors.error, bg: nameBg, bold: isSelected })
+        }
 
         screenRow++; rowsRendered++
       }
@@ -208,7 +216,7 @@ export class ConfigPanel extends Panel {
     if (this.mode === 'browse' || this.mode === 'edit') {
       const hintRow = r.row + r.height - 2
       buf.write(hintRow, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.bgPanel })
-      const hint = ' [↑↓/scroll] Navigate  [Enter/DblClick] Edit  [PgUp/PgDn] Scroll'
+      const hint = ' [↑↓] Navigate  [Enter/DblClick] Edit  [Ctrl+R] Delete key  [PgUp/Dn] Scroll'
       buf.write(hintRow + 1, r.col, hint.substring(0, r.width), { fg: Colors.textDim, bg: Colors.bgPanel })
     }
 
@@ -432,6 +440,19 @@ export class ConfigPanel extends Panel {
       this.onUpdate()
       return true
     }
+    if (e.key === 'ctrl+r') {
+      // Clear the selected entry's key (Ctrl+R = remove)
+      const def = this.entries[this.selectedIdx]
+      if (def && def.aliasOf === undefined) {
+        const val = store.getKey(def.configKey)
+        if (val !== undefined && val !== '') {
+          store.clearKey(def.configKey)
+          this.onUpdate()
+          return true  // consumed — don't bubble to run-plan
+        }
+      }
+      return false  // no value to clear — let app.ts handle run-plan
+    }
     return false
   }
 
@@ -542,6 +563,15 @@ export class ConfigPanel extends Panel {
       }
       if (rendered === clickRow) {
         const def = item.def
+        // Click on [✕] delete button (last 3 cols) — clear key immediately
+        if (def.aliasOf === undefined && e.col >= r.col + r.width - 3) {
+          const val = store.getKey(def.configKey)
+          if (val !== undefined && val !== '') {
+            store.clearKey(def.configKey)
+            this.onUpdate()
+            return true
+          }
+        }
         // Alias row: jump to canonical provider
         if (def.aliasOf !== undefined) {
           const canonIdx = this.entries.findIndex(e => e.configKey === def.configKey && e.aliasOf === undefined)
