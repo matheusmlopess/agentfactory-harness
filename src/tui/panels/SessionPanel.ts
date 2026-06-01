@@ -20,6 +20,9 @@ export class SessionPanel extends Panel {
   private scrollOffset = 0
   private streaming = false
   private onUpdate: () => void
+  private scrollbarDragging = false
+  private scrollbarDragStartY = 0
+  private scrollbarDragStartOffset = 0
 
   constructor(rect: Rect, onUpdate: () => void) {
     super(rect)
@@ -116,20 +119,44 @@ export class SessionPanel extends Panel {
       this.scrollOffset = Math.max(0, this.scrollOffset - 3)
       this.onUpdate(); return true
     }
-    // Click on scrollbar column → jump to proportional scroll position
-    if (e.button === 'left' && e.action === 'press') {
-      const r = this.inner
-      const maxScroll = this.maxScroll()
-      const displayRows = r.height - 1
-      if (maxScroll > 0 && e.col === r.col + r.width - 1 &&
-          e.row >= r.row && e.row < r.row + displayRows) {
-        const i = e.row - r.row  // 0 = top, displayRows-1 = bottom
-        this.scrollOffset = Math.round((1 - i / (displayRows - 1)) * maxScroll)
-        this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxScroll))
-        this.onUpdate()
-        return true
-      }
+
+    const r = this.inner
+    const maxScroll  = this.maxScroll()
+    const displayRows = r.height - 1
+    const scrollbarCol = r.col + r.width - 1
+
+    // Release — always ends drag
+    if (e.button === 'left' && e.action === 'release') {
+      if (this.scrollbarDragging) { this.scrollbarDragging = false; return true }
+      return false
     }
+
+    // Drag move — update offset proportionally to how far the thumb moved
+    if (e.button === 'left' && e.action === 'move' && this.scrollbarDragging) {
+      if (maxScroll > 0 && displayRows > 1) {
+        const delta = e.row - this.scrollbarDragStartY
+        const scrollDelta = -Math.round(delta * maxScroll / (displayRows - 1))
+        this.scrollOffset = Math.max(0, Math.min(maxScroll, this.scrollbarDragStartOffset + scrollDelta))
+        this.onUpdate()
+      }
+      return true
+    }
+
+    // Press on scrollbar column → jump to position + start drag
+    if (e.button === 'left' && e.action === 'press' &&
+        maxScroll > 0 && e.col === scrollbarCol &&
+        e.row >= r.row && e.row < r.row + displayRows) {
+      const i = e.row - r.row
+      this.scrollOffset = Math.max(0, Math.min(maxScroll,
+        Math.round((1 - i / (displayRows - 1)) * maxScroll)
+      ))
+      this.scrollbarDragging      = true
+      this.scrollbarDragStartY    = e.row
+      this.scrollbarDragStartOffset = this.scrollOffset
+      this.onUpdate()
+      return true
+    }
+
     return false
   }
 
