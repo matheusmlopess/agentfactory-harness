@@ -96,26 +96,15 @@ export class App {
 
   private initPanels(): void {
     const layout = computeLayout(this.rows, this.cols)
-    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender(), (stats) => {
-      this.agentsPanel.updateAgent('session-0', {
-        status:       stats.status,
-        model:        stats.model,
-        inputTokens:  stats.inputTokens,
-        outputTokens: stats.outputTokens,
-        toolCalls:    stats.toolCalls,
-        turns:        stats.turns,
-        startTime:    stats.startTime,
-        ...(stats.status !== 'running' ? { endTime: Date.now() } : {}),
-      })
-    }, (target) => {
-      if (target === 'config') { this.activeTab = TAB_CONFIG; this.render() }
-    }, (text) => {
-      // Copy to OS clipboard via OSC 52 (works over SSH/WSL)
-      process.stdout.write(A.osc52Copy(text))
-    })
+    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender(),
+      () => { this.scheduleRender() },                                  // onStats: records hold state; just repaint
+      (target) => { if (target === 'config') { this.activeTab = TAB_CONFIG; this.render() } },
+      (text) => { process.stdout.write(A.osc52Copy(text)) },           // onCopy via OSC 52
+    )
     this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
-    this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender())
-    this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
+    this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender(),
+      (idx) => { this.sessionPanel.switchTo(idx); this.render() },     // click a session → switch active
+    )
     this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender(), {
       onLogin:  () => { void this.runLoginFlow() },
       onLogout: () => { void this.runLogout()    },
@@ -276,6 +265,25 @@ export class App {
     })
   }
 
+  /** Push the SessionPanel's session list into the Agents panel (switcher + stats). */
+  private refreshAgents(): void {
+    const metas = this.sessionPanel.sessionMetas()
+    this.agentsPanel.setAgents(metas.map(m => ({
+      name:         m.name,
+      status:       m.status,
+      active:       m.active,
+      ...(m.stats ? {
+        model:        m.stats.model,
+        inputTokens:  m.stats.inputTokens,
+        outputTokens: m.stats.outputTokens,
+        toolCalls:    m.stats.toolCalls,
+        turns:        m.stats.turns,
+        startTime:    m.stats.startTime,
+        ...(m.status !== 'running' ? { endTime: Date.now() } : {}),
+      } : {}),
+    })))
+  }
+
   /** Toggle mouse reporting. When off, the terminal handles native text
    *  selection so the user can copy output; when on, the TUI gets clicks. */
   private toggleMouseCapture(): void {
@@ -333,6 +341,7 @@ export class App {
       this.canvasPanel.focused = this.activeTab === 1
       this.canvasPanel.render(this.buf)
 
+      this.refreshAgents()
       this.agentsPanel.rect    = layout.agents
       this.agentsPanel.focused = this.activeTab === 2
       this.agentsPanel.render(this.buf)
@@ -515,8 +524,9 @@ export class App {
           this.render()
           return
         }
-        this.router.dispatch(mouse, this.panels, this.activeTab)
-        this.render()
+        // Only repaint when the panel actually consumed the event — avoids a
+        // full render on every passive-motion (mode 1003) event.
+        if (this.router.dispatch(mouse, this.panels, this.activeTab)) this.render()
         return
       }
 

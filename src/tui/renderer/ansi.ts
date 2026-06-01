@@ -10,11 +10,11 @@ export const clearScreen = (): string => `${CSI}2J`
 export const hideCursor = (): string => `${CSI}?25l`
 export const showCursor = (): string => `${CSI}?25h`
 
-// Mouse
+// Mouse — 1000 (clicks) + 1003 (any-motion, enables hover) + 1006 (SGR coords)
 export const enableMouse = (): string =>
-  `${CSI}?1000h${CSI}?1002h${CSI}?1006h`
+  `${CSI}?1000h${CSI}?1003h${CSI}?1006h`
 export const disableMouse = (): string =>
-  `${CSI}?1000l${CSI}?1002l${CSI}?1006l`
+  `${CSI}?1000l${CSI}?1003l${CSI}?1006l`
 
 // Cursor movement (1-indexed)
 export const moveTo = (row: number, col: number): string =>

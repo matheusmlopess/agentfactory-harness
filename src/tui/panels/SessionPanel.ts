@@ -11,6 +11,7 @@ import { createAdapter, defaultProvider, listModels } from '../../core/llm/index
 import type { Provider, ModelEntry } from '../../core/llm/index.js'
 import { store } from '../../core/config/store.js'
 import { ScrollableList } from '../widgets/ScrollableList.js'
+import { nextLaureate, type Laureate } from '../../core/nobel.js'
 
 const MAX_PICKER_VISIBLE = 10
 
@@ -78,12 +79,25 @@ const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: '/tokens', desc: 'Show approximate token count'             },
 ] as const
 
+interface SessionRecord {
+  name:          string
+  session:       Session
+  lines:         ChatLine[]
+  inputBuf:      string
+  scrollOffset:  number
+  hScroll:       number
+  streaming:     boolean
+  selectedModel: ModelEntry | null
+  chatMode:      boolean
+  status:        'idle' | 'running' | 'done' | 'error'
+  lastStats:     SessionStats | null
+}
+
 export class SessionPanel extends Panel {
-  private session: Session
-  private lines: ChatLine[] = []
-  private inputBuf = ''
-  private scrollOffset = 0
-  private streaming = false
+  // Multi-session: the active record is the interactive one
+  private sessions: SessionRecord[] = []
+  private activeIdx = 0
+
   private onUpdate: () => void
   private onStats?: (s: SessionStats) => void
   private onNavigate?: (target: 'config') => void
@@ -98,9 +112,10 @@ export class SessionPanel extends Panel {
   private scrollbarDragging = false
   private scrollbarDragStartY = 0
   private scrollbarDragStartOffset = 0
-  private hScroll = 0   // horizontal scroll offset for wide content (tables)
-  private selectedModel: ModelEntry | null = null
-  private chatMode = false   // /chat: plain chat with no tools (cheap)
+  // Clickable [tools]/[chat] toggle button span (set during render)
+  private chatButtonRow = -1
+  private chatButtonFrom = -1
+  private chatButtonTo = -1
   private modelPickerOpen = false
   // step 1 — provider selection
   private pickerStep: 'provider' | 'model' = 'provider'
@@ -124,17 +139,73 @@ export class SessionPanel extends Panel {
     onCopy?: (text: string) => void,
   ) {
     super(rect)
-    this.session = new Session()
     this.onUpdate = onUpdate
     if (onStats) this.onStats = onStats
     if (onNavigate) this.onNavigate = onNavigate
     if (onCopy) this.onCopy = onCopy
-    this.lines.push({ role: 'system', text: 'factory v0.4.0 — type a message or /help' })
+    // First session — named after the first laureate
+    this.sessions.push(this.makeRecord(nextLaureate(new Set())))
   }
+
+  private makeRecord(l: Laureate, model: ModelEntry | null = null, chatMode = false): SessionRecord {
+    return {
+      name:          l.name,
+      session:       new Session(),
+      lines:         [{ role: 'system', text: `factory v0.4.0 — session "${l.name}" — type a message or /help` }],
+      inputBuf:      '',
+      scrollOffset:  0,
+      hScroll:       0,
+      streaming:     false,
+      selectedModel: model,
+      chatMode,
+      status:        'idle',
+      lastStats:     null,
+    }
+  }
+
+  // ── Active-record accessors (proxy so existing code reads the active session) ─
+  private get active(): SessionRecord { return this.sessions[this.activeIdx]! }
+  private get session(): Session { return this.active.session }
+  private get lines(): ChatLine[] { return this.active.lines }
+  private set lines(v: ChatLine[]) { this.active.lines = v }
+  private get inputBuf(): string { return this.active.inputBuf }
+  private set inputBuf(v: string) { this.active.inputBuf = v }
+  private get scrollOffset(): number { return this.active.scrollOffset }
+  private set scrollOffset(v: number) { this.active.scrollOffset = v }
+  private get hScroll(): number { return this.active.hScroll }
+  private set hScroll(v: number) { this.active.hScroll = v }
+  private get streaming(): boolean { return this.active.streaming }
+  private set streaming(v: boolean) { this.active.streaming = v }
+  private get selectedModel(): ModelEntry | null { return this.active.selectedModel }
+  private set selectedModel(v: ModelEntry | null) { this.active.selectedModel = v }
+  private get chatMode(): boolean { return this.active.chatMode }
+  private set chatMode(v: boolean) { this.active.chatMode = v }
 
   getSession(): Session { return this.session }
 
   getSelectedModel(): ModelEntry | null { return this.selectedModel }
+
+  /** Metadata for every session — used by the Agents panel as a switcher. */
+  sessionMetas(): { name: string; status: SessionRecord['status']; active: boolean; stats: SessionStats | null }[] {
+    return this.sessions.map((s, i) => ({ name: s.name, status: s.status, active: i === this.activeIdx, stats: s.lastStats }))
+  }
+
+  switchTo(idx: number): void {
+    if (idx >= 0 && idx < this.sessions.length) {
+      this.activeIdx = idx
+      this.clearSelection()
+      this.onUpdate()
+    }
+  }
+
+  /** Toggle chat mode (tools off/on) for the active session. */
+  toggleChatMode(): void {
+    this.chatMode = !this.chatMode
+    this.lines.push({ role: 'system', text: this.chatMode
+      ? 'Chat mode ON — tools disabled (cheap plain chat).'
+      : 'Chat mode OFF — agent tools enabled (bash/read/write/web-fetch).' })
+    this.onUpdate()
+  }
 
   /** Open the "New Session" menu: standard agent or a configured provider. */
   openNewSessionMenu(): void {
@@ -173,15 +244,21 @@ export class SessionPanel extends Panel {
     const target = this.newSessionTargets[targetIdx]
     this.newSessionOpen = false
 
-    this.session.clear()
+    // Create a brand-new named session (don't clobber the current one)
+    const used = new Set(this.sessions.map(s => s.name))
+    const laureate = nextLaureate(used)
+    const rec = this.makeRecord(laureate)
+    this.sessions.push(rec)
+    this.activeIdx = this.sessions.length - 1
+    this.clearSelection()
+
     if (!target || target.kind === 'standard') {
-      this.selectedModel = null
-      this.lines = [{ role: 'system', text: 'New standard AgentFactory session started.' }]
+      rec.lines = [{ role: 'system', text: `New session "${laureate.name}" — standard AgentFactory agent.` }]
       this.onUpdate()
       return
     }
-    // Provider session → reset and open the model picker for that provider
-    this.lines = [{ role: 'system', text: `New ${target.provider} session — choose a model.` }]
+    // Provider session → open the model picker for that provider
+    rec.lines = [{ role: 'system', text: `New session "${laureate.name}" — ${target.provider}. Choose a model.` }]
     this.onUpdate()
     this.pickerProviders   = [{ provider: target.provider, name: target.provider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI' }]
     this.pickerProviderIdx = 0
@@ -295,18 +372,27 @@ export class SessionPanel extends Panel {
       }
     }
 
-    // Input bar — show chat-mode + selected model tags on the right
+    // Input bar — clickable [tools]/[chat] toggle + model tag on the right
     buf.fill(inputRow, r.col, 1, r.width, ' ', { bg: Colors.bg })
     const prompt = this.streaming ? '… ' : '> '
     const cursor = this.focused && !this.streaming ? '█' : ''
     const effectiveModel = this.selectedModel?.id ?? `${defaultProvider()} default`
-    const chatTag  = this.chatMode ? ' [chat]' : ''
+    const toggle   = this.chatMode ? ' [chat] ' : ' [tools] '
     const modelTag = ` [${effectiveModel}]`
-    const rightTags = chatTag + modelTag
+    const rightTags = toggle + modelTag
     const available = r.width - rightTags.length - 1
     const inputDisplay = (prompt + this.inputBuf + cursor).substring(0, available)
     buf.write(inputRow, r.col, inputDisplay, { fg: Colors.text, bg: Colors.bg })
-    if (chatTag) buf.write(inputRow, r.col + r.width - rightTags.length, chatTag, { fg: Colors.success, bg: Colors.bg })
+    // Clickable toggle button (track its span for onMouse)
+    const toggleCol = r.col + r.width - rightTags.length
+    this.chatButtonRow  = inputRow
+    this.chatButtonFrom = toggleCol
+    this.chatButtonTo   = toggleCol + toggle.length
+    buf.write(inputRow, toggleCol, toggle, {
+      fg: this.chatMode ? Colors.bg : Colors.bg,
+      bg: this.chatMode ? Colors.success : Colors.accent,
+      bold: true,
+    })
     buf.write(inputRow, r.col + r.width - modelTag.length, modelTag, { fg: Colors.textDim, bg: Colors.bg })
 
     // Slash command autocomplete (above the input bar)
@@ -645,6 +731,13 @@ export class SessionPanel extends Panel {
       return true
     }
 
+    // Click the [tools]/[chat] toggle button
+    if (e.button === 'left' && e.action === 'press' &&
+        e.row === this.chatButtonRow && e.col >= this.chatButtonFrom && e.col < this.chatButtonTo) {
+      this.toggleChatMode()
+      return true
+    }
+
     if (e.button === 'scroll_up') {
       this.scrollOffset = Math.min(this.scrollOffset + 3, this.maxScroll())
       this.onUpdate(); return true
@@ -732,25 +825,30 @@ export class SessionPanel extends Panel {
   private buildDisplayLines(width: number): ChatLine[] {
     const out: ChatLine[] = []
     for (const raw of this.lines) {
-      const line = { role: raw.role, text: sanitizeForDisplay(raw.text) }
-      if (line.text.length <= width || this.isWideContent(line.text)) {
-        out.push(line)
-        continue
-      }
-      // Word-wrap prose
-      const words = line.text.split(' ')
-      let cur = ''
-      for (const w of words) {
-        if (cur.length === 0) { cur = w }
-        else if (cur.length + 1 + w.length <= width) { cur += ' ' + w }
-        else { out.push({ role: line.role, text: cur }); cur = w }
-        // Hard-break a single word longer than width
-        while (cur.length > width) {
-          out.push({ role: line.role, text: cur.substring(0, width) })
-          cur = cur.substring(width)
+      // A single ChatLine may contain newlines (multi-line model output).
+      // Split on \n FIRST so each physical line is laid out independently.
+      const physical = sanitizeForDisplay(raw.text).split('\n')
+      for (const text of physical) {
+        const line = { role: raw.role, text }
+        if (line.text.length <= width || this.isWideContent(line.text)) {
+          out.push(line)
+          continue
         }
+        // Word-wrap prose
+        const words = line.text.split(' ')
+        let cur = ''
+        for (const w of words) {
+          if (cur.length === 0) { cur = w }
+          else if (cur.length + 1 + w.length <= width) { cur += ' ' + w }
+          else { out.push({ role: line.role, text: cur }); cur = w }
+          // Hard-break a single word longer than width
+          while (cur.length > width) {
+            out.push({ role: line.role, text: cur.substring(0, width) })
+            cur = cur.substring(width)
+          }
+        }
+        if (cur.length > 0) out.push({ role: line.role, text: cur })
       }
-      if (cur.length > 0) out.push({ role: line.role, text: cur })
     }
     return out
   }
@@ -837,7 +935,7 @@ export class SessionPanel extends Panel {
     this.session.addMessage({ role: 'user', content: text })
     this.scrollOffset = 0
     this.onUpdate()
-    void this.runAgentLoop()
+    void this.runAgentLoop(this.active)   // capture record so switching is safe
   }
 
   clearSession(): void {
@@ -855,10 +953,7 @@ export class SessionPanel extends Panel {
         this.lines.push({ role: 'system', text: 'Commands: /help /model /chat /config /clear /tokens' })
         break
       case 'chat':
-        this.chatMode = !this.chatMode
-        this.lines.push({ role: 'system', text: this.chatMode
-          ? 'Chat mode ON — tools disabled (cheap plain chat, ~15 input tokens).'
-          : 'Chat mode OFF — agent tools enabled (bash/read/write/web-fetch).' })
+        this.toggleChatMode()
         break
       case 'config':
       case 'settings':
@@ -919,40 +1014,42 @@ export class SessionPanel extends Panel {
     this.onUpdate()
   }
 
-  private async runAgentLoop(): Promise<void> {
-    this.streaming = true
+  private async runAgentLoop(rec: SessionRecord): Promise<void> {
+    rec.streaming = true
+    rec.status = 'running'
     await runHook('SessionStart', {})
 
-    const provider = this.selectedModel?.provider ?? defaultProvider()
+    const provider = rec.selectedModel?.provider ?? defaultProvider()
     const adapter  = createAdapter(provider)
-    const modelId  = this.selectedModel?.id ?? adapter.defaultModel
-    const loopOpts = this.selectedModel
-      ? { adapter, model: this.selectedModel.id, maxTurns: 20, noTools: this.chatMode }
-      : { adapter, maxTurns: 20, noTools: this.chatMode }
+    const modelId  = rec.selectedModel?.id ?? adapter.defaultModel
+    const loopOpts = rec.selectedModel
+      ? { adapter, model: rec.selectedModel.id, maxTurns: 20, noTools: rec.chatMode }
+      : { adapter, maxTurns: 20, noTools: rec.chatMode }
 
     const startTime = Date.now()
+    const pushStats = (s: SessionStats) => { rec.lastStats = s; this.onStats?.(s) }
     let lastStats: SessionStats = { status: 'running', model: modelId, inputTokens: 0, outputTokens: 0, toolCalls: 0, turns: 0, startTime }
-    this.onStats?.(lastStats)
+    pushStats(lastStats)
 
     let currentLine: ChatLine | undefined
     let hadError = false
     try {
-      for await (const event of agentLoop(this.session, loopOpts)) {
+      for await (const event of agentLoop(rec.session, loopOpts)) {
         if (event.type === 'text_delta') {
           if (!currentLine) {
             currentLine = { role: 'assistant', text: '' }
-            this.lines.push(currentLine)
+            rec.lines.push(currentLine)
           }
           currentLine.text += event.delta
-          this.scrollOffset = 0
+          rec.scrollOffset = 0
           this.onUpdate()
         } else if (event.type === 'tool_start') {
           currentLine = undefined
-          this.lines.push({ role: 'system', text: `  tool: ${event.name}` })
+          rec.lines.push({ role: 'system', text: `  tool: ${event.name}` })
           this.onUpdate()
         } else if (event.type === 'tool_result') {
           const preview = event.content.substring(0, 80).replace(/\n/g, ' ')
-          this.lines.push({ role: 'system', text: `  → ${preview}` })
+          rec.lines.push({ role: 'system', text: `  → ${preview}` })
           currentLine = undefined
           this.onUpdate()
         } else if (event.type === 'turn_end') {
@@ -963,21 +1060,22 @@ export class SessionPanel extends Panel {
             inputTokens: event.inputTokens, outputTokens: event.outputTokens,
             toolCalls: event.toolCalls, turns: event.turns, startTime,
           }
-          this.onStats?.(lastStats)
+          pushStats(lastStats)
         } else if (event.type === 'error') {
           hadError = true
-          this.lines.push({ role: 'system', text: `Error: ${event.error.message}` })
+          rec.lines.push({ role: 'system', text: `Error: ${event.error.message}` })
           this.onUpdate()
         }
       }
     } catch (err) {
       hadError = true
       const msg = err instanceof Error ? err.message : String(err)
-      this.lines.push({ role: 'system', text: `Error: ${msg}` })
+      rec.lines.push({ role: 'system', text: `Error: ${msg}` })
       this.onUpdate()
     } finally {
-      this.streaming = false
-      this.onStats?.({ ...lastStats, status: hadError ? 'error' : 'done' })
+      rec.streaming = false
+      rec.status = hadError ? 'error' : 'done'
+      pushStats({ ...lastStats, status: rec.status })
       await runHook('SessionStop', {})
       this.onUpdate()
     }
