@@ -444,6 +444,9 @@ export class App {
       // Mouse event — try before keyboard (non-terminal tabs only)
       const mouse = parseMouse(data)
       if (mouse) {
+        // Shift+click: pass through to terminal for native text selection
+        if (mouse.shift) return
+
         // Palette overlay intercepts ALL mouse when open — nothing behind it is clickable
         if (this.paletteOpen) {
           this.palette.onMouse(mouse, this.rows, this.cols)

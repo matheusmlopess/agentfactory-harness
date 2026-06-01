@@ -9,6 +9,9 @@ import { agentLoop } from '../../core/agent-loop.js'
 import { runHook } from '../../core/hooks.js'
 import { createAdapter, defaultProvider, listModels } from '../../core/llm/index.js'
 import type { Provider, ModelEntry } from '../../core/llm/index.js'
+import { store } from '../../core/config/store.js'
+
+const MAX_PICKER_VISIBLE = 10
 
 // Fallback list used when API keys aren't configured or fetch fails
 const FALLBACK_MODELS: readonly ModelEntry[] = [
@@ -38,9 +41,15 @@ export class SessionPanel extends Panel {
   private scrollbarDragStartOffset = 0
   private selectedModel: ModelEntry | null = null
   private modelPickerOpen = false
+  // step 1 — provider selection
+  private pickerStep: 'provider' | 'model' = 'provider'
+  private pickerProviders: { provider: Provider; name: string }[] = []
+  private pickerProviderIdx = 0
+  // step 2 — model selection
   private modelPickerIdx = 0
   private pickerModels: ModelEntry[] = []
   private pickerLoading = false
+  private pickerScrollOffset = 0
 
   constructor(rect: Rect, onUpdate: () => void) {
     super(rect)
@@ -53,14 +62,41 @@ export class SessionPanel extends Panel {
 
   getSelectedModel(): ModelEntry | null { return this.selectedModel }
 
-  /** Open the model picker, fetching models from configured providers. */
+  /** Open the model picker — shows provider selection first. */
   openModelPicker(): void {
-    this.modelPickerOpen = true
-    this.pickerLoading   = true
-    this.pickerModels    = []
-    this.modelPickerIdx  = 0
+    const ALL_PROVIDERS: { provider: Provider; name: string }[] = [
+      { provider: 'anthropic', name: 'Anthropic Claude' },
+      { provider: 'openai',    name: 'OpenAI'           },
+    ]
+    // Only show providers that have a key configured
+    this.pickerProviders = ALL_PROVIDERS.filter(p =>
+      !!(store.getKey(p.provider, p.provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'))
+    )
+    // If no keys at all, show all providers so user can still pick and see the fetch error
+    if (this.pickerProviders.length === 0) this.pickerProviders = ALL_PROVIDERS
+
+    this.pickerStep        = 'provider'
+    this.pickerProviderIdx = 0
+    this.modelPickerOpen   = true
+    this.pickerModels      = []
+    this.pickerLoading     = false
+    this.pickerScrollOffset = 0
+
+    // If only one provider configured, skip straight to model list
+    if (this.pickerProviders.length === 1) this.selectProvider(0)
+    else this.onUpdate()
+  }
+
+  private selectProvider(idx: number): void {
+    const prov = this.pickerProviders[idx]
+    if (!prov) return
+    this.pickerStep         = 'model'
+    this.pickerLoading      = true
+    this.pickerModels       = []
+    this.pickerScrollOffset = 0
+    this.modelPickerIdx     = 0
     this.onUpdate()
-    void this.fetchPickerModels()
+    void this.fetchPickerModels(prov.provider)
   }
 
   render(buf: CellBuffer): void {
@@ -120,147 +156,171 @@ export class SessionPanel extends Panel {
     if (this.modelPickerOpen) this.renderModelPicker(buf, r)
   }
 
-  private handlePickerClick(row: number, col: number): boolean {
-    if (this.pickerLoading) return true  // consume clicks while loading
+  // ── Picker geometry helper ────────────────────────────────────────────────
 
-    const r = this.inner
-    const modalW = Math.min(r.width - 4, 56)
-    const models = this.pickerModels
-
-    // Rebuild display rows (same logic as render)
-    type DRow = { kind: 'header' } | { kind: 'model'; idx: number }
-    const displayRows: DRow[] = []
-    let lastProv = ''
-    for (let i = 0; i < models.length; i++) {
-      const m = models[i]!
-      if (m.provider !== lastProv) { displayRows.push({ kind: 'header' }); lastProv = m.provider }
-      displayRows.push({ kind: 'model', idx: i })
-    }
-
-    const modalH   = Math.min(displayRows.length + 3, r.height - 4)
+  private pickerGeometry(r: { row: number; col: number; height: number; width: number }, contentRows: number) {
+    const modalW   = Math.min(r.width - 4, 56)
+    const modalH   = Math.min(contentRows + 2, r.height - 4)  // border top/bot
     const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
     const modalCol = r.col + Math.floor((r.width - modalW) / 2)
+    return { modalW, modalH, modalRow, modalCol, inner: modalW - 2 }
+  }
 
-    // Click outside overlay → close
-    if (row < modalRow || row >= modalRow + modalH || col < modalCol || col >= modalCol + modalW) {
-      this.modelPickerOpen = false
-      this.onUpdate()
+  private drawPickerFrame(buf: CellBuffer, title: string, g: ReturnType<SessionPanel['pickerGeometry']>): void {
+    const { modalW, modalH, modalRow, modalCol, inner } = g
+    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
+    const hLine = '─'.repeat(inner)
+    buf.write(modalRow,              modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    for (let i = 1; i < modalH - 1; i++) {
+      buf.write(modalRow + i, modalCol,            '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.write(modalRow + i, modalCol + modalW - 1,'│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.fill(modalRow + i, modalCol + 1, 1, inner, ' ', { bg: Colors.bgPanel })
+    }
+    buf.write(modalRow, modalCol + 2, ` ${title} `, { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+  }
+
+  // ── Picker click ──────────────────────────────────────────────────────────
+
+  private handlePickerClick(row: number, col: number): boolean {
+    const r = this.inner
+
+    if (this.pickerStep === 'provider') {
+      const g = this.pickerGeometry(r, this.pickerProviders.length)
+      // Click outside → close
+      if (row < g.modalRow || row >= g.modalRow + g.modalH || col < g.modalCol || col >= g.modalCol + g.modalW) {
+        this.modelPickerOpen = false; this.onUpdate(); return true
+      }
+      const itemRow = row - (g.modalRow + 1)
+      if (itemRow >= 0 && itemRow < this.pickerProviders.length) {
+        this.selectProvider(itemRow)
+      }
       return true
     }
 
-    // Click on a model row (content rows start at modalRow + 1)
-    const itemRow = row - (modalRow + 1)
-    if (itemRow >= 0 && itemRow < displayRows.length) {
-      const dr = displayRows[itemRow]
-      if (dr?.kind === 'model') {
-        const picked = models[dr.idx]
-        if (picked) {
-          this.selectedModel     = picked
-          this.modelPickerIdx    = dr.idx
-          this.lines.push({ role: 'system', text: `Model set to ${picked.label}` })
-          this.modelPickerOpen   = false
-          this.onUpdate()
-        }
+    // step = 'model'
+    if (this.pickerLoading) return true
+
+    const visibleCount = Math.min(this.pickerModels.length, MAX_PICKER_VISIBLE)
+    const scrollable   = this.pickerModels.length > MAX_PICKER_VISIBLE
+    const g = this.pickerGeometry(r, visibleCount + (scrollable ? 1 : 0))
+
+    // Click outside → close
+    if (row < g.modalRow || row >= g.modalRow + g.modalH || col < g.modalCol || col >= g.modalCol + g.modalW) {
+      this.modelPickerOpen = false; this.onUpdate(); return true
+    }
+
+    const itemRow = row - (g.modalRow + 1)
+    if (itemRow >= 0 && itemRow < visibleCount) {
+      const modelIdx = this.pickerScrollOffset + itemRow
+      const picked   = this.pickerModels[modelIdx]
+      if (picked) {
+        this.selectedModel  = picked
+        this.modelPickerIdx = modelIdx
+        this.lines.push({ role: 'system', text: `Model set to ${picked.label}` })
+        this.modelPickerOpen = false
+        this.onUpdate()
       }
     }
     return true
   }
 
-  private renderModelPicker(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
-    const modalW = Math.min(r.width - 4, 56)
-    const inner  = modalW - 2
+  // ── Picker render ─────────────────────────────────────────────────────────
 
-    if (this.pickerLoading) {
-      const modalH   = 4
-      const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
-      const modalCol = r.col + Math.floor((r.width - modalW) / 2)
-      buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
-      const hLine = '─'.repeat(inner)
-      buf.write(modalRow,             modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      for (let i = 1; i < modalH - 1; i++) {
-        buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-        buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+  private renderModelPicker(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
+    if (this.pickerStep === 'provider') {
+      const provs = this.pickerProviders
+      const g = this.pickerGeometry(r, provs.length)
+      this.drawPickerFrame(buf, 'Select Provider', g)
+      for (let i = 0; i < provs.length; i++) {
+        const sel = i === this.pickerProviderIdx
+        const label = (sel ? '► ' : '  ') + provs[i]!.name
+        buf.write(g.modalRow + 1 + i, g.modalCol + 1,
+          label.substring(0, g.inner).padEnd(g.inner),
+          { fg: sel ? Colors.bg : Colors.text, bg: sel ? Colors.accent : Colors.bgPanel, bold: sel })
       }
-      buf.write(modalRow, modalCol + 2, ' Select Model ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
-      buf.write(modalRow + 2, modalCol + 2, '⣾ Fetching models from providers…', { fg: Colors.textDim, bg: Colors.bgPanel })
       return
     }
 
-    const models = this.pickerModels
-
-    // Build display rows with provider headers
-    type Row = { kind: 'header'; label: string } | { kind: 'model'; entry: ModelEntry; idx: number }
-    const displayRows: Row[] = []
-    let lastProv = ''
-    for (let i = 0; i < models.length; i++) {
-      const m = models[i]!
-      if (m.provider !== lastProv) {
-        displayRows.push({ kind: 'header', label: m.provider === 'anthropic' ? '── Anthropic ──' : '── OpenAI ──' })
-        lastProv = m.provider
-      }
-      displayRows.push({ kind: 'model', entry: m, idx: i })
+    // step = 'model'
+    if (this.pickerLoading) {
+      const g = this.pickerGeometry(r, 1)
+      this.drawPickerFrame(buf, 'Loading models…', g)
+      buf.write(g.modalRow + 1, g.modalCol + 2, '⣾ Fetching from provider…', { fg: Colors.textDim, bg: Colors.bgPanel })
+      return
     }
 
-    const modalH   = Math.min(displayRows.length + 3, r.height - 4)
-    const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
-    const modalCol = r.col + Math.floor((r.width - modalW) / 2)
+    const models       = this.pickerModels
+    const visibleCount = Math.min(models.length, MAX_PICKER_VISIBLE)
+    const scrollable   = models.length > MAX_PICKER_VISIBLE
+    const prov         = this.pickerProviders[this.pickerProviderIdx]
+    const title        = prov ? `${prov.name} models` : 'Select Model'
+    const contentRows  = visibleCount + (scrollable ? 1 : 0)
+    const g            = this.pickerGeometry(r, contentRows)
 
-    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
-    const hLine = '─'.repeat(inner)
-    buf.write(modalRow,             modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    for (let i = 1; i < modalH - 1; i++) {
-      buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    this.drawPickerFrame(buf, title, g)
+
+    for (let i = 0; i < visibleCount; i++) {
+      const modelIdx  = this.pickerScrollOffset + i
+      const m         = models[modelIdx]
+      if (!m) break
+      const selected  = modelIdx === this.modelPickerIdx
+      const isCurrent = this.selectedModel?.id === m.id
+      const prefix    = selected ? '► ' : '  '
+      const suffix    = isCurrent ? ' ✓' : ''
+      const label     = (prefix + m.label + suffix).substring(0, g.inner).padEnd(g.inner)
+      buf.write(g.modalRow + 1 + i, g.modalCol + 1, label, {
+        fg: selected ? Colors.bg : Colors.text, bg: selected ? Colors.accent : Colors.bgPanel, bold: selected,
+      })
     }
-    buf.write(modalRow, modalCol + 2, ' Select Model ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
 
-    const visible = modalH - 2  // rows available for content
-    for (let i = 0; i < Math.min(displayRows.length, visible); i++) {
-      const dr = displayRows[i]!
-      const absRow = modalRow + 1 + i
-      if (dr.kind === 'header') {
-        buf.write(absRow, modalCol + 1, ` ${dr.label}`.padEnd(inner), { fg: Colors.accent, bg: Colors.bgPanel, bold: true })
-      } else {
-        const selected  = dr.idx === this.modelPickerIdx
-        const isCurrent = this.selectedModel?.id === dr.entry.id
-        const prefix  = selected ? '► ' : '  '
-        const suffix  = isCurrent ? ' ✓' : ''
-        const label   = (prefix + dr.entry.label + suffix).substring(0, inner).padEnd(inner)
-        buf.write(absRow, modalCol + 1, label, {
-          fg:   selected ? Colors.bg    : Colors.text,
-          bg:   selected ? Colors.accent : Colors.bgPanel,
-          bold: selected,
-        })
-      }
+    // Scroll indicator at the bottom row
+    if (scrollable) {
+      const more  = models.length - this.pickerScrollOffset - visibleCount
+      const above = this.pickerScrollOffset > 0
+      let indicator = ''
+      if (above && more > 0) indicator = `  ▲ scroll  ▼ ${more} more`
+      else if (above)        indicator = `  ▲ scroll up`
+      else if (more > 0)     indicator = `  ▼ ${more} more  (scroll)`
+      buf.write(g.modalRow + 1 + visibleCount, g.modalCol + 1,
+        indicator.substring(0, g.inner).padEnd(g.inner), { fg: Colors.textDim, bg: Colors.bgPanel })
     }
   }
 
   onKey(e: KeyEvent): boolean {
-    // Model picker intercepts all keys when open
     if (this.modelPickerOpen) {
       if (e.key === 'escape') {
-        this.modelPickerOpen = false
-        this.onUpdate(); return true
+        if (this.pickerStep === 'model' && this.pickerProviders.length > 1) {
+          // Go back to provider selection
+          this.pickerStep = 'provider'; this.onUpdate(); return true
+        }
+        this.modelPickerOpen = false; this.onUpdate(); return true
       }
+
+      if (this.pickerStep === 'provider') {
+        if (e.key === 'arrow_up')   { this.pickerProviderIdx = Math.max(0, this.pickerProviderIdx - 1); this.onUpdate(); return true }
+        if (e.key === 'arrow_down') { this.pickerProviderIdx = Math.min(this.pickerProviders.length - 1, this.pickerProviderIdx + 1); this.onUpdate(); return true }
+        if (e.key === 'enter')      { this.selectProvider(this.pickerProviderIdx); return true }
+        return true
+      }
+
+      // step = 'model'
       if (!this.pickerLoading) {
         if (e.key === 'arrow_up') {
           this.modelPickerIdx = Math.max(0, this.modelPickerIdx - 1)
+          if (this.modelPickerIdx < this.pickerScrollOffset) this.pickerScrollOffset = this.modelPickerIdx
           this.onUpdate(); return true
         }
         if (e.key === 'arrow_down') {
           this.modelPickerIdx = Math.min(this.pickerModels.length - 1, this.modelPickerIdx + 1)
+          if (this.modelPickerIdx >= this.pickerScrollOffset + MAX_PICKER_VISIBLE)
+            this.pickerScrollOffset = this.modelPickerIdx - MAX_PICKER_VISIBLE + 1
           this.onUpdate(); return true
         }
         if (e.key === 'enter') {
           const picked = this.pickerModels[this.modelPickerIdx]
-          if (picked) {
-            this.selectedModel = picked
-            this.lines.push({ role: 'system', text: `Model set to ${picked.label}` })
-          }
-          this.modelPickerOpen = false
-          this.onUpdate(); return true
+          if (picked) { this.selectedModel = picked; this.lines.push({ role: 'system', text: `Model set to ${picked.label}` }) }
+          this.modelPickerOpen = false; this.onUpdate(); return true
         }
       }
       return true
@@ -295,8 +355,18 @@ export class SessionPanel extends Panel {
 
   override onMouse(e: MouseEvent): boolean {
     // Model picker intercepts all mouse when open
-    if (this.modelPickerOpen && e.button === 'left' && e.action === 'press') {
-      return this.handlePickerClick(e.row, e.col)
+    if (this.modelPickerOpen) {
+      if (e.button === 'scroll_up' && this.pickerStep === 'model') {
+        this.pickerScrollOffset = Math.max(0, this.pickerScrollOffset - 1)
+        this.onUpdate(); return true
+      }
+      if (e.button === 'scroll_down' && this.pickerStep === 'model') {
+        const max = Math.max(0, this.pickerModels.length - MAX_PICKER_VISIBLE)
+        this.pickerScrollOffset = Math.min(max, this.pickerScrollOffset + 1)
+        this.onUpdate(); return true
+      }
+      if (e.button === 'left' && e.action === 'press') return this.handlePickerClick(e.row, e.col)
+      return true
     }
 
     if (e.button === 'scroll_up') {
@@ -414,20 +484,26 @@ export class SessionPanel extends Panel {
     this.onUpdate()
   }
 
-  private async fetchPickerModels(): Promise<void> {
-    const results: ModelEntry[] = []
-    for (const p of ['anthropic', 'openai'] as Provider[]) {
-      try {
-        const models = await listModels(p)
-        results.push(...models)
-      } catch { /* no key or network error — skip provider */ }
+  private async fetchPickerModels(provider: Provider): Promise<void> {
+    let models: ModelEntry[] = []
+    try {
+      models = await listModels(provider)
+    } catch { /* network or auth error */ }
+
+    // Fall back to hardcoded list for this provider
+    if (models.length === 0) {
+      models = FALLBACK_MODELS.filter(m => m.provider === provider)
     }
-    // Fall back to hardcoded list if nothing was fetched
-    this.pickerModels = results.length > 0 ? results : [...FALLBACK_MODELS]
-    // Restore selection index to current model
-    if (this.selectedModel) {
-      const idx = this.pickerModels.findIndex(m => m.id === this.selectedModel!.id)
-      this.modelPickerIdx = idx >= 0 ? idx : 0
+
+    this.pickerModels = models
+    // Restore cursor to currently selected model if it's in this list
+    if (this.selectedModel?.provider === provider) {
+      const idx = models.findIndex(m => m.id === this.selectedModel!.id)
+      this.modelPickerIdx = Math.max(0, idx)
+      this.pickerScrollOffset = Math.max(0, this.modelPickerIdx - MAX_PICKER_VISIBLE + 1)
+    } else {
+      this.modelPickerIdx     = 0
+      this.pickerScrollOffset = 0
     }
     this.pickerLoading = false
     this.onUpdate()
