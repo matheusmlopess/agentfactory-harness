@@ -26,6 +26,9 @@ import { createAdapter, defaultProvider } from './core/llm/index.js'
 import { ConfigPanel } from './tui/panels/ConfigPanel.js'
 import { store } from './core/config/store.js'
 import { CommandPalette } from './tui/widgets/CommandPalette.js'
+import { getUser, clearToken } from './registry/auth.js'
+import { startDeviceLogin } from './registry/login.js'
+import { importFromTools } from './registry/import-keys.js'
 
 const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config']
 const TAB_TERMINAL = 3
@@ -73,6 +76,8 @@ export class App {
     await store.init()
     this.initPanels()
     await this.tryLoadPlan()
+    // Load registry auth user in background — don't block startup
+    void getUser().then(user => { this.configPanel?.setAuthUser(user) })
     this.render()
     this.listenInput()
   }
@@ -92,7 +97,11 @@ export class App {
     this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
     this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender())
     this.agentsPanel.setAgents([{ name: 'session-0', status: 'idle' }])
-    this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender())
+    this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender(), {
+      onLogin:  () => { void this.runLoginFlow() },
+      onLogout: () => { void this.runLogout()    },
+      onImport: () => { void this.runImport()    },
+    })
     // ConfigPanel (TAB_CONFIG=4) is dispatched explicitly — keep it out of panels[]
     // so router.dispatch(key/mouse, this.panels, activeTab) is never called with index 4.
     this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
@@ -103,6 +112,8 @@ export class App {
       { id: 'switch-agents',        label: 'Switch to Agents',        hint: 'F3',     action: () => { this.activeTab = 2;           this.render() } },
       { id: 'switch-terminal',      label: 'Switch to Terminal',      hint: 'F4',     action: () => { this.activeTab = TAB_TERMINAL; this.render() } },
       { id: 'switch-config',        label: 'Switch to Config',        hint: 'F5',     action: () => { this.activeTab = TAB_CONFIG;   this.render() } },
+      { id: 'login',                label: 'Login to AgentFactory',   hint: '',       action: () => { this.activeTab = TAB_CONFIG; void this.runLoginFlow() } },
+      { id: 'logout',               label: 'Logout from AgentFactory',hint: '',       action: () => { void this.runLogout() } },
       { id: 'run-plan',             label: 'Run Plan',                hint: 'Ctrl+R', action: () => { void this.runPlan() } },
       { id: 'clear-session',        label: 'Clear Session',           hint: '',       action: () => { this.sessionPanel.clearSession(); this.render() } },
       { id: 'quit',                 label: 'Quit',                    hint: 'Ctrl+Q', action: () => { this.stop() } },
@@ -141,6 +152,30 @@ export class App {
       this.scheduleRender()
     }, 5000)
     this.scheduleRender()
+  }
+
+  private async runLoginFlow(): Promise<void> {
+    if (!this.configPanel) return
+    this.activeTab = TAB_CONFIG
+    this.render()
+    for await (const ev of startDeviceLogin()) {
+      this.configPanel.updateLoginEvent(ev)
+      this.render()
+      if (ev.kind === 'success' || ev.kind === 'error') break
+    }
+  }
+
+  private async runLogout(): Promise<void> {
+    await clearToken()
+    this.configPanel?.setAuthUser(null)
+    this.render()
+  }
+
+  private async runImport(): Promise<void> {
+    if (!this.configPanel) return
+    const candidates = await importFromTools()
+    this.configPanel.showImportCandidates(candidates)
+    this.render()
   }
 
   private async runPlan(): Promise<void> {

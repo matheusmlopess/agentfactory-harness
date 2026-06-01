@@ -404,22 +404,45 @@ harness:
     status: planned
 
 registry:
-  - path: src/registry/client.ts
-    purpose: agentfactory.dev REST client — publish, fetch, list
-    exports:
-      - RegistryClient (class)
-      - "publish(agent)"
-      - "fetch(slug)"
-    wave: 5
-    status: planned
-
   - path: src/registry/auth.ts
-    purpose: "Token auth — reads ~/.agentfactory/token"
+    purpose: "Registry auth — read/write/clear ~/.agentfactory/token; decode JWT to AuthUser"
     exports:
-      - "getToken(): string | null"
-      - "saveToken(t: string)"
+      - AuthUser (interface)
+      - "getToken(): Promise<string | null>"
+      - "saveToken(t: string): Promise<void>"
+      - "clearToken(): Promise<void>"
+      - "decodeUser(token: string): AuthUser | null"
+      - "getUser(): Promise<AuthUser | null>"
     wave: 5
-    status: planned
+    status: implemented
+
+  - path: src/registry/auth.test.ts
+    purpose: decodeUser unit tests — valid JWT, missing handle, malformed, default plan
+    wave: 5
+    status: implemented
+
+  - path: src/registry/client.ts
+    purpose: "agentfactory.dev typed fetch wrapper — reads Bearer token from auth.ts; get/post/put/delete"
+    exports:
+      - registryClient (singleton)
+    wave: 5
+    status: implemented
+
+  - path: src/registry/login.ts
+    purpose: "Device-code login flow — POST /auth/cli/device, open browser, poll for token, save on success"
+    exports:
+      - LoginEvent (type union)
+      - "startDeviceLogin(): AsyncIterable<LoginEvent>"
+    wave: 5
+    status: implemented
+
+  - path: src/registry/import-keys.ts
+    purpose: "Scan ~/.claude/.credentials.json and env vars for known API keys; return candidates for user confirmation"
+    exports:
+      - ImportCandidate (interface)
+      - "importFromTools(): Promise<ImportCandidate[]>"
+    wave: 5
+    status: implemented
 
 cli:
   - path: src/index.ts

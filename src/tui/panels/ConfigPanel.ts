@@ -7,8 +7,17 @@ import { Colors } from '../renderer/theme.js'
 import { store } from '../../core/config/store.js'
 import { providersByCategory, PROVIDERS } from '../../core/config/providers.js'
 import type { ProviderDef, Category } from '../../core/config/providers.js'
+import type { AuthUser } from '../../registry/auth.js'
+import type { LoginEvent } from '../../registry/login.js'
+import type { ImportCandidate } from '../../registry/import-keys.js'
 
-type PanelMode = 'browse' | 'edit'
+type PanelMode = 'browse' | 'edit' | 'login' | 'import'
+
+export interface ConfigPanelCallbacks {
+  onLogin?:  () => void
+  onLogout?: () => void
+  onImport?: () => void
+}
 
 // A rendered row is either a category header or a provider entry
 type RowItem = { kind: 'header'; category: Category } | { kind: 'entry'; def: ProviderDef; entryIdx: number }
@@ -31,6 +40,8 @@ function maskValue(val: string, def: ProviderDef): string {
 }
 
 const DOUBLE_CLICK_MS = 350
+const HEADER_ROWS = 3   // auth-status row + action row + divider
+const SPINNER = ['⣾','⣽','⣻','⢿','⡿','⣟','⣯','⣷']
 
 export class ConfigPanel extends Panel {
   // entries[]: only non-alias entries, in category order — the navigation targets
@@ -46,10 +57,25 @@ export class ConfigPanel extends Panel {
   private lastClickEntryIdx = -1
   private lastClickTime = 0
   private readonly onUpdate: () => void
+  private readonly callbacks: ConfigPanelCallbacks
 
-  constructor(rect: Rect, onUpdate: () => void) {
+  // Auth state
+  private authUser: AuthUser | null = null
+
+  // Login overlay state
+  private loginUserCode  = ''
+  private loginVerifyUrl = ''
+  private loginSeconds   = 0
+  private loginMessage   = ''   // error or success message
+  private spinnerFrame   = 0
+
+  // Import overlay state
+  private importCandidates: ImportCandidate[] = []
+
+  constructor(rect: Rect, onUpdate: () => void, callbacks: ConfigPanelCallbacks = {}) {
     super(rect)
-    this.onUpdate = onUpdate
+    this.onUpdate  = onUpdate
+    this.callbacks = callbacks
 
     // Build the flat row list and the navigable entries list
     const byCategory = providersByCategory()
@@ -72,22 +98,59 @@ export class ConfigPanel extends Panel {
     if (this.selectedIdx < 0) this.selectedIdx = 0
   }
 
+  // ── Public API for App ────────────────────────────────────────────────────
+
+  setAuthUser(user: AuthUser | null): void {
+    this.authUser = user
+    this.onUpdate()
+  }
+
+  updateLoginEvent(ev: LoginEvent): void {
+    if (ev.kind === 'code') {
+      this.loginUserCode  = ev.userCode
+      this.loginVerifyUrl = ev.verifyUrl
+      this.loginSeconds   = ev.expiresIn
+      this.loginMessage   = ''
+      this.mode = 'login'
+    } else if (ev.kind === 'progress') {
+      this.loginSeconds = ev.secondsLeft
+      this.spinnerFrame = (this.spinnerFrame + 1) % SPINNER.length
+    } else if (ev.kind === 'success') {
+      this.authUser = ev.user
+      this.loginMessage = `✓ Logged in as @${ev.user.github_handle}`
+      setTimeout(() => { this.mode = 'browse'; this.onUpdate() }, 1500)
+    } else if (ev.kind === 'error') {
+      this.loginMessage = `✗ ${ev.message}`
+      setTimeout(() => { this.mode = 'browse'; this.onUpdate() }, 3000)
+    }
+    this.onUpdate()
+  }
+
+  showImportCandidates(candidates: ImportCandidate[]): void {
+    this.importCandidates = candidates
+    this.mode = 'import'
+    this.onUpdate()
+  }
+
   // ── Rendering ────────────────────────────────────────────────────────────
 
   override render(buf: CellBuffer): void {
     const r = this.inner
     if (r.height < 4 || r.width < 20) return
 
-    // List always uses full height; modal floats on top when editing
-    const listHeight = r.height - 2
+    // List uses height minus hint bar (2) and auth header (HEADER_ROWS)
+    const listHeight = r.height - 2 - HEADER_ROWS
 
     // Fill background
     buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.bgPanel })
 
+    // ── Auth header (always visible) ─────────────────────────────────────
+    this.renderAuthHeader(buf, r)
+
     // ── Provider list ──────────────────────────────────────────────────────
     this.ensureVisible(listHeight)
 
-    let screenRow = r.row
+    let screenRow = r.row + HEADER_ROWS
     let rowsRendered = 0
     let rowIdx = this.scrollTop
 
@@ -135,12 +198,12 @@ export class ConfigPanel extends Panel {
 
     // ── Scroll indicators ─────────────────────────────────────────────────
     if (this.rows.length > rowsRendered) {
-      if (this.scrollTop > 0)       buf.write(r.row, r.col + r.width - 3, ' ▲ ', { fg: Colors.textDim, bg: Colors.bgPanel })
-      if (rowIdx < this.rows.length) buf.write(r.row + listHeight - 1, r.col + r.width - 3, ' ▼ ', { fg: Colors.textDim, bg: Colors.bgPanel })
+      if (this.scrollTop > 0)        buf.write(r.row + HEADER_ROWS, r.col + r.width - 3, ' ▲ ', { fg: Colors.textDim, bg: Colors.bgPanel })
+      if (rowIdx < this.rows.length) buf.write(r.row + HEADER_ROWS + listHeight - 1, r.col + r.width - 3, ' ▼ ', { fg: Colors.textDim, bg: Colors.bgPanel })
     }
 
-    // ── Hint bar (browse mode) ────────────────────────────────────────────
-    if (this.mode === 'browse') {
+    // ── Hint bar ──────────────────────────────────────────────────────────
+    if (this.mode === 'browse' || this.mode === 'edit') {
       const hintRow = r.row + r.height - 2
       buf.write(hintRow, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.bgPanel })
       const hint = ' [↑↓/scroll] Navigate  [Enter/DblClick] Edit  [PgUp/PgDn] Scroll'
@@ -154,10 +217,108 @@ export class ConfigPanel extends Panel {
       this.renderEditModal(buf, r, def)
     }
 
+    // ── Login overlay ─────────────────────────────────────────────────────
+    if (this.mode === 'login') this.renderLoginOverlay(buf, r)
+
+    // ── Import overlay ────────────────────────────────────────────────────
+    if (this.mode === 'import') this.renderImportOverlay(buf, r)
+
     // ── Write error if last persist failed ────────────────────────────────
     if (store.lastWriteError) {
       buf.write(r.row + r.height - 1, r.col, ` ⚠ ${store.lastWriteError} `.substring(0, r.width), { fg: Colors.bg, bg: Colors.error })
     }
+  }
+
+  private renderAuthHeader(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
+    // Row 0: auth status
+    const statusLine = this.authUser
+      ? `● @${this.authUser.github_handle}  (${this.authUser.plan})`
+      : '○ Not logged in'
+    const statusFg = this.authUser ? Colors.success : Colors.textDim
+    buf.write(r.row, r.col, statusLine.padEnd(r.width).substring(0, r.width), { fg: statusFg, bg: Colors.bgPanel, bold: !!this.authUser })
+
+    // Row 1: action buttons
+    const loginLabel  = this.authUser ? '  [→ Logout]  ' : '  [→ Login]   '
+    const importLabel = '  [→ Import keys from tools]'
+    buf.write(r.row + 1, r.col,                       loginLabel.substring(0, Math.floor(r.width / 2)), { fg: Colors.accent, bg: Colors.bgPanel })
+    buf.write(r.row + 1, r.col + Math.floor(r.width / 2), importLabel.substring(0, r.width - Math.floor(r.width / 2)), { fg: Colors.info, bg: Colors.bgPanel })
+
+    // Row 2: divider
+    buf.write(r.row + 2, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.bgPanel })
+  }
+
+  private renderLoginOverlay(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
+    const modalW = Math.min(r.width - 4, 58)
+    const modalH = 11
+    const modalRow = r.row + Math.floor((r.height - modalH) / 2)
+    const modalCol = r.col + Math.floor((r.width  - modalW) / 2)
+
+    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
+    const hLine = '─'.repeat(modalW - 2)
+    buf.write(modalRow,             modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    for (let i = 1; i < modalH - 1; i++) {
+      buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.fill(modalRow + i, modalCol + 1, 1, modalW - 2, ' ', { bg: Colors.bgPanel })
+    }
+
+    buf.write(modalRow, modalCol + 2, ' Login to AgentFactory ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+
+    // Final message (success or error) replaces step content
+    if (this.loginMessage) {
+      const msgFg = this.loginMessage.startsWith('✓') ? Colors.success : Colors.error
+      buf.write(modalRow + 5, modalCol + 2, this.loginMessage.substring(0, modalW - 4), { fg: msgFg, bg: Colors.bgPanel, bold: true })
+    } else if (this.loginUserCode) {
+      buf.write(modalRow + 2, modalCol + 2, '1. Open this URL in your browser:', { fg: Colors.text, bg: Colors.bgPanel })
+      buf.write(modalRow + 3, modalCol + 2, `   ↗  ${this.loginVerifyUrl}`.substring(0, modalW - 4), { fg: Colors.info, bg: Colors.bgPanel, underline: true })
+      buf.write(modalRow + 5, modalCol + 2, '2. Enter this code:', { fg: Colors.text, bg: Colors.bgPanel })
+      buf.write(modalRow + 6, modalCol + 6, this.loginUserCode, { fg: Colors.textBright, bg: Colors.bgActive, bold: true })
+      const spinner = SPINNER[this.spinnerFrame]!
+      buf.write(modalRow + 8, modalCol + 2, `${spinner} Waiting…  (${this.loginSeconds}s remaining)`.substring(0, modalW - 4), { fg: Colors.textDim, bg: Colors.bgPanel })
+    } else {
+      buf.write(modalRow + 5, modalCol + 2, 'Connecting…', { fg: Colors.textDim, bg: Colors.bgPanel })
+    }
+
+    buf.write(modalRow + 9, modalCol + 2, '[Esc] Cancel', { fg: Colors.textDim, bg: Colors.bgPanel })
+  }
+
+  private renderImportOverlay(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
+    const candidates = this.importCandidates
+    const modalW = Math.min(r.width - 4, 58)
+    const listRows = Math.max(1, candidates.length)
+    const modalH = 5 + listRows + 3
+    const modalRow = r.row + Math.floor((r.height - modalH) / 2)
+    const modalCol = r.col + Math.floor((r.width  - modalW) / 2)
+
+    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
+    const hLine = '─'.repeat(modalW - 2)
+    buf.write(modalRow,             modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
+    for (let i = 1; i < modalH - 1; i++) {
+      buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
+      buf.fill(modalRow + i, modalCol + 1, 1, modalW - 2, ' ', { bg: Colors.bgPanel })
+    }
+    buf.write(modalRow, modalCol + 2, ' Import API Keys ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+
+    if (candidates.length === 0) {
+      buf.write(modalRow + 2, modalCol + 2, 'No importable keys found.', { fg: Colors.textDim, bg: Colors.bgPanel })
+      buf.write(modalRow + 4, modalCol + 2, '[Esc] Close', { fg: Colors.textDim, bg: Colors.bgPanel })
+      return
+    }
+
+    buf.write(modalRow + 2, modalCol + 2, `Found ${candidates.length} key${candidates.length > 1 ? 's' : ''}:`, { fg: Colors.text, bg: Colors.bgPanel })
+    for (let i = 0; i < candidates.length; i++) {
+      const c = candidates[i]!
+      const nameW = 14
+      const srcW  = 24
+      const masked = c.value.length > 8 ? c.value.slice(0, 6) + '…' : c.value
+      const line = `  ✓ ${c.name.padEnd(nameW).substring(0, nameW)}  ${masked.padEnd(12).substring(0, 12)}  ${c.source}`.substring(0, modalW - 4)
+      buf.write(modalRow + 4 + i, modalCol + 2, line, { fg: Colors.success, bg: Colors.bgPanel })
+      void srcW
+    }
+    buf.write(modalRow + 4 + candidates.length + 1, modalCol + 2, '[Enter] Import all    [Esc] Cancel', { fg: Colors.textDim, bg: Colors.bgPanel })
   }
 
   private renderEditModal(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }, def: ProviderDef): void {
@@ -221,8 +382,30 @@ export class ConfigPanel extends Panel {
   // ── Input handling ────────────────────────────────────────────────────────
 
   override onKey(e: KeyEvent): boolean {
-    if (this.mode === 'edit') return this.handleEditKey(e)
+    if (this.mode === 'edit')   return this.handleEditKey(e)
+    if (this.mode === 'login')  return this.handleLoginKey(e)
+    if (this.mode === 'import') return this.handleImportKey(e)
     return this.handleBrowseKey(e)
+  }
+
+  private handleLoginKey(e: KeyEvent): boolean {
+    if (e.key === 'escape') { this.mode = 'browse'; this.onUpdate(); return true }
+    return true  // consume all keys while login overlay is showing
+  }
+
+  private handleImportKey(e: KeyEvent): boolean {
+    if (e.key === 'escape') { this.mode = 'browse'; this.onUpdate(); return true }
+    if (e.key === 'enter' && this.importCandidates.length > 0) {
+      for (const c of this.importCandidates) {
+        const def = (PROVIDERS as readonly import('../../core/config/providers.js').ProviderDef[]).find(p => p.configKey === c.configKey && p.aliasOf === undefined)
+        if (def) store.setKey(c.configKey, c.value, def.fieldType)
+      }
+      this.importCandidates = []
+      this.mode = 'browse'
+      this.onUpdate()
+      return true
+    }
+    return true
   }
 
   private handleBrowseKey(e: KeyEvent): boolean {
@@ -283,6 +466,25 @@ export class ConfigPanel extends Panel {
 
     if (e.button !== 'left' || e.action !== 'press') return false
 
+    // ── Login / Import overlays consume all clicks ────────────────────────
+    if (this.mode === 'login' || this.mode === 'import') return true
+
+    // ── Auth header clicks (rows 0–1 of inner rect) ───────────────────────
+    const r = this.inner
+    const relRow = e.row - r.row
+    if (relRow === 1) {
+      const midCol = r.col + Math.floor(r.width / 2)
+      if (e.col < midCol) {
+        // Login / Logout button
+        if (this.authUser) { this.callbacks.onLogout?.() }
+        else               { this.callbacks.onLogin?.()  }
+      } else {
+        // Import button
+        this.callbacks.onImport?.()
+      }
+      return true
+    }
+
     // ── Edit modal intercepts all clicks when open ────────────────────────
     if (this.mode === 'edit') {
       const r = this.inner
@@ -321,9 +523,9 @@ export class ConfigPanel extends Panel {
       return true
     }
 
-    const r = this.inner
     const listHeight = this.visibleListHeight()
-    const clickRow = e.row - r.row
+    // clickRow is relative to the start of the scrollable list area (after header)
+    const clickRow = e.row - (r.row + HEADER_ROWS)
 
     if (clickRow < 0 || clickRow >= listHeight) return false
 
@@ -410,7 +612,7 @@ export class ConfigPanel extends Panel {
   }
 
   private visibleListHeight(): number {
-    return this.inner.height - 2
+    return this.inner.height - 2 - HEADER_ROWS
   }
 }
 
