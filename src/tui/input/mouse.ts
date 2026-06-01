@@ -38,9 +38,11 @@ export function parseMouse(data: Buffer): MouseEvent | null {
   let button: MouseEvent['button']
   if (isScroll) {
     button = rawButton === 0 ? 'scroll_up' : 'scroll_down'
-  } else if (isMotion && action === 'press') {
+  } else if (isMotion && rawButton === 3) {
+    // Passive motion — no button held (SGR sends rawButton=3 for button-less movement)
     button = 'motion'
   } else {
+    // Normal press/release OR button-held drag (left=0, middle=1, right=2)
     button = rawButton === 0 ? 'left' : rawButton === 1 ? 'middle' : 'right'
   }
 
