@@ -331,7 +331,10 @@ export class SessionPanel extends Panel {
     let anyClipped = false
     for (let i = 0; i < displayRows; i++) {
       const line = visible[i]
-      buf.fill(r.row + i, r.col, 1, contentWidth, ' ', { bg: Colors.bgPanel })
+      // Table rows (markdown `|…|`) get a boxed look: tinted bg + edge markers
+      const isTable = !!line && line.text.includes('|')
+      const rowBg = isTable ? Colors.bgActive : Colors.bgPanel
+      buf.fill(r.row + i, r.col, 1, contentWidth, ' ', { bg: rowBg })
       if (line) {
         const fg = line.role === 'user'
           ? Colors.accent
@@ -339,8 +342,15 @@ export class SessionPanel extends Panel {
           ? Colors.textDim
           : Colors.text
         const clipped = line.text.substring(this.hScroll, this.hScroll + contentWidth)
-        if (line.text.length > this.hScroll + contentWidth) anyClipped = true
-        buf.write(r.row + i, r.col, clipped, { fg, bg: Colors.bgPanel })
+        const overflowR = line.text.length > this.hScroll + contentWidth
+        if (overflowR) anyClipped = true
+        buf.write(r.row + i, r.col, clipped, { fg, bg: rowBg })
+
+        // Lateral-scroll edge markers on boxed table rows
+        if (isTable) {
+          if (this.hScroll > 0) buf.write(r.row + i, r.col, '◂', { fg: Colors.warning, bg: rowBg })
+          if (overflowR)        buf.write(r.row + i, r.col + contentWidth - 1, '▸', { fg: Colors.warning, bg: rowBg })
+        }
 
         // Selection highlight (reverse video) for cells inside the range
         if (selRange) {
@@ -357,8 +367,9 @@ export class SessionPanel extends Panel {
 
     // Horizontal scroll hint — shown on the last content row when text is clipped
     if (anyClipped || this.hScroll > 0) {
-      const hint = `[← →  h:${this.hScroll}]`
-      buf.write(r.row + displayRows - 1, r.col + contentWidth - hint.length, hint, { fg: Colors.warning, bg: Colors.bgPanel })
+      const hint = ` ◂ ← → ▸  scroll table (col ${this.hScroll}) `
+      const hintCol = r.col + Math.max(0, contentWidth - hint.length)
+      buf.write(r.row + displayRows - 1, hintCol, hint.substring(0, contentWidth), { fg: Colors.bg, bg: Colors.warning, bold: true })
     }
 
     // Scrollbar
