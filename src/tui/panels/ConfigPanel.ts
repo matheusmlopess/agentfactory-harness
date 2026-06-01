@@ -190,6 +190,12 @@ export class ConfigPanel extends Panel {
     // Format hint
     buf.write(modalRow + 3, modalCol + 2, `Format: ${def.hint}`.substring(0, modalW - 4), { fg: Colors.textDim, bg: Colors.bgPanel })
 
+    // Token URL — row 4 (empty gap between hint and input)
+    if (def.tokenUrl) {
+      const urlLabel = `  Get key: ${def.tokenUrl}`
+      buf.write(modalRow + 4, modalCol + 2, urlLabel.substring(0, modalW - 4), { fg: Colors.info, bg: Colors.bgPanel })
+    }
+
     // Input field
     const prompt = '  > '
     const cursor = '█'
