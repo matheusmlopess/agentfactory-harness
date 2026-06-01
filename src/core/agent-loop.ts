@@ -23,6 +23,8 @@ export interface AgentLoopOptions {
   signal?: AbortSignal
   systemPrompt?: string
   adapter?: LLMAdapter
+  /** Plain-chat mode: don't send tool definitions (saves ~220 input tokens/call). */
+  noTools?: boolean
 }
 
 // Conservative default — keeps total usage well within older models' context windows.
@@ -42,7 +44,7 @@ export async function* agentLoop(
 
   const adapter = opts.adapter ?? createAdapter(defaultProvider())
   const model = opts.model ?? adapter.defaultModel
-  const tools = listTools()
+  const tools = opts.noTools ? [] : listTools()
 
   const toolDefs = tools.map((t) => ({
     name: t.name,

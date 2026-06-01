@@ -70,11 +70,12 @@ interface SlashCommand {
 }
 
 const SLASH_COMMANDS: readonly SlashCommand[] = [
-  { name: '/help',   desc: 'Show available commands'            },
-  { name: '/model',  desc: 'Select model (provider → model)'    },
-  { name: '/config', desc: 'Open Config tab (API keys, login)'  },
-  { name: '/clear',  desc: 'Clear the conversation'             },
-  { name: '/tokens', desc: 'Show approximate token count'       },
+  { name: '/help',   desc: 'Show available commands'                  },
+  { name: '/model',  desc: 'Select model (provider → model)'          },
+  { name: '/chat',   desc: 'Toggle plain chat (no tools, cheaper)'    },
+  { name: '/config', desc: 'Open Config tab (API keys, login)'        },
+  { name: '/clear',  desc: 'Clear the conversation'                   },
+  { name: '/tokens', desc: 'Show approximate token count'             },
 ] as const
 
 export class SessionPanel extends Panel {
@@ -99,6 +100,7 @@ export class SessionPanel extends Panel {
   private scrollbarDragStartOffset = 0
   private hScroll = 0   // horizontal scroll offset for wide content (tables)
   private selectedModel: ModelEntry | null = null
+  private chatMode = false   // /chat: plain chat with no tools (cheap)
   private modelPickerOpen = false
   // step 1 — provider selection
   private pickerStep: 'provider' | 'model' = 'provider'
@@ -293,19 +295,19 @@ export class SessionPanel extends Panel {
       }
     }
 
-    // Input bar — show selected model tag when one is chosen
+    // Input bar — show chat-mode + selected model tags on the right
     buf.fill(inputRow, r.col, 1, r.width, ' ', { bg: Colors.bg })
     const prompt = this.streaming ? '… ' : '> '
     const cursor = this.focused && !this.streaming ? '█' : ''
-    // Show selected model or the effective default (so user knows what will be used)
     const effectiveModel = this.selectedModel?.id ?? `${defaultProvider()} default`
+    const chatTag  = this.chatMode ? ' [chat]' : ''
     const modelTag = ` [${effectiveModel}]`
-    const available = r.width - modelTag.length - 1
+    const rightTags = chatTag + modelTag
+    const available = r.width - rightTags.length - 1
     const inputDisplay = (prompt + this.inputBuf + cursor).substring(0, available)
     buf.write(inputRow, r.col, inputDisplay, { fg: Colors.text, bg: Colors.bg })
-    if (modelTag) {
-      buf.write(inputRow, r.col + r.width - modelTag.length, modelTag, { fg: Colors.textDim, bg: Colors.bg })
-    }
+    if (chatTag) buf.write(inputRow, r.col + r.width - rightTags.length, chatTag, { fg: Colors.success, bg: Colors.bg })
+    buf.write(inputRow, r.col + r.width - modelTag.length, modelTag, { fg: Colors.textDim, bg: Colors.bg })
 
     // Slash command autocomplete (above the input bar)
     this.renderAutocomplete(buf, r, inputRow)
@@ -850,7 +852,13 @@ export class SessionPanel extends Panel {
     const name = parts[0] ?? ''
     switch (name) {
       case 'help':
-        this.lines.push({ role: 'system', text: 'Commands: /help /model /config /clear /tokens' })
+        this.lines.push({ role: 'system', text: 'Commands: /help /model /chat /config /clear /tokens' })
+        break
+      case 'chat':
+        this.chatMode = !this.chatMode
+        this.lines.push({ role: 'system', text: this.chatMode
+          ? 'Chat mode ON — tools disabled (cheap plain chat, ~15 input tokens).'
+          : 'Chat mode OFF — agent tools enabled (bash/read/write/web-fetch).' })
         break
       case 'config':
       case 'settings':
@@ -919,8 +927,8 @@ export class SessionPanel extends Panel {
     const adapter  = createAdapter(provider)
     const modelId  = this.selectedModel?.id ?? adapter.defaultModel
     const loopOpts = this.selectedModel
-      ? { adapter, model: this.selectedModel.id, maxTurns: 20 }
-      : { adapter, maxTurns: 20 }
+      ? { adapter, model: this.selectedModel.id, maxTurns: 20, noTools: this.chatMode }
+      : { adapter, maxTurns: 20, noTools: this.chatMode }
 
     const startTime = Date.now()
     let lastStats: SessionStats = { status: 'running', model: modelId, inputTokens: 0, outputTokens: 0, toolCalls: 0, turns: 0, startTime }
