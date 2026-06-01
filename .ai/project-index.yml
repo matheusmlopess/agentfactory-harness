@@ -573,6 +573,11 @@ docs:
     wave: 4
     status: implemented
 
+  - path: docs/features/FEATURE-TOOLS-AND-TOKEN-FLOW.md
+    purpose: "Tool catalog, request anatomy, token cost breakdown, agent vs /chat mode — mermaid diagrams, tree views, 10 worked scenarios"
+    wave: 5
+    status: implemented
+
   - path: docs/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md
     purpose: "Security & architecture review — component matrix, 7 Mermaid diagrams, SEV findings, design gaps, recommendations"
     wave: 0
