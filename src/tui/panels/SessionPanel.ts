@@ -187,7 +187,9 @@ export class SessionPanel extends Panel {
 
   /** Metadata for every session — used by the Agents panel as a switcher. */
   sessionMetas(): { name: string; status: SessionRecord['status']; active: boolean; stats: SessionStats | null }[] {
-    return this.sessions.map((s, i) => ({ name: s.name, status: s.status, active: i === this.activeIdx, stats: s.lastStats }))
+    const metas = this.sessions.map((s, i) => ({ name: s.name, status: s.status, active: i === this.activeIdx, stats: s.lastStats }))
+    console.error(`[sessionMetas] sessions.length=${this.sessions.length}, activeIdx=${this.activeIdx}, metas=[${metas.map(m => `${m.name}${m.active ? '*' : ''}`).join(',')}]`)
+    return metas
   }
 
   switchTo(idx: number): void {
@@ -275,6 +277,7 @@ export class SessionPanel extends Panel {
     this.sessions.push(rec)
     this.activeIdx = this.sessions.length - 1
     this.clearSelection()
+    console.error(`[SessionPanel] Created new session "${laureate.name}". Total sessions: ${this.sessions.length}`)
 
     if (!target || target.kind === 'standard') {
       rec.lines = [{ role: 'system', text: `New session "${laureate.name}" — standard AgentFactory agent.` }]
