@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { Logger, formatLogEntry, getLogFilePath } from './logger.js'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { Logger, formatLogEntry, getLogFilePath, getRecentLogs, clearLogBuffer, getLogSources } from './logger.js'
 
 describe('Logger', () => {
+  beforeEach(() => {
+    clearLogBuffer()
+  })
+
   it('creates a logger with a source name', () => {
     const log = new Logger('TestModule')
     expect(log).toBeDefined()
@@ -68,5 +72,47 @@ describe('Logger', () => {
     expect(() => {
       log.info('session started', { name: 'Einstein', model: 'claude-opus' })
     }).not.toThrow()
+  })
+
+  it('stores logs in memory buffer and retrieves them', () => {
+    const log1 = new Logger('Panel1')
+    const log2 = new Logger('Panel2')
+
+    log1.info('event 1')
+    log2.info('event 2')
+    log1.info('event 3')
+
+    const all = getRecentLogs()
+    expect(all.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('filters logs by source', () => {
+    const log1 = new Logger('App')
+    const log2 = new Logger('SessionPanel')
+
+    log1.info('app event')
+    log2.info('session event')
+    log1.warn('app warning')
+
+    const appLogs = getRecentLogs('App')
+    const sessionLogs = getRecentLogs('SessionPanel')
+
+    expect(appLogs.length).toBeGreaterThanOrEqual(2)
+    expect(sessionLogs.length).toBeGreaterThanOrEqual(1)
+    expect(appLogs.some(e => e.message === 'app event')).toBe(true)
+    expect(sessionLogs.some(e => e.message === 'session event')).toBe(true)
+  })
+
+  it('returns unique log sources', () => {
+    const log1 = new Logger('App')
+    const log2 = new Logger('SessionPanel')
+
+    log1.info('event 1')
+    log2.info('event 2')
+    log1.info('event 3')
+
+    const sources = getLogSources()
+    expect(sources).toContain('App')
+    expect(sources).toContain('SessionPanel')
   })
 })

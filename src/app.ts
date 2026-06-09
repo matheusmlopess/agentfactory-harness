@@ -24,6 +24,7 @@ import { Session } from './core/session.js'
 import { agentLoop } from './core/agent-loop.js'
 import { createAdapter, defaultProvider } from './core/llm/index.js'
 import { ConfigPanel } from './tui/panels/ConfigPanel.js'
+import { LogsPanel } from './tui/panels/LogsPanel.js'
 import { store } from './core/config/store.js'
 import { CommandPalette } from './tui/widgets/CommandPalette.js'
 import { getUser, clearToken } from './registry/auth.js'
@@ -33,9 +34,10 @@ import { logger, getLogFilePath } from './core/logger.js'
 
 const log = logger('App')
 
-const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config']
+const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config', 'Logs']
 const TAB_TERMINAL = 3
 const TAB_CONFIG   = 4
+const TAB_LOGS     = 5
 const EXIT_BTN = ' ✕ Quit '
 
 export class App {
@@ -55,6 +57,7 @@ export class App {
   private agentsPanel!: AgentsPanel
   private terminalPanel: TerminalPanel | null = null
   private configPanel: ConfigPanel | null = null
+  private logsPanel!: LogsPanel
   private palette!: CommandPalette
   private paletteOpen = false
   private statusBarModelTagCol = -1
@@ -124,8 +127,9 @@ export class App {
       onLogout: () => { void this.runLogout()    },
       onImport: () => { void this.runImport()    },
     })
-    // ConfigPanel (TAB_CONFIG=4) is dispatched explicitly — keep it out of panels[]
-    // so router.dispatch(key/mouse, this.panels, activeTab) is never called with index 4.
+    this.logsPanel = new LogsPanel(layout.session, () => this.scheduleRender())
+    // ConfigPanel (TAB_CONFIG=4) and LogsPanel (TAB_LOGS=5) are dispatched explicitly
+    // Keep them out of panels[] so router.dispatch() doesn't try to handle them
     this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
 
     this.palette = new CommandPalette([
@@ -134,6 +138,7 @@ export class App {
       { id: 'switch-agents',        label: 'Switch to Agents',        hint: 'F3',     action: () => { this.activeTab = 2;           this.render() } },
       { id: 'switch-terminal',      label: 'Switch to Terminal',      hint: 'F4',     action: () => { this.activeTab = TAB_TERMINAL; this.render() } },
       { id: 'switch-config',        label: 'Switch to Config',        hint: 'F5',     action: () => { this.activeTab = TAB_CONFIG;   this.render() } },
+      { id: 'switch-logs',          label: 'Switch to Logs',          hint: 'F6',     action: () => { this.activeTab = TAB_LOGS;     this.render() } },
       { id: 'login',                label: 'Login to AgentFactory',   hint: '',       action: () => { this.activeTab = TAB_CONFIG; void this.runLoginFlow() } },
       { id: 'logout',               label: 'Logout from AgentFactory',hint: '',       action: () => { void this.runLogout() } },
       { id: 'run-plan',             label: 'Run Plan',                hint: 'Ctrl+R', action: () => { void this.runPlan() } },
@@ -341,6 +346,11 @@ export class App {
       this.configPanel!.rect    = layout.config
       this.configPanel!.focused = true
       this.configPanel!.render(this.buf)
+    } else if (this.activeTab === TAB_LOGS) {
+      drawBorder(this.buf, layout.session, 'Logs', true)
+      this.logsPanel.rect    = layout.session
+      this.logsPanel.focused = true
+      this.logsPanel.render(this.buf)
     } else if (onTerminal) {
       const tp = this.ensureTerminalPanel()
       drawBorder(this.buf, layout.terminal, 'Terminal', true)
@@ -494,15 +504,8 @@ export class App {
       }
 
       // Mouse event — try before keyboard (non-terminal tabs only)
-      const rawStr = data.toString('utf8')
-      if (rawStr.startsWith('\x1b[<') || rawStr.startsWith('\x1b[M')) {
-        console.error(`[App] Raw mouse data: ${JSON.stringify(rawStr)} (bytes: ${Array.from(data).map(b => '0x' + b.toString(16)).join(' ')})`)
-      }
       const mouse = parseMouse(data)
       if (mouse) {
-        if (mouse.button.includes('scroll')) {
-          console.error(`[App] scroll event: ${mouse.button} at (${mouse.row},${mouse.col})`)
-        }
         // Shift+click: pass through to terminal for native text selection
         if (mouse.shift) return
 
@@ -554,6 +557,12 @@ export class App {
         // Always render after — scroll/click both mutate state that needs immediate repaint.
         if (this.activeTab === TAB_CONFIG) {
           this.configPanel!.onMouse(mouse)
+          this.render()
+          return
+        }
+        // Logs panel is left column — dispatch directly (same rect as session)
+        if (this.activeTab === TAB_LOGS) {
+          this.logsPanel.onMouse(mouse)
           this.render()
           return
         }
@@ -632,16 +641,24 @@ export class App {
         return
       }
 
-      // F1–F5 switch panels without stealing printable characters
+      // F1–F6 switch panels without stealing printable characters
       if (key.key === 'f1') { if (this.activeTab === 0) this.sessionPanel.openNewSessionMenu(); this.activeTab = 0; this.render(); return }
       if (key.key === 'f2') { this.activeTab = 1;           this.render(); return }
       if (key.key === 'f3') { this.activeTab = 2;           this.render(); return }
       if (key.key === 'f4') { this.activeTab = TAB_TERMINAL; this.render(); return }
       if (key.key === 'f5') { this.activeTab = TAB_CONFIG;   this.render(); return }
+      if (key.key === 'f6') { this.activeTab = TAB_LOGS;     this.render(); return }
 
       // Config panel: dispatch keys directly (TAB_CONFIG=4 doesn't match panels[] index)
       if (this.activeTab === TAB_CONFIG) {
         const consumed = this.configPanel!.onKey(key)
+        if (!consumed) this.render()
+        return
+      }
+
+      // Logs panel: dispatch keys directly (TAB_LOGS=5 doesn't match panels[] index)
+      if (this.activeTab === TAB_LOGS) {
+        const consumed = this.logsPanel.onKey(key)
         if (!consumed) this.render()
         return
       }

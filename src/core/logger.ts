@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR'
 
-interface LogEntry {
+export interface LogEntry {
   timestamp: string
   level: LogLevel
   source: string
@@ -25,6 +25,10 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 }
 
 let logFileReady = false
+
+// In-memory ring buffer for live log display (last 500 entries)
+const LOG_BUFFER_SIZE = 500
+let logBuffer: LogEntry[] = []
 
 async function ensureLogDir(): Promise<void> {
   try {
@@ -90,6 +94,10 @@ export class Logger {
       }
     }
 
+    // Store in ring buffer for live display
+    logBuffer.push(entry)
+    if (logBuffer.length > LOG_BUFFER_SIZE) logBuffer.shift()
+
     // Always write to file (async, non-blocking)
     void writeLogFile(entry)
   }
@@ -125,4 +133,25 @@ export function logger(source: string): Logger {
  */
 export function getLogFilePath(): string {
   return LOG_FILE
+}
+
+/**
+ * Get recent log entries, optionally filtered by source.
+ */
+export function getRecentLogs(source?: string): LogEntry[] {
+  return source ? logBuffer.filter(e => e.source === source) : [...logBuffer]
+}
+
+/**
+ * Clear the log buffer (for Logs panel reset).
+ */
+export function clearLogBuffer(): void {
+  logBuffer = []
+}
+
+/**
+ * Get all unique log sources currently in the buffer.
+ */
+export function getLogSources(): string[] {
+  return [...new Set(logBuffer.map(e => e.source))]
 }

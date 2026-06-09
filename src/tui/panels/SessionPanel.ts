@@ -256,7 +256,6 @@ export class SessionPanel extends Panel {
   }
 
   private confirmNewSession(): void {
-    const prevCount = this.sessions.length
     // selectedIndex counts headers too; map via row position to a target.
     // Build the same row→target mapping used when constructing rows.
     const sel = this.newSessionList.selectedIndex
@@ -276,11 +275,6 @@ export class SessionPanel extends Panel {
     this.sessions.push(rec)
     this.activeIdx = this.sessions.length - 1
     this.clearSelection()
-    if (this.sessions.length > prevCount) {
-      console.error(`[SessionPanel] ✓ Created "${laureate.name}" (${prevCount}→${this.sessions.length} sessions)`)
-    } else {
-      console.error(`[SessionPanel] ✗ FAILED to add session (still ${this.sessions.length} sessions)`)
-    }
 
     if (!target || target.kind === 'standard') {
       rec.lines = [{ role: 'system', text: `New session "${laureate.name}" — standard AgentFactory agent.` }]
@@ -792,15 +786,11 @@ export class SessionPanel extends Panel {
     }
 
     if (e.button === 'scroll_up') {
-      const before = this.scrollOffset
       this.scrollOffset = Math.min(this.scrollOffset + 3, this.maxScroll())
-      console.error(`[SessionPanel] scroll_up: offset ${before}→${this.scrollOffset}`)
       this.onUpdate(); return true
     }
     if (e.button === 'scroll_down') {
-      const before = this.scrollOffset
       this.scrollOffset = Math.max(0, this.scrollOffset - 3)
-      console.error(`[SessionPanel] scroll_down: offset ${before}→${this.scrollOffset}`)
       this.onUpdate(); return true
     }
 
