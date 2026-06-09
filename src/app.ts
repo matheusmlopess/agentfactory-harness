@@ -282,7 +282,6 @@ export class App {
   /** Push the SessionPanel's session list into the Agents panel (switcher + stats). */
   private refreshAgents(): void {
     const metas = this.sessionPanel.sessionMetas()
-    console.error(`[refreshAgents] sessionCount: ${metas.length}, names: ${metas.map(m => m.name).join(',')}`)
     this.agentsPanel.setAgents(metas.map(m => ({
       name:         m.name,
       status:       m.status,

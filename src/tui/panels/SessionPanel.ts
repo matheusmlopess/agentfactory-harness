@@ -187,9 +187,7 @@ export class SessionPanel extends Panel {
 
   /** Metadata for every session — used by the Agents panel as a switcher. */
   sessionMetas(): { name: string; status: SessionRecord['status']; active: boolean; stats: SessionStats | null }[] {
-    const metas = this.sessions.map((s, i) => ({ name: s.name, status: s.status, active: i === this.activeIdx, stats: s.lastStats }))
-    console.error(`[sessionMetas] sessions.length=${this.sessions.length}, activeIdx=${this.activeIdx}, metas=[${metas.map(m => `${m.name}${m.active ? '*' : ''}`).join(',')}]`)
-    return metas
+    return this.sessions.map((s, i) => ({ name: s.name, status: s.status, active: i === this.activeIdx, stats: s.lastStats }))
   }
 
   switchTo(idx: number): void {
