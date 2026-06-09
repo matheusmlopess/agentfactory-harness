@@ -256,6 +256,7 @@ export class SessionPanel extends Panel {
   }
 
   private confirmNewSession(): void {
+    const prevCount = this.sessions.length
     // selectedIndex counts headers too; map via row position to a target.
     // Build the same row→target mapping used when constructing rows.
     const sel = this.newSessionList.selectedIndex
@@ -275,7 +276,11 @@ export class SessionPanel extends Panel {
     this.sessions.push(rec)
     this.activeIdx = this.sessions.length - 1
     this.clearSelection()
-    console.error(`[SessionPanel] Created new session "${laureate.name}". Total sessions: ${this.sessions.length}`)
+    if (this.sessions.length > prevCount) {
+      console.error(`[SessionPanel] ✓ Created "${laureate.name}" (${prevCount}→${this.sessions.length} sessions)`)
+    } else {
+      console.error(`[SessionPanel] ✗ FAILED to add session (still ${this.sessions.length} sessions)`)
+    }
 
     if (!target || target.kind === 'standard') {
       rec.lines = [{ role: 'system', text: `New session "${laureate.name}" — standard AgentFactory agent.` }]
