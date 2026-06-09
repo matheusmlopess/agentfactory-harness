@@ -52,6 +52,9 @@ export class App {
   private planRunning = false
   private statusError: string | null = null
   private statusErrorTimer: ReturnType<typeof setTimeout> | null = null
+  private logsLastAnalyzedAt = 0
+  private logsHeartbeatInterval: ReturnType<typeof setInterval> | null = null
+  private logsCountdownInterval: ReturnType<typeof setInterval> | null = null
   private sessionPanel!: SessionPanel
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
@@ -100,6 +103,7 @@ export class App {
     log.info('render started')
     this.listenInput()
     log.info('input listener started', { logFile: getLogFilePath() })
+    this.startLogsHeartbeat()
   }
 
   private scheduleRender(): void {
@@ -185,6 +189,33 @@ export class App {
     this.scheduleRender()
   }
 
+  private startLogsHeartbeat(): void {
+    // Start 2-minute heartbeat
+    this.logsHeartbeatInterval = setInterval(() => {
+      void this.runLogsAnalysis(true)  // true = auto
+    }, 2 * 60 * 1000)
+
+    // Start countdown ticker (updates every second)
+    let countdown = 120
+    this.logsCountdownInterval = setInterval(() => {
+      countdown = Math.max(0, countdown - 1)
+      this.logsPanel.setCountdown(countdown)
+      if (countdown === 0) countdown = 120
+      this.scheduleRender()
+    }, 1000)
+  }
+
+  private stopLogsHeartbeat(): void {
+    if (this.logsHeartbeatInterval) {
+      clearInterval(this.logsHeartbeatInterval)
+      this.logsHeartbeatInterval = null
+    }
+    if (this.logsCountdownInterval) {
+      clearInterval(this.logsCountdownInterval)
+      this.logsCountdownInterval = null
+    }
+  }
+
   private async runLoginFlow(): Promise<void> {
     if (!this.configPanel) return
     this.activeTab = TAB_CONFIG
@@ -242,11 +273,19 @@ export class App {
     }
   }
 
-  private async runLogsAnalysis(entries: LogEntry[]): Promise<void> {
-    this.logsPanel.startInsights()
+  private async runLogsAnalysis(auto = false): Promise<void> {
+    if (this.logsPanel.isInsightsStreaming) return
+
+    const allEntries = getRecentLogs()
+    const since = auto ? this.logsLastAnalyzedAt : 0
+    const entries = since > 0 ? allEntries.filter(e => new Date(e.timestamp).getTime() > since) : allEntries
+
+    if (auto && entries.length < 3) return
+
+    const startedAt = Date.now()
+    this.logsPanel.startInsights(auto)
     this.scheduleRender()
 
-    // Take last 50 entries to avoid huge prompts
     const sample = entries.slice(-50)
     const lines = sample
       .map(
@@ -273,6 +312,7 @@ export class App {
         }
       }
     } finally {
+      this.logsLastAnalyzedAt = startedAt
       this.logsPanel.finishInsights()
       this.scheduleRender()
     }
@@ -354,6 +394,7 @@ export class App {
   stop(): void {
     if (!this.running) return
     this.running = false
+    this.stopLogsHeartbeat()
     this.terminalPanel?.destroy()
     // Drain stdin before exit so buffered mouse events don't leak into the shell
     process.stdin.removeAllListeners('data')

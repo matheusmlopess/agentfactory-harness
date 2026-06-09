@@ -6,6 +6,14 @@ import type { KeyEvent } from '../input/keyboard.js'
 import { Colors } from '../renderer/theme.js'
 import { getRecentLogs, clearLogBuffer, getLogSources, type LogEntry } from '../../core/logger.js'
 
+interface Metrics {
+  total: number
+  byLevel: Record<string, number>
+  bySource: Array<[string, number]>
+  errorCount: number
+  recentErrors: LogEntry[]
+}
+
 export class LogsPanel extends Panel {
   private selectedSource: string | null = null
   private scrollOffset = 0
@@ -16,6 +24,7 @@ export class LogsPanel extends Panel {
   private lastLogCount = 0
   private analyzeButtonCol = -1
   private analyzeButtonLen = 0
+  private heartbeatCountdown = 0
   private onUpdate: () => void
   private onAnalyze?: (entries: LogEntry[]) => void
 
@@ -25,8 +34,11 @@ export class LogsPanel extends Panel {
     if (onAnalyze) this.onAnalyze = onAnalyze
   }
 
-  startInsights(): void {
-    this.insightsText = ''
+  startInsights(auto: boolean): void {
+    const when = new Date().toLocaleTimeString()
+    const header = auto ? `[${when}] Auto-analysis:\n` : `[${when}] Manual analysis:\n`
+    if (this.insightsText) this.insightsText += '\n'
+    this.insightsText += header
     this.insightsStreaming = true
     this.insightsScroll = 0
     this.onUpdate()
@@ -41,11 +53,39 @@ export class LogsPanel extends Panel {
     this.onUpdate()
   }
 
+  setCountdown(seconds: number): void {
+    this.heartbeatCountdown = seconds
+  }
+
+  get isInsightsStreaming(): boolean {
+    return this.insightsStreaming
+  }
+
+  private computeMetrics(entries: LogEntry[]): Metrics {
+    const byLevel: Record<string, number> = { DEBUG: 0, INFO: 0, WARN: 0, ERROR: 0 }
+    const bySourceMap = new Map<string, number>()
+
+    for (const e of entries) {
+      byLevel[e.level] = (byLevel[e.level] ?? 0) + 1
+      bySourceMap.set(e.source, (bySourceMap.get(e.source) ?? 0) + 1)
+    }
+
+    const bySource = Array.from(bySourceMap.entries()).sort((a, b) => b[1] - a[1])
+    const recentErrors = entries.filter(e => e.level === 'ERROR').slice(-5)
+
+    return {
+      total: entries.length,
+      byLevel,
+      bySource,
+      errorCount: byLevel.ERROR,
+      recentErrors,
+    }
+  }
+
   override render(buf: CellBuffer): void {
     const r = this.inner
     buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.bgPanel })
 
-    // Split columns: 40% left, 60% right
     const splitCol = r.col + Math.floor(r.width * 0.4)
     const leftW = splitCol - r.col
     const rightW = r.width - leftW
@@ -54,7 +94,7 @@ export class LogsPanel extends Panel {
     const allSources = getLogSources()
     const entries = getRecentLogs(this.selectedSource ?? undefined)
 
-    // Auto-scroll to bottom when new entries arrive
+    // Auto-scroll to bottom
     if (entries.length > this.lastLogCount) {
       this.scrollOffset = 0
     }
@@ -94,7 +134,7 @@ export class LogsPanel extends Panel {
 
       const time = entry.timestamp.slice(11, 19)
       const levelStr = entry.level.padEnd(5)
-      const msgLen = leftW - 2 - 9 - 6  // account for padding and level
+      const msgLen = leftW - 2 - 9 - 6
       const msg = (entry.message.substring(0, msgLen) + ' ').padEnd(msgLen)
 
       const fg = isSelected ? Colors.textBright : Colors.text
@@ -110,80 +150,176 @@ export class LogsPanel extends Panel {
 
     // ── RIGHT COLUMN ─────────────────────────────────────────────────────
     if (this.selectedIdx >= 0 && this.selectedIdx < entries.length) {
-      const entry = entries[this.selectedIdx]!
+      this.renderEntryDetail(buf, r, leftW, rightW, entries[this.selectedIdx]!)
+    } else {
+      this.renderMetrics(buf, r, leftW, rightW, entries)
+    }
+  }
 
-      // Header: "Selected Entry" + [Analyze] button
-      const headerRow = r.row + 1
-      const btnText = this.insightsStreaming ? '⟳ Analyzing…' : '⚡ Analyze'
-      const btnLine = ` ─ Selected Entry ─────────────────── [${btnText}] ─`
+  private renderMetrics(buf: CellBuffer, r: Rect, leftW: number, rightW: number, entries: LogEntry[]): void {
+    const metrics = this.computeMetrics(entries)
+    const btnText = this.insightsStreaming ? '⟳ Analyzing…' : '⚡ Analyze'
+    const headerLine = ` ─ Metrics ─────────────────────────── [${btnText}] ─`
 
-      // Track button position
-      const btnPos = btnLine.indexOf(`[${btnText}]`)
-      this.analyzeButtonCol = r.col + leftW + 1 + btnPos
-      this.analyzeButtonLen = btnText.length + 2
+    // Header
+    const btnPos = headerLine.indexOf(`[${btnText}]`)
+    this.analyzeButtonCol = r.col + leftW + 1 + btnPos
+    this.analyzeButtonLen = btnText.length + 2
 
-      buf.write(headerRow, r.col + leftW + 1, btnLine.substring(0, rightW - 1), {
+    buf.write(r.row + 1, r.col + leftW + 1, headerLine.substring(0, rightW - 1), {
+      fg: Colors.textDim,
+      bg: Colors.bgPanel,
+    })
+
+    // Metrics content
+    let row = r.row + 2
+    const rates = metrics.total > 0 ? (metrics.total / (Date.now() / 60000)).toFixed(1) : '0'
+
+    buf.write(row, r.col + leftW + 2, `Total: ${metrics.total} entries   Rate: ${rates}/min`, {
+      fg: Colors.text,
+      bg: Colors.bgPanel,
+    })
+    row++
+
+    // By Level bars
+    buf.write(row, r.col + leftW + 2, 'By Level:', {
+      fg: Colors.textDim,
+      bg: Colors.bgPanel,
+    })
+    row++
+
+    for (const level of ['INFO', 'WARN', 'ERROR', 'DEBUG'] as const) {
+      if (metrics.total === 0) break
+      const count = metrics.byLevel[level] ?? 0
+      const pct = Math.round((count / metrics.total) * 100)
+      const barLen = Math.max(1, Math.floor((count / metrics.total) * 12))
+      const bar = '█'.repeat(barLen)
+      const line = `  ${level.padEnd(5)} ${bar.padEnd(12)} ${count.toString().padStart(2)}`
+      buf.write(row, r.col + leftW + 2, line.substring(0, rightW - 3), {
+        fg: this.levelColor(level),
+        bg: Colors.bgPanel,
+      })
+      row++
+    }
+
+    row++
+
+    // By Source
+    buf.write(row, r.col + leftW + 2, 'By Source:', {
+      fg: Colors.textDim,
+      bg: Colors.bgPanel,
+    })
+    row++
+
+    for (const [source, count] of metrics.bySource.slice(0, 4)) {
+      const barLen = Math.max(1, Math.floor((count / metrics.total) * 12))
+      const bar = '█'.repeat(barLen)
+      const line = `  ${source.padEnd(10)} ${count.toString().padStart(3)}  ${bar}`
+      buf.write(row, r.col + leftW + 2, line.substring(0, rightW - 3), {
+        fg: Colors.text,
+        bg: Colors.bgPanel,
+      })
+      row++
+    }
+
+    // Insights header
+    const insightsRow = Math.max(row + 1, r.row + r.height - 8)
+    if (insightsRow < r.row + r.height - 1) {
+      const insightHdr = ` ─ Insights ──────────────────────────────────────────`
+      buf.write(insightsRow, r.col + leftW + 1, insightHdr.substring(0, rightW - 1), {
         fg: Colors.textDim,
         bg: Colors.bgPanel,
       })
 
-      // Details
-      let detailRow = r.row + 2
-      const detail = [
-        `Time:    ${entry.timestamp.slice(11, 19)}`,
-        `Level:   ${entry.level}`,
-        `Source:  ${entry.source}`,
-        `Message: ${entry.message}`,
-      ]
+      // Insights text
+      const insightsContentRows = r.row + r.height - 1 - (insightsRow + 1)
+      const insightLines = this.wrapText(this.insightsText, rightW - 3)
+      const insightStart = Math.max(0, insightLines.length - insightsContentRows - this.insightsScroll)
+      const insightVisible = insightLines.slice(insightStart, insightStart + insightsContentRows)
 
-      if (entry.meta) {
-        detail.push('Meta:')
-        for (const [k, v] of Object.entries(entry.meta)) {
-          detail.push(`  ${k}: ${JSON.stringify(v)}`)
-        }
+      for (let i = 0; i < insightsContentRows; i++) {
+        const irow = insightsRow + 1 + i
+        const line = insightVisible[i] ?? ''
+        buf.write(irow, r.col + leftW + 2, line.padEnd(rightW - 3), {
+          fg: Colors.text,
+          bg: Colors.bgPanel,
+        })
       }
 
-      for (const line of detail) {
-        if (detailRow >= r.row + r.height - 2) break
-        buf.write(
-          detailRow,
-          r.col + leftW + 2,
-          line.substring(0, rightW - 3).padEnd(rightW - 3),
-          { fg: Colors.text, bg: Colors.bgPanel },
-        )
-        detailRow++
-      }
-
-      // Insights section
-      const insightsRow = Math.max(detailRow, r.row + 8)
-      if (insightsRow < r.row + r.height - 1) {
-        const insightHdr = ` ─ Insights ──────────────────────────────────────────`
-        buf.write(insightsRow, r.col + leftW + 1, insightHdr.substring(0, rightW - 1), {
+      // Countdown
+      if (this.heartbeatCountdown > 0) {
+        const mins = Math.floor(this.heartbeatCountdown / 60)
+        const secs = this.heartbeatCountdown % 60
+        const countdownText = `⟳ Next analysis in ${mins}m ${secs}s`
+        const countdownRow = r.row + r.height - 2
+        buf.write(countdownRow, r.col + leftW + 2, countdownText, {
           fg: Colors.textDim,
           bg: Colors.bgPanel,
         })
-
-        // Insights text (word-wrapped)
-        const insightsContentRows = r.row + r.height - 1 - (insightsRow + 1)
-        const insightLines = this.wrapText(this.insightsText, rightW - 3)
-        const insightStart = Math.max(0, insightLines.length - insightsContentRows - this.insightsScroll)
-        const insightVisible = insightLines.slice(insightStart, insightStart + insightsContentRows)
-
-        for (let i = 0; i < insightsContentRows; i++) {
-          const row = insightsRow + 1 + i
-          const line = insightVisible[i] ?? ''
-          buf.write(row, r.col + leftW + 2, line.padEnd(rightW - 3), {
-            fg: Colors.text,
-            bg: Colors.bgPanel,
-          })
-        }
       }
-    } else {
-      // No selection
-      const msg = '(click a log entry to see details)'
-      const centerRow = r.row + Math.floor(r.height / 2)
-      const centerCol = r.col + leftW + Math.floor(rightW / 2) - Math.floor(msg.length / 2)
-      buf.write(centerRow, centerCol, msg, { fg: Colors.textDim, bg: Colors.bgPanel })
+    }
+  }
+
+  private renderEntryDetail(buf: CellBuffer, r: Rect, leftW: number, rightW: number, entry: LogEntry): void {
+    const btnText = this.insightsStreaming ? '⟳ Analyzing…' : '⚡ Analyze'
+    const headerLine = ` ─ Entry ─────────────────────────── [${btnText}] ─`
+
+    const btnPos = headerLine.indexOf(`[${btnText}]`)
+    this.analyzeButtonCol = r.col + leftW + 1 + btnPos
+    this.analyzeButtonLen = btnText.length + 2
+
+    buf.write(r.row + 1, r.col + leftW + 1, headerLine.substring(0, rightW - 1), {
+      fg: Colors.textDim,
+      bg: Colors.bgPanel,
+    })
+
+    // Details
+    let detailRow = r.row + 2
+    const detail = [
+      `Time:    ${entry.timestamp.slice(11, 19)}`,
+      `Level:   ${entry.level}`,
+      `Source:  ${entry.source}`,
+      `Message: ${entry.message}`,
+    ]
+
+    if (entry.meta) {
+      detail.push('Meta:')
+      for (const [k, v] of Object.entries(entry.meta)) {
+        detail.push(`  ${k}: ${JSON.stringify(v)}`)
+      }
+    }
+
+    for (const line of detail) {
+      if (detailRow >= r.row + r.height - 2) break
+      buf.write(detailRow, r.col + leftW + 2, line.substring(0, rightW - 3).padEnd(rightW - 3), {
+        fg: Colors.text,
+        bg: Colors.bgPanel,
+      })
+      detailRow++
+    }
+
+    // Insights section
+    const insightsRow = Math.max(detailRow + 1, r.row + 9)
+    if (insightsRow < r.row + r.height - 1) {
+      const insightHdr = ` ─ Insights ──────────────────────────────────────────`
+      buf.write(insightsRow, r.col + leftW + 1, insightHdr.substring(0, rightW - 1), {
+        fg: Colors.textDim,
+        bg: Colors.bgPanel,
+      })
+
+      const insightsContentRows = r.row + r.height - 1 - (insightsRow + 1)
+      const insightLines = this.wrapText(this.insightsText, rightW - 3)
+      const insightStart = Math.max(0, insightLines.length - insightsContentRows - this.insightsScroll)
+      const insightVisible = insightLines.slice(insightStart, insightStart + insightsContentRows)
+
+      for (let i = 0; i < insightsContentRows; i++) {
+        const irow = insightsRow + 1 + i
+        const line = insightVisible[i] ?? ''
+        buf.write(irow, r.col + leftW + 2, line.padEnd(rightW - 3), {
+          fg: Colors.text,
+          bg: Colors.bgPanel,
+        })
+      }
     }
   }
 
@@ -220,7 +356,6 @@ export class LogsPanel extends Panel {
     const allSources = getLogSources()
 
     if (e.key === 'arrow_up' || e.key === 'k') {
-      const leftListRows = Math.max(1, this.inner.height - 1)
       if (this.selectedIdx >= 0) {
         this.selectedIdx = Math.max(-1, this.selectedIdx - 1)
       } else if (entries.length > 0) {
