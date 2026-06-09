@@ -4,6 +4,7 @@ import type { Rect } from '../renderer/layout.js'
 import type { MouseEvent } from '../input/mouse.js'
 import { Colors } from '../renderer/theme.js'
 import { findLaureate } from '../../core/nobel.js'
+import { logger } from '../../core/logger.js'
 
 export interface AgentEntry {
   name:         string
@@ -27,6 +28,7 @@ export class AgentsPanel extends Panel {
   private showStats = false  // toggle stats on click
   private onUpdate: () => void
   private onSelect?: (idx: number) => void
+  private log = logger('Agents')
 
   constructor(rect: Rect, onUpdate: () => void, onSelect?: (idx: number) => void) {
     super(rect)
@@ -160,6 +162,7 @@ export class AgentsPanel extends Panel {
         this.selectedIdx = row
         this.showStats = true
       }
+      this.log.debug('session selected', { name: this.agents[row]?.name })
       this.onSelect?.(row)   // switch the active session
       this.onUpdate()
       return true

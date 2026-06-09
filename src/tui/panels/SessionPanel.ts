@@ -13,6 +13,7 @@ import { store } from '../../core/config/store.js'
 import { ScrollableList } from '../widgets/ScrollableList.js'
 import { nextLaureate, type Laureate } from '../../core/nobel.js'
 import { rolloutStore, type RolloutHandle, type RolloutEvent } from '../../core/rollout.js'
+import { logger } from '../../core/logger.js'
 
 const MAX_PICKER_VISIBLE = 10
 
@@ -129,6 +130,7 @@ export class SessionPanel extends Panel {
   private newSessionOpen = false
   private newSessionList = new ScrollableList(8)
   private newSessionTargets: ({ kind: 'standard' } | { kind: 'provider'; provider: Provider })[] = []
+  private log = logger('Session')
 
   constructor(
     rect: Rect,
@@ -194,6 +196,7 @@ export class SessionPanel extends Panel {
     if (idx >= 0 && idx < this.sessions.length) {
       this.activeIdx = idx
       this.clearSelection()
+      this.log.debug('session switched', { to: this.sessions[idx]!.name })
       this.onUpdate()
     }
   }
@@ -228,6 +231,7 @@ export class SessionPanel extends Panel {
     this.lines.push({ role: 'system', text: this.chatMode
       ? 'Chat mode ON — tools disabled (cheap plain chat).'
       : 'Chat mode OFF — agent tools enabled (bash/read/write/web-fetch).' })
+    this.log.info('chat mode toggled', { chatMode: this.chatMode })
     this.onUpdate()
   }
 
@@ -275,6 +279,7 @@ export class SessionPanel extends Panel {
     this.sessions.push(rec)
     this.activeIdx = this.sessions.length - 1
     this.clearSelection()
+    this.log.info('session created', { name: laureate.name, total: this.sessions.length })
 
     if (!target || target.kind === 'standard') {
       rec.lines = [{ role: 'system', text: `New session "${laureate.name}" — standard AgentFactory agent.` }]

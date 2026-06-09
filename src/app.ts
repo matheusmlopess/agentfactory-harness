@@ -608,6 +608,14 @@ export class App {
         }
         // Logs panel is left column — dispatch directly (same rect as session)
         if (this.activeTab === TAB_LOGS) {
+          const layout = computeLayout(this.rows, this.cols)
+          const logsRect = {
+            row: layout.session.row,
+            col: 0,
+            height: layout.session.height,
+            width: this.cols,
+          }
+          this.logsPanel.rect = logsRect  // set rect BEFORE onMouse dispatch
           this.logsPanel.onMouse(mouse)
           this.render()
           return
@@ -704,6 +712,14 @@ export class App {
 
       // Logs panel: dispatch keys directly (TAB_LOGS=5 doesn't match panels[] index)
       if (this.activeTab === TAB_LOGS) {
+        const layout = computeLayout(this.rows, this.cols)
+        const logsRect = {
+          row: layout.session.row,
+          col: 0,
+          height: layout.session.height,
+          width: this.cols,
+        }
+        this.logsPanel.rect = logsRect  // set rect BEFORE onKey dispatch
         const consumed = this.logsPanel.onKey(key)
         if (!consumed) this.render()
         return
