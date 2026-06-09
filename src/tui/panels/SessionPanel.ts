@@ -792,11 +792,15 @@ export class SessionPanel extends Panel {
     }
 
     if (e.button === 'scroll_up') {
+      const before = this.scrollOffset
       this.scrollOffset = Math.min(this.scrollOffset + 3, this.maxScroll())
+      console.error(`[SessionPanel] scroll_up: offset ${before}→${this.scrollOffset}`)
       this.onUpdate(); return true
     }
     if (e.button === 'scroll_down') {
+      const before = this.scrollOffset
       this.scrollOffset = Math.max(0, this.scrollOffset - 3)
+      console.error(`[SessionPanel] scroll_down: offset ${before}→${this.scrollOffset}`)
       this.onUpdate(); return true
     }
 

@@ -484,8 +484,8 @@ export class ConfigPanel extends Panel {
 
   override onMouse(e: MouseEvent): boolean {
     // Scroll wheel — navigate selection like arrow keys
-    if (e.button === 'scroll_up')   { this.moveSelection(-1); this.onUpdate(); return true }
-    if (e.button === 'scroll_down') { this.moveSelection(1);  this.onUpdate(); return true }
+    if (e.button === 'scroll_up')   { console.error(`[ConfigPanel] scroll_up`); this.moveSelection(-1); this.onUpdate(); return true }
+    if (e.button === 'scroll_down') { console.error(`[ConfigPanel] scroll_down`); this.moveSelection(1);  this.onUpdate(); return true }
 
     if (e.button !== 'left' || e.action !== 'press') return false
 
