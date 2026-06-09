@@ -496,6 +496,9 @@ export class App {
       // Mouse event — try before keyboard (non-terminal tabs only)
       const mouse = parseMouse(data)
       if (mouse) {
+        if (mouse.button.includes('scroll')) {
+          console.error(`[App] scroll event: ${mouse.button} at (${mouse.row},${mouse.col})`)
+        }
         // Shift+click: pass through to terminal for native text selection
         if (mouse.shift) return
 
