@@ -338,7 +338,7 @@ export class SessionPanel extends Panel {
     const inputLines = this.wrapText(allText, usable)
     const inputRowCount = Math.min(5, Math.max(1, inputLines.length))
 
-    const displayRows = r.height - inputRowCount   // account for multi-line input
+    const displayRows = Math.max(1, r.height - inputRowCount)   // ensure at least 1 content row
     const inputRow = r.row + displayRows  // first row of input area
     const maxScroll = this.maxScroll()
     const hasScrollbar = maxScroll > 0
@@ -464,6 +464,17 @@ export class SessionPanel extends Panel {
 
   getChatMode(): boolean {
     return this.chatMode
+  }
+
+  private getDisplayRows(): number {
+    const r = this.inner
+    const prompt = this.streaming ? '… ' : '> '
+    const cursor = this.focused && !this.streaming ? '█' : ''
+    const allText = this.inputBuf + cursor
+    const usable = r.width - prompt.length
+    const inputLines = this.wrapText(allText, usable)
+    const inputRowCount = Math.min(5, Math.max(1, inputLines.length))
+    return Math.max(1, r.height - inputRowCount)
   }
 
   private acMatches(): SlashCommand[] {
@@ -744,6 +755,7 @@ export class SessionPanel extends Panel {
       if (e.button === 'scroll_down') { this.newSessionList.scrollDown(); this.onUpdate(); return true }
       if (e.button === 'left' && e.action === 'press') {
         const r = this.inner
+        const displayRows = this.getDisplayRows()  // account for multi-line input
         const modalW   = Math.min(r.width - 4, 46)
         const rows     = this.newSessionList.shownCount + (this.newSessionList.isScrollable ? 1 : 0)
         const modalH   = rows + 2
@@ -783,8 +795,8 @@ export class SessionPanel extends Panel {
     }
 
     const r = this.inner
+    const displayRows = this.getDisplayRows()  // account for multi-line input
     const maxScroll  = this.maxScroll()
-    const displayRows = r.height - 1
     const scrollbarCol = r.col + r.width - 1
 
     // Release — ends drag or finalises a text selection (auto-copy)
@@ -889,9 +901,8 @@ export class SessionPanel extends Panel {
   }
 
   private maxScroll(): number {
-    const r = this.inner
-    const displayRows = r.height - 1
-    const contentWidth = r.width
+    const displayRows = this.getDisplayRows()  // account for multi-line input
+    const contentWidth = this.inner.width
     return Math.max(0, this.buildDisplayLines(contentWidth).length - displayRows)
   }
 
