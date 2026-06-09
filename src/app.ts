@@ -494,6 +494,10 @@ export class App {
       }
 
       // Mouse event — try before keyboard (non-terminal tabs only)
+      const rawStr = data.toString('utf8')
+      if (rawStr.startsWith('\x1b[<') || rawStr.startsWith('\x1b[M')) {
+        console.error(`[App] Raw mouse data: ${JSON.stringify(rawStr)} (bytes: ${Array.from(data).map(b => '0x' + b.toString(16)).join(' ')})`)
+      }
       const mouse = parseMouse(data)
       if (mouse) {
         if (mouse.button.includes('scroll')) {
