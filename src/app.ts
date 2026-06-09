@@ -30,7 +30,7 @@ import { CommandPalette } from './tui/widgets/CommandPalette.js'
 import { getUser, clearToken } from './registry/auth.js'
 import { startDeviceLogin } from './registry/login.js'
 import { importFromTools } from './registry/import-keys.js'
-import { logger, getLogFilePath } from './core/logger.js'
+import { logger, getLogFilePath, type LogEntry } from './core/logger.js'
 
 const log = logger('App')
 
@@ -127,7 +127,11 @@ export class App {
       onLogout: () => { void this.runLogout()    },
       onImport: () => { void this.runImport()    },
     })
-    this.logsPanel = new LogsPanel(layout.session, () => this.scheduleRender())
+    this.logsPanel = new LogsPanel(
+      layout.session,
+      () => this.scheduleRender(),
+      (entries) => { void this.runLogsAnalysis(entries) },  // onAnalyze callback
+    )
     // ConfigPanel (TAB_CONFIG=4) and LogsPanel (TAB_LOGS=5) are dispatched explicitly
     // Keep them out of panels[] so router.dispatch() doesn't try to handle them
     this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
@@ -235,6 +239,42 @@ export class App {
       }
     } finally {
       this.planRunning = false
+    }
+  }
+
+  private async runLogsAnalysis(entries: LogEntry[]): Promise<void> {
+    this.logsPanel.startInsights()
+    this.scheduleRender()
+
+    // Take last 50 entries to avoid huge prompts
+    const sample = entries.slice(-50)
+    const lines = sample
+      .map(
+        (e) =>
+          `[${e.timestamp.slice(11, 19)}] ${e.level.padEnd(5)} ${e.source.padEnd(15)} ${e.message}` +
+          (e.meta ? ' ' + JSON.stringify(e.meta) : ''),
+      )
+      .join('\n')
+
+    const prompt =
+      `You are analyzing application logs from agentfactory-harness, an AI agent terminal. ` +
+      `Summarize what happened, highlight any warnings or errors, and suggest anything unusual.\n\n` +
+      `Log entries (most recent last):\n${lines}`
+
+    const session = new Session()
+    session.addMessage({ role: 'user', content: prompt })
+    const adapter = createAdapter(defaultProvider())
+
+    try {
+      for await (const e of agentLoop(session, { adapter })) {
+        if (e.type === 'text_delta') {
+          this.logsPanel.appendInsights(e.delta)
+          this.scheduleRender()
+        }
+      }
+    } finally {
+      this.logsPanel.finishInsights()
+      this.scheduleRender()
     }
   }
 
@@ -347,8 +387,14 @@ export class App {
       this.configPanel!.focused = true
       this.configPanel!.render(this.buf)
     } else if (this.activeTab === TAB_LOGS) {
-      drawBorder(this.buf, layout.session, 'Logs', true)
-      this.logsPanel.rect    = layout.session
+      const logsRect = {
+        row:    layout.session.row,
+        col:    0,
+        height: layout.session.height,
+        width:  this.cols,
+      }
+      drawBorder(this.buf, logsRect, 'Logs', true)
+      this.logsPanel.rect    = logsRect
       this.logsPanel.focused = true
       this.logsPanel.render(this.buf)
     } else if (onTerminal) {
