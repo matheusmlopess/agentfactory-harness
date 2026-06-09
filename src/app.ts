@@ -29,6 +29,9 @@ import { CommandPalette } from './tui/widgets/CommandPalette.js'
 import { getUser, clearToken } from './registry/auth.js'
 import { startDeviceLogin } from './registry/login.js'
 import { importFromTools } from './registry/import-keys.js'
+import { logger, getLogFilePath } from './core/logger.js'
+
+const log = logger('App')
 
 const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config']
 const TAB_TERMINAL = 3
@@ -56,6 +59,8 @@ export class App {
   private paletteOpen = false
   private statusBarModelTagCol = -1
   private statusBarModelTagLen = 0
+  private statusBarToolToggleCol = -1
+  private statusBarToolToggleLen = 0
   private panels!: Panel[]
   private router = new InputRouter()
   private mouseEnabled = true   // toggled off (Ctrl+E) to allow native text selection/copy
@@ -74,15 +79,24 @@ export class App {
   }
 
   async start(): Promise<void> {
+    log.info('startup', { version: '0.6.0', cols: this.cols, rows: this.rows })
     this.running = true
     this.setup()
     await store.init()
+    log.debug('config store initialized')
     this.initPanels()
+    log.debug('panels initialized')
     await this.tryLoadPlan()
+    log.debug('plan loaded', { currentPlan: this.currentPlan ? 'yes' : 'no' })
     // Load registry auth user in background — don't block startup
-    void getUser().then(user => { this.configPanel?.setAuthUser(user) })
+    void getUser().then(user => {
+      log.debug('auth user loaded', { isLoggedIn: user !== null })
+      this.configPanel?.setAuthUser(user)
+    })
     this.render()
+    log.info('render started')
     this.listenInput()
+    log.info('input listener started', { logFile: getLogFilePath() })
   }
 
   private scheduleRender(): void {
@@ -355,9 +369,12 @@ export class App {
       mode,
       this.statusError ?? undefined,
       modelLabel,
+      this.sessionPanel.getChatMode(),
     )
     this.statusBarModelTagCol = sbLayout.modelTagCol
     this.statusBarModelTagLen = sbLayout.modelTagLen
+    this.statusBarToolToggleCol = sbLayout.toolToggleCol
+    this.statusBarToolToggleLen = sbLayout.toolToggleLen
 
     if (this.paletteOpen) this.palette.render(this.buf, this.rows, this.cols)
 
@@ -507,6 +524,15 @@ export class App {
               mouse.col < this.statusBarModelTagCol + this.statusBarModelTagLen) {
             this.activeTab = 0  // switch to Session tab
             this.sessionPanel.openModelPicker()
+            this.render()
+            return
+          }
+          // Status bar tool toggle click → toggle chat mode
+          if (mouse.row === this.rows - 1 &&
+              this.statusBarToolToggleCol >= 0 &&
+              mouse.col >= this.statusBarToolToggleCol &&
+              mouse.col < this.statusBarToolToggleCol + this.statusBarToolToggleLen) {
+            this.sessionPanel.toggleChatMode()
             this.render()
             return
           }

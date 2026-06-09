@@ -1,6 +1,6 @@
 meta:
-  version: "1.5.0"
-  wave: 4
+  version: "1.6.0"
+  wave: 5
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
     Updated each wave: add entries for new files, flip status to
@@ -273,6 +273,22 @@ core:
     wave: 5
     status: implemented
 
+  - path: src/core/logger.ts
+    purpose: "Structured logging to ~/.config/agentfactory/logs/ with configurable verbosity (DEBUG/INFO/WARN/ERROR)"
+    exports:
+      - Logger (class)
+      - LogLevel (type)
+      - logger (function)
+      - getLogFilePath (function)
+      - formatLogEntry (function)
+    wave: 5
+    status: implemented
+
+  - path: src/core/logger.test.ts
+    purpose: "Logger tests — instantiation, JSON formatting, log levels, file paths"
+    wave: 5
+    status: implemented
+
   - path: src/core/hooks.ts
     purpose: "Hook runner — PreToolUse PostToolUse SessionStart SessionStop StepStart StepComplete AgentSpawn"
     exports:
@@ -467,6 +483,21 @@ registry:
     exports:
       - ImportCandidate (interface)
       - "importFromTools(): Promise<ImportCandidate[]>"
+    wave: 5
+    status: implemented
+
+  - path: src/registry/client.test.ts
+    purpose: registryClient tests — Bearer auth, methods, error handling, env var
+    wave: 5
+    status: implemented
+
+  - path: src/registry/login.test.ts
+    purpose: startDeviceLogin tests — device endpoint, code emit, polling, expiry, success
+    wave: 5
+    status: implemented
+
+  - path: src/registry/import-keys.test.ts
+    purpose: importFromTools tests — file scan, env scan, deduplication, empty
     wave: 5
     status: implemented
 

@@ -115,10 +115,6 @@ export class SessionPanel extends Panel {
   private scrollbarDragging = false
   private scrollbarDragStartY = 0
   private scrollbarDragStartOffset = 0
-  // Clickable [tools]/[chat] toggle button span (set during render)
-  private chatButtonRow = -1
-  private chatButtonFrom = -1
-  private chatButtonTo = -1
   private modelPickerOpen = false
   // step 1 — provider selection
   private pickerStep: 'provider' | 'model' = 'provider'
@@ -227,7 +223,6 @@ export class SessionPanel extends Panel {
     this.onUpdate()
   }
 
-  /** Toggle chat mode (tools off/on) for the active session. */
   toggleChatMode(): void {
     this.chatMode = !this.chatMode
     this.lines.push({ role: 'system', text: this.chatMode
@@ -334,8 +329,17 @@ export class SessionPanel extends Panel {
 
   render(buf: CellBuffer): void {
     const r = this.inner
-    const displayRows = r.height - 1   // last row is input bar
-    const inputRow = r.row + r.height - 1
+
+    // Calculate input row count first (needed for display calculation)
+    const prompt = this.streaming ? '… ' : '> '
+    const cursor = this.focused && !this.streaming ? '█' : ''
+    const allText = this.inputBuf + cursor
+    const usable = r.width - prompt.length
+    const inputLines = this.wrapText(allText, usable)
+    const inputRowCount = Math.min(5, Math.max(1, inputLines.length))
+
+    const displayRows = r.height - inputRowCount   // account for multi-line input
+    const inputRow = r.row + displayRows  // first row of input area
     const maxScroll = this.maxScroll()
     const hasScrollbar = maxScroll > 0
     // Reserve right column for scrollbar when content overflows
@@ -412,28 +416,13 @@ export class SessionPanel extends Panel {
       }
     }
 
-    // Input bar — clickable [tools]/[chat] toggle + model tag on the right
-    buf.fill(inputRow, r.col, 1, r.width, ' ', { bg: Colors.bg })
-    const prompt = this.streaming ? '… ' : '> '
-    const cursor = this.focused && !this.streaming ? '█' : ''
-    const effectiveModel = this.selectedModel?.id ?? `${defaultProvider()} default`
-    const toggle   = this.chatMode ? ' [chat] ' : ' [tools] '
-    const modelTag = ` [${effectiveModel}]`
-    const rightTags = toggle + modelTag
-    const available = r.width - rightTags.length - 1
-    const inputDisplay = (prompt + this.inputBuf + cursor).substring(0, available)
-    buf.write(inputRow, r.col, inputDisplay, { fg: Colors.text, bg: Colors.bg })
-    // Clickable toggle button (track its span for onMouse)
-    const toggleCol = r.col + r.width - rightTags.length
-    this.chatButtonRow  = inputRow
-    this.chatButtonFrom = toggleCol
-    this.chatButtonTo   = toggleCol + toggle.length
-    buf.write(inputRow, toggleCol, toggle, {
-      fg: this.chatMode ? Colors.bg : Colors.bg,
-      bg: this.chatMode ? Colors.success : Colors.accent,
-      bold: true,
-    })
-    buf.write(inputRow, r.col + r.width - modelTag.length, modelTag, { fg: Colors.textDim, bg: Colors.bg })
+    // Input bar with multi-line wrap
+    for (let i = 0; i < inputRowCount; i++) {
+      const row = inputRow + i
+      buf.fill(row, r.col, 1, r.width, ' ', { bg: Colors.bg })
+      const lineText = i === 0 ? prompt + (inputLines[i] ?? '') : '  ' + (inputLines[i] ?? '')
+      buf.write(row, r.col, lineText.substring(0, r.width), { fg: Colors.text, bg: Colors.bg })
+    }
 
     // Slash command autocomplete (above the input bar)
     this.renderAutocomplete(buf, r, inputRow)
@@ -464,6 +453,19 @@ export class SessionPanel extends Panel {
   }
 
   /** Commands matching the current input, or [] if autocomplete isn't active. */
+  private wrapText(text: string, width: number): string[] {
+    if (width <= 0) return [text]
+    const lines = []
+    for (let i = 0; i < text.length; i += width) {
+      lines.push(text.slice(i, i + width))
+    }
+    return lines.length > 0 ? lines : ['']
+  }
+
+  getChatMode(): boolean {
+    return this.chatMode
+  }
+
   private acMatches(): SlashCommand[] {
     const buf = this.inputBuf
     if (!buf.startsWith('/') || buf.includes(' ')) return []
@@ -768,13 +770,6 @@ export class SessionPanel extends Panel {
         this.onUpdate(); return true
       }
       if (e.button === 'left' && e.action === 'press') return this.handlePickerClick(e.row, e.col)
-      return true
-    }
-
-    // Click the [tools]/[chat] toggle button
-    if (e.button === 'left' && e.action === 'press' &&
-        e.row === this.chatButtonRow && e.col >= this.chatButtonFrom && e.col < this.chatButtonTo) {
-      this.toggleChatMode()
       return true
     }
 

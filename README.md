@@ -199,6 +199,49 @@ Type `/` for an autocomplete popup.
 
 ---
 
+## Authentication
+
+Log in to **agentfactory.dev** via device-code flow to access shared agent templates
+and manage your profile. Import API keys from installed CLI tools (Claude Code, etc.)
+without manually copying and pasting.
+
+### Login
+
+1. Press `Ctrl+P` and select **"Login to AgentFactory"**, or
+2. Press `F5` (Config tab) and click **`[→ Login]`**
+
+A device-code overlay appears:
+
+```
+┌─────────────────────────────────┐
+│ 1. Open this URL in your browser:│
+│    ↗ https://app.agentfactory...│
+│ 2. Enter this code:             │
+│    ABC-XYZ-123                  │
+│ ⊙ Waiting… (300s remaining)     │
+│                                 │
+│ [Esc] Cancel                    │
+└─────────────────────────────────┘
+```
+
+Your browser opens automatically. Enter the code on the verification page. Once authorized,
+your token is saved to `~/.agentfactory/token` (file mode `0600`).
+
+### Import Keys
+
+Click **`[→ Import keys from tools]`** in Config (F5) to scan your system for API keys:
+
+- **Claude Code**: reads `~/.claude/.credentials.json` → Anthropic key
+- **Environment variables**: reads `$ANTHROPIC_API_KEY`, `$OPENAI_API_KEY`, etc.
+
+Confirm the import overlay to save all keys to `~/.config/agentfactory/config.json`.
+
+### Logout
+
+Click **`[→ Logout]`** in Config to clear your token and local auth state.
+
+---
+
 ## Notable engineering nuances
 
 - **Custom ANSI renderer** — a `CellBuffer` with damage-tracking `diff()`; supports
@@ -257,7 +300,7 @@ src/
 | 3 | ✓ done | DAG executor, `/run`, live canvas status |
 | 3.5 | ✓ done | Multi-LLM provider layer (Anthropic + OpenAI) |
 | 4 | ✓ done | PTY terminal panel, VTScreen ANSI, mouse navigation |
-| 5 | 🚧 in progress | Registry auth/login, model picker, multi-session, key import |
+| 5 | ✓ done | Registry auth/login, model picker, multi-session, key import |
 
 ---
 
