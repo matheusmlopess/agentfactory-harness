@@ -4,6 +4,7 @@ import type { Rect } from '../renderer/layout.js'
 import type { MouseEvent } from '../input/mouse.js'
 import { Colors } from '../renderer/theme.js'
 import { findLaureate } from '../../core/nobel.js'
+import { logger } from '../../core/logger.js'
 
 export interface AgentEntry {
   name:         string
@@ -24,8 +25,10 @@ export class AgentsPanel extends Panel {
   private agents: AgentEntry[] = []
   private selectedIdx = 0
   private hoveredIdx = -1
+  private showStats = false  // toggle stats on click
   private onUpdate: () => void
   private onSelect?: (idx: number) => void
+  private log = logger('Agents')
 
   constructor(rect: Rect, onUpdate: () => void, onSelect?: (idx: number) => void) {
     super(rect)
@@ -75,7 +78,7 @@ export class AgentsPanel extends Panel {
     }
 
     const detail = this.agents[this.selectedIdx]
-    if (!detail || r.height <= listH + 1) return
+    if (!detail || r.height <= listH + 1 || !this.showStats) return
 
     const dividerRow = r.row + listH
     buf.write(dividerRow, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.bgPanel })
@@ -152,7 +155,14 @@ export class AgentsPanel extends Panel {
     if (e.button === 'scroll_down') { this.selectedIdx = Math.min(this.agents.length - 1, this.selectedIdx + 1); this.onUpdate(); return true }
     if (e.button !== 'left' || e.action !== 'press') return false
     if (row >= 0 && row < listH) {
-      this.selectedIdx = row
+      // Same session: toggle stats; different session: switch and show stats
+      if (this.selectedIdx === row) {
+        this.showStats = !this.showStats
+      } else {
+        this.selectedIdx = row
+        this.showStats = true
+      }
+      this.log.debug('session selected', { name: this.agents[row]?.name })
       this.onSelect?.(row)   // switch the active session
       this.onUpdate()
       return true

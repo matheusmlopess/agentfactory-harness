@@ -10,6 +10,7 @@ import type { ProviderDef, Category } from '../../core/config/providers.js'
 import type { AuthUser } from '../../registry/auth.js'
 import type { LoginEvent } from '../../registry/login.js'
 import type { ImportCandidate } from '../../registry/import-keys.js'
+import { logger } from '../../core/logger.js'
 
 type PanelMode = 'browse' | 'edit' | 'login' | 'import'
 
@@ -58,6 +59,7 @@ export class ConfigPanel extends Panel {
   private lastClickTime = 0
   private readonly onUpdate: () => void
   private readonly callbacks: ConfigPanelCallbacks
+  private log = logger('Config')
 
   // Auth state
   private authUser: AuthUser | null = null

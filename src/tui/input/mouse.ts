@@ -16,6 +16,17 @@ const SGR_PREFIX = '\x1b[<'
  */
 export function parseMouse(data: Buffer): MouseEvent | null {
   const str = data.toString('utf8')
+
+  // Try X10 scroll format first (for terminals that don't support SGR scroll)
+  // Format: ESC M <button+32> <col+32> <row+32>
+  if (str.startsWith('\x1b[M') && data.length >= 6) {
+    const btn = data[3]! - 32
+    const col = data[4]! - 33
+    const row = data[5]! - 33
+    if (btn === 64) return { button: 'scroll_up',   action: 'press', row, col, shift: false, alt: false, ctrl: false }
+    if (btn === 65) return { button: 'scroll_down', action: 'press', row, col, shift: false, alt: false, ctrl: false }
+  }
+
   if (!str.startsWith(SGR_PREFIX)) return null
 
   // Format: ESC [ < flags ; col ; row M/m

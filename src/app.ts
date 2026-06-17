@@ -24,15 +24,20 @@ import { Session } from './core/session.js'
 import { agentLoop } from './core/agent-loop.js'
 import { createAdapter, defaultProvider } from './core/llm/index.js'
 import { ConfigPanel } from './tui/panels/ConfigPanel.js'
+import { LogsPanel } from './tui/panels/LogsPanel.js'
 import { store } from './core/config/store.js'
 import { CommandPalette } from './tui/widgets/CommandPalette.js'
 import { getUser, clearToken } from './registry/auth.js'
 import { startDeviceLogin } from './registry/login.js'
 import { importFromTools } from './registry/import-keys.js'
+import { logger, getLogFilePath, getRecentLogs, type LogEntry } from './core/logger.js'
 
-const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config']
+const log = logger('App')
+
+const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config', 'Logs']
 const TAB_TERMINAL = 3
 const TAB_CONFIG   = 4
+const TAB_LOGS     = 5
 const EXIT_BTN = ' ✕ Quit '
 
 export class App {
@@ -47,15 +52,21 @@ export class App {
   private planRunning = false
   private statusError: string | null = null
   private statusErrorTimer: ReturnType<typeof setTimeout> | null = null
+  private logsLastAnalyzedAt = 0
+  private logsHeartbeatInterval: ReturnType<typeof setInterval> | null = null
+  private logsCountdownInterval: ReturnType<typeof setInterval> | null = null
   private sessionPanel!: SessionPanel
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
   private terminalPanel: TerminalPanel | null = null
   private configPanel: ConfigPanel | null = null
+  private logsPanel!: LogsPanel
   private palette!: CommandPalette
   private paletteOpen = false
   private statusBarModelTagCol = -1
   private statusBarModelTagLen = 0
+  private statusBarToolToggleCol = -1
+  private statusBarToolToggleLen = 0
   private panels!: Panel[]
   private router = new InputRouter()
   private mouseEnabled = true   // toggled off (Ctrl+E) to allow native text selection/copy
@@ -74,15 +85,25 @@ export class App {
   }
 
   async start(): Promise<void> {
+    log.info('startup', { version: '0.6.0', cols: this.cols, rows: this.rows })
     this.running = true
     this.setup()
     await store.init()
+    log.debug('config store initialized')
     this.initPanels()
+    log.debug('panels initialized')
     await this.tryLoadPlan()
+    log.debug('plan loaded', { currentPlan: this.currentPlan ? 'yes' : 'no' })
     // Load registry auth user in background — don't block startup
-    void getUser().then(user => { this.configPanel?.setAuthUser(user) })
+    void getUser().then(user => {
+      log.debug('auth user loaded', { isLoggedIn: user !== null })
+      this.configPanel?.setAuthUser(user)
+    })
     this.render()
+    log.info('render started')
     this.listenInput()
+    log.info('input listener started', { logFile: getLogFilePath() })
+    this.startLogsHeartbeat()
   }
 
   private scheduleRender(): void {
@@ -110,8 +131,13 @@ export class App {
       onLogout: () => { void this.runLogout()    },
       onImport: () => { void this.runImport()    },
     })
-    // ConfigPanel (TAB_CONFIG=4) is dispatched explicitly — keep it out of panels[]
-    // so router.dispatch(key/mouse, this.panels, activeTab) is never called with index 4.
+    this.logsPanel = new LogsPanel(
+      layout.session,
+      () => this.scheduleRender(),
+      () => { void this.runLogsAnalysis(false) },  // onAnalyze callback
+    )
+    // ConfigPanel (TAB_CONFIG=4) and LogsPanel (TAB_LOGS=5) are dispatched explicitly
+    // Keep them out of panels[] so router.dispatch() doesn't try to handle them
     this.panels = [this.sessionPanel, this.canvasPanel, this.agentsPanel]
 
     this.palette = new CommandPalette([
@@ -120,6 +146,7 @@ export class App {
       { id: 'switch-agents',        label: 'Switch to Agents',        hint: 'F3',     action: () => { this.activeTab = 2;           this.render() } },
       { id: 'switch-terminal',      label: 'Switch to Terminal',      hint: 'F4',     action: () => { this.activeTab = TAB_TERMINAL; this.render() } },
       { id: 'switch-config',        label: 'Switch to Config',        hint: 'F5',     action: () => { this.activeTab = TAB_CONFIG;   this.render() } },
+      { id: 'switch-logs',          label: 'Switch to Logs',          hint: 'F6',     action: () => { this.activeTab = TAB_LOGS;     this.render() } },
       { id: 'login',                label: 'Login to AgentFactory',   hint: '',       action: () => { this.activeTab = TAB_CONFIG; void this.runLoginFlow() } },
       { id: 'logout',               label: 'Logout from AgentFactory',hint: '',       action: () => { void this.runLogout() } },
       { id: 'run-plan',             label: 'Run Plan',                hint: 'Ctrl+R', action: () => { void this.runPlan() } },
@@ -160,6 +187,33 @@ export class App {
       this.scheduleRender()
     }, 5000)
     this.scheduleRender()
+  }
+
+  private startLogsHeartbeat(): void {
+    // Start 2-minute heartbeat
+    this.logsHeartbeatInterval = setInterval(() => {
+      void this.runLogsAnalysis(true)  // true = auto
+    }, 2 * 60 * 1000)
+
+    // Start countdown ticker (updates every second)
+    let countdown = 120
+    this.logsCountdownInterval = setInterval(() => {
+      countdown = Math.max(0, countdown - 1)
+      this.logsPanel.setCountdown(countdown)
+      if (countdown === 0) countdown = 120
+      this.scheduleRender()
+    }, 1000)
+  }
+
+  private stopLogsHeartbeat(): void {
+    if (this.logsHeartbeatInterval) {
+      clearInterval(this.logsHeartbeatInterval)
+      this.logsHeartbeatInterval = null
+    }
+    if (this.logsCountdownInterval) {
+      clearInterval(this.logsCountdownInterval)
+      this.logsCountdownInterval = null
+    }
   }
 
   private async runLoginFlow(): Promise<void> {
@@ -216,6 +270,51 @@ export class App {
       }
     } finally {
       this.planRunning = false
+    }
+  }
+
+  private async runLogsAnalysis(auto = false): Promise<void> {
+    if (this.logsPanel.isInsightsStreaming) return
+
+    const allEntries = getRecentLogs()
+    const since = auto ? this.logsLastAnalyzedAt : 0
+    const entries = since > 0 ? allEntries.filter((e: LogEntry) => new Date(e.timestamp).getTime() > since) : allEntries
+
+    if (auto && entries.length < 3) return
+
+    const startedAt = Date.now()
+    this.logsPanel.startInsights(auto)
+    this.scheduleRender()
+
+    const sample = entries.slice(-50)
+    const lines = sample
+      .map(
+        (e: LogEntry) =>
+          `[${e.timestamp.slice(11, 19)}] ${e.level.padEnd(5)} ${e.source.padEnd(15)} ${e.message}` +
+          (e.meta ? ' ' + JSON.stringify(e.meta) : ''),
+      )
+      .join('\n')
+
+    const prompt =
+      `You are analyzing application logs from agentfactory-harness, an AI agent terminal. ` +
+      `Summarize what happened, highlight any warnings or errors, and suggest anything unusual.\n\n` +
+      `Log entries (most recent last):\n${lines}`
+
+    const session = new Session()
+    session.addMessage({ role: 'user', content: prompt })
+    const adapter = createAdapter(defaultProvider())
+
+    try {
+      for await (const e of agentLoop(session, { adapter })) {
+        if (e.type === 'text_delta') {
+          this.logsPanel.appendInsights(e.delta)
+          this.scheduleRender()
+        }
+      }
+    } finally {
+      this.logsLastAnalyzedAt = startedAt
+      this.logsPanel.finishInsights()
+      this.scheduleRender()
     }
   }
 
@@ -295,6 +394,7 @@ export class App {
   stop(): void {
     if (!this.running) return
     this.running = false
+    this.stopLogsHeartbeat()
     this.terminalPanel?.destroy()
     // Drain stdin before exit so buffered mouse events don't leak into the shell
     process.stdin.removeAllListeners('data')
@@ -327,6 +427,17 @@ export class App {
       this.configPanel!.rect    = layout.config
       this.configPanel!.focused = true
       this.configPanel!.render(this.buf)
+    } else if (this.activeTab === TAB_LOGS) {
+      const logsRect = {
+        row:    layout.session.row,
+        col:    0,
+        height: layout.session.height,
+        width:  this.cols,
+      }
+      drawBorder(this.buf, logsRect, 'Logs', true)
+      this.logsPanel.rect    = logsRect
+      this.logsPanel.focused = true
+      this.logsPanel.render(this.buf)
     } else if (onTerminal) {
       const tp = this.ensureTerminalPanel()
       drawBorder(this.buf, layout.terminal, 'Terminal', true)
@@ -355,9 +466,12 @@ export class App {
       mode,
       this.statusError ?? undefined,
       modelLabel,
+      this.sessionPanel.getChatMode(),
     )
     this.statusBarModelTagCol = sbLayout.modelTagCol
     this.statusBarModelTagLen = sbLayout.modelTagLen
+    this.statusBarToolToggleCol = sbLayout.toolToggleCol
+    this.statusBarToolToggleLen = sbLayout.toolToggleLen
 
     if (this.paletteOpen) this.palette.render(this.buf, this.rows, this.cols)
 
@@ -510,6 +624,15 @@ export class App {
             this.render()
             return
           }
+          // Status bar tool toggle click → toggle chat mode
+          if (mouse.row === this.rows - 1 &&
+              this.statusBarToolToggleCol >= 0 &&
+              mouse.col >= this.statusBarToolToggleCol &&
+              mouse.col < this.statusBarToolToggleCol + this.statusBarToolToggleLen) {
+            this.sessionPanel.toggleChatMode()
+            this.render()
+            return
+          }
           // Panel body click — focus the panel under the cursor
           const clickedTab = this.panelTabAt(mouse.row, mouse.col)
           if (clickedTab >= 0 && clickedTab !== this.activeTab) {
@@ -521,6 +644,20 @@ export class App {
         // Always render after — scroll/click both mutate state that needs immediate repaint.
         if (this.activeTab === TAB_CONFIG) {
           this.configPanel!.onMouse(mouse)
+          this.render()
+          return
+        }
+        // Logs panel is left column — dispatch directly (same rect as session)
+        if (this.activeTab === TAB_LOGS) {
+          const layout = computeLayout(this.rows, this.cols)
+          const logsRect = {
+            row: layout.session.row,
+            col: 0,
+            height: layout.session.height,
+            width: this.cols,
+          }
+          this.logsPanel.rect = logsRect  // set rect BEFORE onMouse dispatch
+          this.logsPanel.onMouse(mouse)
           this.render()
           return
         }
@@ -599,16 +736,32 @@ export class App {
         return
       }
 
-      // F1–F5 switch panels without stealing printable characters
+      // F1–F6 switch panels without stealing printable characters
       if (key.key === 'f1') { if (this.activeTab === 0) this.sessionPanel.openNewSessionMenu(); this.activeTab = 0; this.render(); return }
       if (key.key === 'f2') { this.activeTab = 1;           this.render(); return }
       if (key.key === 'f3') { this.activeTab = 2;           this.render(); return }
       if (key.key === 'f4') { this.activeTab = TAB_TERMINAL; this.render(); return }
       if (key.key === 'f5') { this.activeTab = TAB_CONFIG;   this.render(); return }
+      if (key.key === 'f6') { this.activeTab = TAB_LOGS;     this.render(); return }
 
       // Config panel: dispatch keys directly (TAB_CONFIG=4 doesn't match panels[] index)
       if (this.activeTab === TAB_CONFIG) {
         const consumed = this.configPanel!.onKey(key)
+        if (!consumed) this.render()
+        return
+      }
+
+      // Logs panel: dispatch keys directly (TAB_LOGS=5 doesn't match panels[] index)
+      if (this.activeTab === TAB_LOGS) {
+        const layout = computeLayout(this.rows, this.cols)
+        const logsRect = {
+          row: layout.session.row,
+          col: 0,
+          height: layout.session.height,
+          width: this.cols,
+        }
+        this.logsPanel.rect = logsRect  // set rect BEFORE onKey dispatch
+        const consumed = this.logsPanel.onKey(key)
         if (!consumed) this.render()
         return
       }

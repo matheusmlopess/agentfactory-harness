@@ -41,7 +41,7 @@ const POLL_INTERVAL_S = 3
  *
  * Gracefully emits error when the backend endpoint is not yet live.
  */
-export async function* startDeviceLogin(): AsyncIterable<LoginEvent> {
+export async function* startDeviceLogin(): AsyncGenerator<LoginEvent, void> {
   let device: DeviceCodeResponse
   try {
     device = await registryClient.post<DeviceCodeResponse>('/auth/cli/device', {})
