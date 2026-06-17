@@ -30,7 +30,7 @@ import { CommandPalette } from './tui/widgets/CommandPalette.js'
 import { getUser, clearToken } from './registry/auth.js'
 import { startDeviceLogin } from './registry/login.js'
 import { importFromTools } from './registry/import-keys.js'
-import { logger, getLogFilePath, type LogEntry } from './core/logger.js'
+import { logger, getLogFilePath, getRecentLogs, type LogEntry } from './core/logger.js'
 
 const log = logger('App')
 
@@ -134,7 +134,7 @@ export class App {
     this.logsPanel = new LogsPanel(
       layout.session,
       () => this.scheduleRender(),
-      (entries) => { void this.runLogsAnalysis(entries) },  // onAnalyze callback
+      () => { void this.runLogsAnalysis(false) },  // onAnalyze callback
     )
     // ConfigPanel (TAB_CONFIG=4) and LogsPanel (TAB_LOGS=5) are dispatched explicitly
     // Keep them out of panels[] so router.dispatch() doesn't try to handle them
@@ -278,7 +278,7 @@ export class App {
 
     const allEntries = getRecentLogs()
     const since = auto ? this.logsLastAnalyzedAt : 0
-    const entries = since > 0 ? allEntries.filter(e => new Date(e.timestamp).getTime() > since) : allEntries
+    const entries = since > 0 ? allEntries.filter((e: LogEntry) => new Date(e.timestamp).getTime() > since) : allEntries
 
     if (auto && entries.length < 3) return
 
@@ -289,7 +289,7 @@ export class App {
     const sample = entries.slice(-50)
     const lines = sample
       .map(
-        (e) =>
+        (e: LogEntry) =>
           `[${e.timestamp.slice(11, 19)}] ${e.level.padEnd(5)} ${e.source.padEnd(15)} ${e.message}` +
           (e.meta ? ' ' + JSON.stringify(e.meta) : ''),
       )

@@ -77,7 +77,7 @@ export class LogsPanel extends Panel {
       total: entries.length,
       byLevel,
       bySource,
-      errorCount: byLevel.ERROR,
+      errorCount: byLevel.ERROR ?? 0,
       recentErrors,
     }
   }
