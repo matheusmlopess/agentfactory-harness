@@ -7,6 +7,9 @@ and manage provider keys — all inside the terminal, with no GUI.
 
 ![factory TUI — Session, Orchestration canvas, Agents stats, multi-session](docs/assets/factory-tui.png)
 
+<img width="1892" height="975" alt="image" src="https://github.com/user-attachments/assets/5e35fd51-8e0a-46ad-ba7f-54287e2c66fd" />
+
+
 > Above: a live session answering in the left **Session** pane, the **Orchestration**
 > canvas (drag-drop agent blocks) top-right, and the **Agents** panel bottom-right
 > acting as a multi-session switcher with real token stats and a hover tooltip for
@@ -22,10 +25,10 @@ a streaming chat session, an embedded PTY, and a config plane — rendered by a 
 ANSI cell-buffer (no Ink, no blessed).
 
 ```
-╔═════════════╗              ╔══════════════╗              ╔══════════╗
-║  data-fetch ║              ║  transform   ║              ║   load   ║
-║  ✓ done     ║──wire───────╫►●  ⏳ running ║──wire───────╫►●  ○ idle ║
-╚═════════════╝              ╚══════════════╝              ╚══════════╝
+╔═════════════╗              ╔═══════════════╗              ╔═══════════╗
+║  data-fetch ║              ║  transform    ║              ║    load   ║
+║  ✓ done     ║──wire────────╫►● ⏳ running ║──wire────────╫►●  ○ idle ║
+╚═════════════╝              ╚═══════════════╝              ╚═══════════╝
    Drag blocks · Draw wires (click ○ → click ●) · Right-click menus · Live status
 ```
 
