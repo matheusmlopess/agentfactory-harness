@@ -1,8 +1,8 @@
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-06-09 -->
+<!-- last-updated: 2026-06-18 -->
 <!-- status: ACTIVE -->
 
 # Documentation Registry
@@ -23,15 +23,16 @@ Complete index of all documentation organized by type, feature, and date.
 | Type | Count | Latest | Status |
 |------|-------|--------|--------|
 | **FEATURE** | 4 | 2026-06-09 | ✅ Active |
-| **TESTING** | 1 | 2026-06-09 | ✅ Active |
-| **DESIGN** | 1 | 2026-06-09 | ✅ Active |
+| **TESTING** | 2 | 2026-06-18 | ✅ Active |
+| **DESIGN** | 1 + DDD set (14) | 2026-06-18 | ✅ Active |
 | **GAPS** | 0 | — | — |
 | **ANALYSIS** | 1 | 2026-06-09 | ✅ Active |
 | **CHANGE** | 1 | 2026-06-09 | ✅ Active |
 | **STUDY** | 0 | — | — |
-| **REVIEW** | 2 | 2026-06-09 | ✅ Active |
+| **REVIEW** | 3 | 2026-06-18 | ✅ Active |
 | **ARCHITECTURE** | 1 | 2026-04-27 | ✅ Active |
 | **SUMMARY** | 1 | 2026-06-09 | ✅ Active |
+| **PLAN** | 16 | 2026-06-17 | ✅ Active (PR #23) |
 
 ---
 
@@ -53,6 +54,7 @@ Complete index of all documentation organized by type, feature, and date.
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
 | TESTING-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | 30+ test cases, procedures, failure checklist |
+| testing/TESTING-FACTORY-E2E-2026-06-18.md | 2026-06-18 | factory (Waves 0–5) | ✅ Active | E2E test guide: 9 surfaces, preconditions/steps/expected/failure indicators |
 
 ---
 
@@ -61,6 +63,7 @@ Complete index of all documentation organized by type, feature, and date.
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
 | DESIGN-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | 6 design decisions, trade-offs, assumptions |
+| docs/ddd/ (DDD reference set, 14 files) | 2026-06-18 | factory UI (Waves 0–5) | ✅ Active | Design-driven dev reference: MENTAL-MAP, INDEX, 00-overview…11-feature-isolation (architecture, rendering, input, panels, core, orchestration, journeys, design-language, gaps, optimizations, isolation) |
 
 ---
 
@@ -109,6 +112,7 @@ Complete index of all documentation organized by type, feature, and date.
 |-----|------|------|---------|--------|---------|
 | REVIEW-DOCUMENTATION-LOGS-2026-06-09.md | 2026-06-09 | DOCUMENTATION | Logs Panel | ✅ Active | Documentation completeness audit |
 | REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md | 2026-04-27 | SECURITY | Overall | ✅ Active | Security & architecture review |
+| REVIEW-CURRENT-STATE-2026-06-18.md | 2026-06-18 | IMPLEMENTATION | factory (Waves 0–5) | ✅ Active | Consolidated review: reasoning, assumptions, gaps/risks, enhancements, safeguards |
 
 ---
 
@@ -128,6 +132,33 @@ Complete index of all documentation organized by type, feature, and date.
 
 ---
 
+### PLAN Docs (Spec-Driven Implementation Plans)
+
+Location: `specs/docs/approvedPlans/`. Set introduced by **PR #23** (multi-agent orchestration).
+
+| Doc | Date | Feature | Status | Purpose |
+|-----|------|---------|--------|---------|
+| PLAN-INDEX-MULTI-AGENT.md | 2026-06-17 | Multi-Agent | ✅ Active | Index + build order + dependency graph |
+| PLAN-CORE-INTEGRATION-SEAM.md | 2026-06-17 | Multi-Agent | ✅ Active | buildTool, ToolUseContext, runAgentLoop, provider widening (prerequisite) |
+| PLAN-00-ORCHESTRATION-KERNEL.md | 2026-06-17 | Multi-Agent | ✅ Active | Context, tri-state gate, abort registry, events |
+| PLAN-01-AGENT-DEFINITION-SYSTEM.md | 2026-06-17 | Multi-Agent | ✅ Active | TeamSchema, normalize (handoff→edge), roles/skills |
+| PLAN-02-HANDOFF-CHAIN.md | 2026-06-17 | Multi-Agent | ✅ Active | HandoffPackage + payload modes |
+| PLAN-03-CROSS-PROVIDER-LLM.md | 2026-06-17 | Multi-Agent | ✅ Active | OpenAICompatAdapter, serializeHandoff |
+| PLAN-04-MESSAGE-BUS.md | 2026-06-17 | Multi-Agent | ✅ Active | Pub/sub + auto-delivery |
+| PLAN-05-SHARED-MEMORY.md | 2026-06-17 | Multi-Agent | ✅ Active | Runtime Layer-1 KV |
+| PLAN-06-LOGIC-PORTS.md | 2026-06-17 | Multi-Agent | ✅ Active | AND/OR/XOR/NAND gates + canvas diamonds |
+| PLAN-07-AGENT-ASK.md | 2026-06-17 | Multi-Agent | ✅ Active | AskBroker + slot-releasing pause |
+| PLAN-08-TEAM-EXECUTOR.md | 2026-06-17 | Multi-Agent | ✅ Active | Settlement loop, pool, scheduler |
+| PLAN-09-CLI.md | 2026-06-17 | Multi-Agent | ✅ Active | factory agent / orchestrate |
+| PLAN-10-TUI-MULTI-AGENT.md | 2026-06-17 | Multi-Agent | ✅ Active | Runtime dashboard (+ operational audit) |
+| PLAN-11-COORDINATOR.md | 2026-06-17 | Multi-Agent | ✅ Active | Goal→task decomposition |
+| PLAN-12-TIERED-MEMORY.md | 2026-06-17 | Multi-Agent | ✅ Active | Project/user/auto tiered memory |
+| PLAN-13-ORCHESTRATION-STUDIO.md | 2026-06-17 | Multi-Agent | ✅ Active | n8n-style visual builder (+ operational audit) |
+
+**Status**: 🟢 16-plan set, dependency-closed (open in PR #23). Header backfill to `classification: PLAN` pending on that branch.
+
+---
+
 ## Documentation by Feature
 
 ### Logs Panel (Wave 5.5)
@@ -144,6 +175,28 @@ Complete index of all documentation organized by type, feature, and date.
 | INDEX | INDEX-LOGS-PANEL-DOCUMENTATION-2026-06-09.md | 2026-06-09 | ✅ Active |
 
 **Status**: 🟢 Complete documentation suite (8 docs)
+
+---
+
+### factory UI / Design (Waves 0–5)
+
+| Type | Doc | Date | Status |
+|------|-----|------|--------|
+| DESIGN | docs/ddd/ (14-file reference set) | 2026-06-18 | ✅ Active |
+| TESTING | testing/TESTING-FACTORY-E2E-2026-06-18.md | 2026-06-18 | ✅ Active |
+| REVIEW | reviews/REVIEW-CURRENT-STATE-2026-06-18.md | 2026-06-18 | ✅ Active |
+
+**Status**: 🟢 Design reference + E2E + review (for Claude Design iteration)
+
+---
+
+### Multi-Agent Orchestration (PR #23 — specced)
+
+| Type | Doc | Date | Status |
+|------|-----|------|--------|
+| PLAN | specs/docs/approvedPlans/PLAN-* (16 plans + index) | 2026-06-17 | ✅ Active (specced) |
+
+**Status**: 🟢 Spec set complete (dependency-closed); not yet implemented
 
 ---
 

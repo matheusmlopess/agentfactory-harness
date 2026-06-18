@@ -1,4 +1,7 @@
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
+<!-- classification: REVIEW -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-18 -->
 # Documentation Taxonomy & Classification System
 
 Complete guide to classifying, organizing, and managing documentation for agentfactory-harness.
@@ -408,13 +411,61 @@ IMPLEMENTATION-LOGS-PANEL-SUMMARY-2026-06-09.md
 
 ---
 
+### 11. PLAN Docs
+**Purpose**: Spec-driven implementation plans — a self-contained specification for one feature
+that an LLM/engineer can implement from directly (interfaces, diagrams, contracts, tests, DoD).
+
+**Audience**: Engineers and agents implementing the feature; reviewers approving scope.
+
+**Content**:
+- Overview & purpose
+- Interface definitions (types, schemas, signatures)
+- Mermaid diagrams for each scenario
+- Codebase reality (assumed symbol → real symbol → fix) and Contracts (imports/exports)
+- Edge cases & error handling
+- Test cases (unit + integration)
+- Definition of Done / verification checklist
+- `depends-on` / `enables` relationships to sibling plans
+
+**Naming Convention**:
+```
+PLAN-<NN>-<NAME>.md          (ordered spec sets — NN = 00..99 or CORE)
+PLAN-<NAME>-<DATE>.md         (standalone plans)
+
+PLAN-00-ORCHESTRATION-KERNEL.md
+PLAN-CORE-INTEGRATION-SEAM.md
+```
+
+**Location**: `specs/docs/approvedPlans/` (governed also by `.ai/rules/approved-plans.md`).
+
+**Version Header**:
+```markdown
+<!-- version: 1.0.0 -->
+<!-- classification: PLAN -->
+<!-- date: 2026-06-17 -->
+<!-- last-updated: 2026-06-17 -->
+<!-- feature: src/<paths the plan implements> -->
+<!-- depends-on: PLAN-NN, ... -->
+<!-- enables: PLAN-NN, ... -->
+```
+
+**Update Protocol**:
+- Spec refinement → update existing plan, bump `last-updated` + `version`
+- Scope change / supersede → new plan with new name, reference the old as superseded
+- On implementation → the plan stays as the approved record; the feature doc (FEATURE type)
+  documents the shipped result
+
+**Example**: `specs/docs/approvedPlans/PLAN-08-TEAM-EXECUTOR.md`
+
+---
+
 ## Naming Convention Summary
 
 ```
 <TYPE>-<NAME>-<DATE>.md
 
 Where:
-  <TYPE>     = FEATURE | TESTING | DESIGN | GAPS | ANALYSIS | CHANGE | STUDY | REVIEW | ARCHITECTURE | SUMMARY
+  <TYPE>     = FEATURE | TESTING | DESIGN | GAPS | ANALYSIS | CHANGE | STUDY | REVIEW | ARCHITECTURE | SUMMARY | PLAN
   <NAME>     = Feature/system name (LOGS-PANEL, REGISTRY-AUTH, etc.)
   <DATE>     = YYYY-MM-DD (ISO format, today's date or creation date)
 

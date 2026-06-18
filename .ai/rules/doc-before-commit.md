@@ -1,5 +1,7 @@
 # Rule: Documentation Before Commit
-<!-- version: 1.3.0 -->
+<!-- version: 1.5.0 -->
+<!-- date: 2026-04-26 -->
+<!-- last-updated: 2026-06-18 -->
 
 Every implemented and tested feature MUST have a detailed feature document written
 **before** the commit, **before** the PR, and **before** the milestone entry.
@@ -40,6 +42,9 @@ Examples:
 ```markdown
 # Feature: <Title>
 <!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: YYYY-MM-DD -->
+<!-- last-updated: YYYY-MM-DD -->
 
 ## What it does
 <1-3 sentences. What problem does this solve?>
@@ -59,6 +64,41 @@ Examples:
 ## Known limitations
 <Edge cases, missing pieces, follow-up issues.>
 ```
+
+---
+
+## Header markers (classification / date / last-updated) — MANDATORY
+
+Every `.md` document MUST carry the metadata markers defined by
+**`docs/DOCUMENTATION-TAXONOMY.md`**, directly under the H1 title:
+
+```markdown
+<!-- version: x.y.z -->
+<!-- classification: TYPE -->      <!-- FEATURE | TESTING | DESIGN | GAPS | ANALYSIS | CHANGE | STUDY | REVIEW | ARCHITECTURE | SUMMARY | PLAN -->
+<!-- date: YYYY-MM-DD -->
+<!-- last-updated: YYYY-MM-DD -->
+```
+
+Discipline (this is the single source of truth for the date fields):
+
+```
+┌─ Marker discipline ──────────────────────────────────────────────────────┐
+│ • date         → CREATION date. Set ONCE. NEVER change it afterwards.     │
+│ • last-updated → equals `date` on day one. On EVERY subsequent edit,      │
+│                  update ONLY this field to the edit date.                 │
+│ • version      → bump per semver on meaningful edits.                     │
+│ • classification → the taxonomy doc type (see DOCUMENTATION-TAXONOMY.md). │
+│ • Format       → ISO 8601 date YYYY-MM-DD.                                │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+**Only `last-updated` (and `version`) may change after creation.** Altering `date` is a rule
+violation. When backfilling onto a pre-existing doc, derive `date` from the first commit:
+`git log --diff-filter=A --format=%ad --date=short -- <file> | tail -1`.
+
+Applies to ALL `.md` under `docs/`, `specs/`, and `.ai/`. Before creating a doc, **search the
+registry** (`docs/DOCUMENTATION-REGISTRY.md`); after creating one, **add a registry entry**
+(see `docs/DOCUMENTATION-QUICK-START.md` Steps 2 & 5).
 
 ---
 

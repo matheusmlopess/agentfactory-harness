@@ -1,8 +1,8 @@
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-06-09 -->
+<!-- last-updated: 2026-06-18 -->
 <!-- status: ACTIVE -->
 
 # Documentation Quick Start Guide
@@ -29,6 +29,7 @@ What are you documenting? Choose one:
 | **REVIEW** | Audit, verification, approval | "Documentation review of Logs Panel" |
 | **ARCHITECTURE** | System design & structure | "Architecture of Logs Panel" |
 | **SUMMARY** | Executive overview & status | "Implementation status of Logs Panel" |
+| **PLAN** | Spec-driven implementation plan (specs/docs/approvedPlans/) | "PLAN-08 Team Executor spec" |
 
 **👉 See full descriptions**: `docs/DOCUMENTATION-TAXONOMY.md`
 

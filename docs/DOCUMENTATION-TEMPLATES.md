@@ -1,8 +1,8 @@
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-06-09 -->
+<!-- last-updated: 2026-06-18 -->
 <!-- status: ACTIVE -->
 
 # Documentation Templates
@@ -862,9 +862,58 @@ Links to detailed documentation.
 
 ---
 
+## PLAN Doc Template
+
+```markdown
+<!-- version: 1.0.0 -->
+<!-- classification: PLAN -->
+<!-- date: YYYY-MM-DD -->
+<!-- last-updated: YYYY-MM-DD -->
+<!-- feature: src/<paths this plan implements> -->
+<!-- depends-on: PLAN-NN, ... -->
+<!-- enables: PLAN-NN, ... -->
+
+# PLAN-NN — [Feature Name]
+
+## 1. Overview & Purpose
+[What this builds and why; how it fits the larger effort.]
+
+## 2. Interface Definitions
+[Full TypeScript types, Zod schemas, function signatures.]
+
+## 3. Mermaid Diagrams (all scenarios)
+[Sequence/flow diagrams covering happy path + edge cases.]
+
+## 4. Codebase Reality
+| Assumed symbol | Real symbol (file:line) | Resolution |
+|---|---|---|
+| ... | ... | ... |
+
+## 5. Contracts
+IMPORTS: [symbol ← PLAN-NN / existing module]
+EXPORTS: [symbol → consumers]
+
+## 6. Edge Cases & Error Handling
+[Table of case → handling.]
+
+## 7. Test Cases
+[Unit + integration test list, including a cross-spec integration test.]
+
+## 8. Definition of Done
+- [ ] Types compile; unit + integration tests green; ≥80% coverage
+- [ ] No `any`; explicit return types
+- [ ] Contracts resolve against sibling plans
+```
+
+---
+
 ## Quick Copy Commands
 
 ```bash
+# Copy PLAN template
+cp docs/DOCUMENTATION-TEMPLATES.md \
+  specs/docs/approvedPlans/PLAN-<NN>-<NAME>.md
+
 # Copy FEATURE template
 cp docs/DOCUMENTATION-TEMPLATES.md \
   docs/FEATURE-<NAME>-$(date +%Y-%m-%d).md
@@ -882,7 +931,7 @@ cp docs/DOCUMENTATION-TEMPLATES.md \
 
 ---
 
-**Template Version**: 1.0.0  
+**Template Version**: 1.1.0  
 **Created**: 2026-06-09  
-**Last Updated**: 2026-06-09  
+**Last Updated**: 2026-06-18  
 **Status**: ACTIVE  

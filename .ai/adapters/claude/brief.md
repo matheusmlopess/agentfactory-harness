@@ -1,5 +1,7 @@
 # AgentFactory Intelligence Brief — Claude Code (agentfactory-harness)
-<!-- version: 1.6.0 -->
+<!-- version: 1.7.0 -->
+<!-- date: 2026-04-26 -->
+<!-- last-updated: 2026-06-18 -->
 
 ## Harness
 
@@ -89,7 +91,11 @@ See `.ai/rules/reference-repos.md` for the full contract.
 - **Worktrees**: Every approved plan is implemented in a new git worktree branched
   from `main`. Always ask if work is already in progress on a branch before creating
   a new worktree.
-- **Version Markers**: Every `.md` file MUST carry `<!-- version: x.y.z -->`.
+- **Doc Markers**: Every `.md` file MUST carry `<!-- version -->`, `<!-- classification -->`,
+  `<!-- date -->`, and `<!-- last-updated -->` (under the H1), per `docs/DOCUMENTATION-TAXONOMY.md`.
+  `date` is set once and never changed; on every edit update **only** `last-updated` (and bump
+  `version`). Search `docs/DOCUMENTATION-REGISTRY.md` before creating, and register after.
+  See `.ai/rules/doc-before-commit.md` → "Header markers".
 - **Branches**: feature branches follow `feature/<short-desc>` convention.
 - **Secrets**: Never log, print, or commit API keys or tokens.
 - **Coverage**: 80%+ test coverage for new logic (vitest).
