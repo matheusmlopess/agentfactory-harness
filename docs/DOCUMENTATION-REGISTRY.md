@@ -29,7 +29,7 @@ Complete index of all documentation organized by type, feature, and date.
 | **ANALYSIS** | 1 | 2026-06-09 | ✅ Active |
 | **CHANGE** | 1 | 2026-06-09 | ✅ Active |
 | **STUDY** | 0 | — | — |
-| **REVIEW** | 3 | 2026-06-18 | ✅ Active |
+| **REVIEW** | 4 | 2026-06-18 | ✅ Active |
 | **ARCHITECTURE** | 1 | 2026-04-27 | ✅ Active |
 | **SUMMARY** | 1 | 2026-06-09 | ✅ Active |
 | **PLAN** | 16 | 2026-06-17 | ✅ Active (PR #23) |
@@ -113,6 +113,7 @@ Complete index of all documentation organized by type, feature, and date.
 | REVIEW-DOCUMENTATION-LOGS-2026-06-09.md | 2026-06-09 | DOCUMENTATION | Logs Panel | ✅ Active | Documentation completeness audit |
 | REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md | 2026-04-27 | SECURITY | Overall | ✅ Active | Security & architecture review |
 | REVIEW-CURRENT-STATE-2026-06-18.md | 2026-06-18 | IMPLEMENTATION | factory (Waves 0–5) | ✅ Active | Consolidated review: reasoning, assumptions, gaps/risks, enhancements, safeguards |
+| REVIEW-DOCUMENTATION-WORKFLOW-2026-06-18.md | 2026-06-18 | DOCUMENTATION | Docs & plan workflow | ✅ Active | How the taxonomy + two plan buckets work, every scenario, tree diagrams |
 
 ---
 
