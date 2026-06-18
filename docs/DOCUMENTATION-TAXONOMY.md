@@ -436,7 +436,18 @@ PLAN-00-ORCHESTRATION-KERNEL.md
 PLAN-CORE-INTEGRATION-SEAM.md
 ```
 
-**Location**: `specs/docs/approvedPlans/` (governed also by `.ai/rules/approved-plans.md`).
+**Location**: `docs/PLANS/`.
+
+> **PLAN docs vs approved CLI plans — keep these separate:**
+> - `docs/PLANS/PLAN-*.md` — **document plans** authored from studies/sessions, *pending*
+>   feature-dev approval. This taxonomy type.
+> - `specs/docs/approvedPlans/<YYYY-MM-DD>-<name>.md` — **CLI-approved plans** (approved via the
+>   plan workflow, governed by `.ai/rules/approved-plans.md`). Dated format; **not** the
+>   `PLAN-*` naming and **not** classified by this taxonomy.
+>
+> **Promotion lifecycle:** a `docs/PLANS/PLAN-NN-*.md` that is approved in a feature-dev session
+> is moved to `specs/docs/approvedPlans/` and **renamed to the dated form**
+> `<YYYY-MM-DD>-<name>.md` (the CLI-approved-plan format).
 
 **Version Header**:
 ```markdown
@@ -455,7 +466,7 @@ PLAN-CORE-INTEGRATION-SEAM.md
 - On implementation → the plan stays as the approved record; the feature doc (FEATURE type)
   documents the shipped result
 
-**Example**: `specs/docs/approvedPlans/PLAN-08-TEAM-EXECUTOR.md`
+**Example**: `docs/PLANS/PLAN-08-TEAM-EXECUTOR.md`
 
 ---
 

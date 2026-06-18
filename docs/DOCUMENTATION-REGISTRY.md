@@ -134,7 +134,7 @@ Complete index of all documentation organized by type, feature, and date.
 
 ### PLAN Docs (Spec-Driven Implementation Plans)
 
-Location: `specs/docs/approvedPlans/`. Set introduced by **PR #23** (multi-agent orchestration).
+Location: `docs/PLANS/`. Set introduced by **PR #23** (multi-agent orchestration).
 
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
@@ -155,7 +155,9 @@ Location: `specs/docs/approvedPlans/`. Set introduced by **PR #23** (multi-agent
 | PLAN-12-TIERED-MEMORY.md | 2026-06-17 | Multi-Agent | ✅ Active | Project/user/auto tiered memory |
 | PLAN-13-ORCHESTRATION-STUDIO.md | 2026-06-17 | Multi-Agent | ✅ Active | n8n-style visual builder (+ operational audit) |
 
-**Status**: 🟢 16-plan set, dependency-closed (open in PR #23). Header backfill to `classification: PLAN` pending on that branch.
+**Status**: 🟢 16-plan set, dependency-closed, `classification: PLAN` headers applied. Lives in
+`docs/PLANS/` (document plans). Promoted to `specs/docs/approvedPlans/` (dated format) on
+feature-dev approval. Also open in PR #23.
 
 ---
 
@@ -194,7 +196,7 @@ Location: `specs/docs/approvedPlans/`. Set introduced by **PR #23** (multi-agent
 
 | Type | Doc | Date | Status |
 |------|-----|------|--------|
-| PLAN | specs/docs/approvedPlans/PLAN-* (16 plans + index) | 2026-06-17 | ✅ Active (specced) |
+| PLAN | docs/PLANS/PLAN-* (16 plans + index) | 2026-06-17 | ✅ Active (specced) |
 
 **Status**: 🟢 Spec set complete (dependency-closed); not yet implemented
 

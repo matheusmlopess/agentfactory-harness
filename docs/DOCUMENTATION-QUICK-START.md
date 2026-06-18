@@ -29,7 +29,7 @@ What are you documenting? Choose one:
 | **REVIEW** | Audit, verification, approval | "Documentation review of Logs Panel" |
 | **ARCHITECTURE** | System design & structure | "Architecture of Logs Panel" |
 | **SUMMARY** | Executive overview & status | "Implementation status of Logs Panel" |
-| **PLAN** | Spec-driven implementation plan (specs/docs/approvedPlans/) | "PLAN-08 Team Executor spec" |
+| **PLAN** | Spec-driven implementation plan (docs/PLANS/) | "PLAN-08 Team Executor spec" |
 
 **👉 See full descriptions**: `docs/DOCUMENTATION-TAXONOMY.md`
 
@@ -245,6 +245,9 @@ docs/
 │
 ├── architecture/                       ← System architecture
 │   └── ARCHITECTURE-*.md
+│
+├── PLANS/                              ← Document PLANs (PLAN-*) pending approval
+│   └── PLAN-*.md                       ← promoted to specs/docs/approvedPlans/ (dated) on approval
 │
 └── reviews/                            ← Analysis, design, gaps, reviews
     ├── DESIGN-*.md

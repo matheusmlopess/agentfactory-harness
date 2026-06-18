@@ -912,7 +912,7 @@ EXPORTS: [symbol → consumers]
 ```bash
 # Copy PLAN template
 cp docs/DOCUMENTATION-TEMPLATES.md \
-  specs/docs/approvedPlans/PLAN-<NN>-<NAME>.md
+  docs/PLANS/PLAN-<NN>-<NAME>.md
 
 # Copy FEATURE template
 cp docs/DOCUMENTATION-TEMPLATES.md \

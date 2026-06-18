@@ -55,7 +55,7 @@ Every spec now carries: **§ Codebase Reality** (assumed symbol → real symbol 
 ## Per-spec implementation prompt
 
 ```
-Implement <PLAN-NN> for agentfactory-harness. Read specs/docs/approvedPlans/<PLAN-NN>.md.
+Implement <PLAN-NN> for agentfactory-harness. Read docs/PLANS/<PLAN-NN>.md.
 Implement exactly what the spec says — no extra features. TypeScript strict, no `any`,
 explicit return types. Run `npm test`; ≥80% coverage on new logic.
 ```
