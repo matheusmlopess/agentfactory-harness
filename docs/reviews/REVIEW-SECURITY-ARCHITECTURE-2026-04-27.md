@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: REVIEW -->
+<!-- date: 2026-04-27 -->
+<!-- last-updated: 2026-06-19 -->
 # agentfactory-harness — Security & Architecture Review
 
 > Full meticulousness pass covering all 37 source files across Waves 0–2.

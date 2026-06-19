@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: REVIEW -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-19 -->
 # Documentation Index: Logs Panel Implementation
 
 Complete guide to all documentation for the Logs Panel feature (Wave 5.5+).
@@ -28,7 +31,7 @@ Complete guide to all documentation for the Logs Panel feature (Wave 5.5+).
 
 ### 1. Feature Documentation
 
-**File**: `docs/FEATURE-LOGS-PANEL.md`
+**File**: `docs/features/FEATURE-LOGS-PANEL-2026-06-09.md`
 
 **Purpose**: Complete operational guide for the Logs Panel feature.
 
@@ -59,7 +62,7 @@ Complete guide to all documentation for the Logs Panel feature (Wave 5.5+).
 
 ### 2. Testing Documentation
 
-**File**: `docs/TESTING-LOGS-PANEL.md`
+**File**: `docs/testing/TESTING-LOGS-PANEL-2026-06-09.md`
 
 **Purpose**: Complete end-to-end testing guide with 30+ test cases.
 
@@ -95,7 +98,7 @@ Complete guide to all documentation for the Logs Panel feature (Wave 5.5+).
 
 ### 3. Design Analysis
 
-**File**: `docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL.md`
+**File**: `docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL-2026-06-09.md`
 
 **Purpose**: Deep-dive analysis of design decisions, trade-offs, and risks.
 
@@ -129,7 +132,7 @@ Complete guide to all documentation for the Logs Panel feature (Wave 5.5+).
 
 ### 4. Change Summary
 
-**File**: `docs/CHANGE-SUMMARY-LOGS-PANEL.md`
+**File**: `docs/changes/CHANGE-LOGS-PANEL-2026-06-09.md`
 
 **Purpose**: Before-and-after comparison of all code changes.
 
@@ -167,7 +170,7 @@ Complete guide to all documentation for the Logs Panel feature (Wave 5.5+).
 
 ### 5. Documentation Verification
 
-**File**: `docs/reviews/DOCUMENTATION-VERIFICATION.md`
+**File**: `docs/reviews/REVIEW-DOCUMENTATION-VERIFICATION-2026-06-09.md`
 
 **Purpose**: Audit of all documentation completeness and quality.
 
@@ -461,7 +464,7 @@ Then review the feature code:
    
    Press `F6` to view real-time application logs with a metrics dashboard 
    and automatic 2-minute analysis.
-   See [FEATURE-LOGS-PANEL.md](docs/FEATURE-LOGS-PANEL.md) for details.
+   See [FEATURE-LOGS-PANEL.md](docs/features/FEATURE-LOGS-PANEL-2026-06-09.md) for details.
    ```
 
 2. **Update WAVE-PLAN.md**
@@ -506,7 +509,7 @@ When updating documentation:
 
 Old versions are preserved in git history. To see changes:
 ```bash
-git log --follow -p docs/FEATURE-LOGS-PANEL.md
+git log --follow -p docs/features/FEATURE-LOGS-PANEL-2026-06-09.md
 ```
 
 ---

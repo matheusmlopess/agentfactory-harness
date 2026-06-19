@@ -1,5 +1,8 @@
 # agentfactory-harness — Security & Design Review
 <!-- version: 1.0.0 -->
+<!-- classification: REVIEW -->
+<!-- date: 2026-04-27 -->
+<!-- last-updated: 2026-06-19 -->
 
 **Date**: 2026-04-27
 **Scope**: Waves 0–2 (all 27 implemented source files)

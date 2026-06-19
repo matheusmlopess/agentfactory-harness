@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: REVIEW -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-19 -->
 # Documentation Verification Report: Logs Panel Implementation
 
 Audit of all documentation for the Logs Panel feature, including tracking documents, architecture, testing, and design analysis.
@@ -161,7 +164,7 @@ docs/reviews/
 - [x] **README.md**: Updated with Logs tab mention (implicit via wave plan)
 - [x] **WAVE-PLAN.md**: Wave 5.5 added (Harness reader)
 - [x] **docs/FEATURE-SYSTEM-ARCHITECTURE-v0.4.0.md**: Core architecture (referenced, not changed)
-- [x] **docs/features/FEATURE-WAVE-5-REGISTRY-AUTH.md**: Auth flow (independent)
+- [x] **docs/features/FEATURE-WAVE-5-REGISTRY-AUTH-2026-06-09.md**: Auth flow (independent)
 
 ### Diagrams & Visuals
 
@@ -349,7 +352,7 @@ All required documentation has been created:
 ## Logs Panel (Wave 5.5)
 
 F6 — Real-time application logging with metrics dashboard and automatic 2-minute analysis.
-See [FEATURE-LOGS-PANEL.md](docs/FEATURE-LOGS-PANEL.md) for details.
+See [FEATURE-LOGS-PANEL.md](docs/features/FEATURE-LOGS-PANEL-2026-06-09.md) for details.
 ```
 
 **Status**: Not yet added (can be done in follow-up PR)

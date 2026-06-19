@@ -1,5 +1,8 @@
 # Feature: Wave 0 — Scaffold
 <!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-04-26 -->
+<!-- last-updated: 2026-06-19 -->
 
 ## What it does
 

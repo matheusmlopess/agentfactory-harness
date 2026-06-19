@@ -40,7 +40,7 @@ Docs:
 | File | Action |
 |------|--------|
 | `specs/docs/approvedPlans/2026-06-09-wave-5-registry-auth.md` | **new** — this plan |
-| `docs/features/FEATURE-WAVE-5-REGISTRY-AUTH.md` | **new** — public feature doc |
+| `docs/features/FEATURE-WAVE-5-REGISTRY-AUTH-2026-06-09.md` | **new** — public feature doc |
 | `README.md` | **extend** — add Authentication section with login/import/logout flow |
 
 ---

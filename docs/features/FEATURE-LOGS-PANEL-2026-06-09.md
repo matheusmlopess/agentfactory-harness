@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-19 -->
 # Feature: Live Logs Panel with Metrics Dashboard and Auto-Analysis
 
 Complete operational and feature documentation for the Logs tab in AgentFactory Harness.

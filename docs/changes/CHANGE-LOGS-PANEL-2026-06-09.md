@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: CHANGE -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-19 -->
 # Change Summary: Logs Panel Implementation
 
 Detailed before-and-after comparison of all changes introduced by the Logs Panel feature (Wave 5.5).
@@ -943,9 +946,9 @@ const SAMPLE_SIZE = 50                // Entries sent to LLM
 
 ## References
 
-- **Feature doc**: `docs/FEATURE-LOGS-PANEL.md`
-- **Testing guide**: `docs/TESTING-LOGS-PANEL.md`
-- **Design analysis**: `docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL.md`
+- **Feature doc**: `docs/features/FEATURE-LOGS-PANEL-2026-06-09.md`
+- **Testing guide**: `docs/testing/TESTING-LOGS-PANEL-2026-06-09.md`
+- **Design analysis**: `docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL-2026-06-09.md`
 - **PR**: https://github.com/matheusmlopess/agentfactory-harness/pull/22
 
 ---

@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-19 -->
 # Logger Feature — AgentFactory Harness
 
 Comprehensive logging system for debugging, monitoring, and auditing app behavior.

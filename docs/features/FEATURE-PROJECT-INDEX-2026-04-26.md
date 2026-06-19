@@ -1,5 +1,8 @@
 # Feature: Project Index
 <!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-04-26 -->
+<!-- last-updated: 2026-06-19 -->
 
 ## What it does
 
@@ -280,7 +283,7 @@ implement agent-loop.ts
 npm test passes
          │
          ▼
-write docs/FEATURE-WAVE-1-SESSION.md  (Rule 3)
+write docs/features/FEATURE-WAVE-1-SESSION-2026-04-27.md  (Rule 3)
          │
          ▼
 open .ai/project-index.yml
@@ -294,7 +297,7 @@ open .ai/project-index.yml
          │
          ▼
 git add src/core/agent-loop.ts  \
-        docs/FEATURE-WAVE-1-SESSION.md  > single commit
+        docs/features/FEATURE-WAVE-1-SESSION-2026-04-27.md  > single commit
         .ai/project-index.yml          /
 ```
 

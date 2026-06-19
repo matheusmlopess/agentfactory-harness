@@ -2,7 +2,7 @@
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-06-19 -->
 <!-- status: ACTIVE -->
 
 # Documentation Registry
@@ -43,9 +43,9 @@ Complete index of all documentation organized by type, feature, and date.
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
 | FEATURE-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | Live logging, metrics, auto-analysis operational guide |
-| FEATURE-WAVE-5-REGISTRY-AUTH.md | 2026-04-XX | Registry Auth | ✅ Active | Registry authentication & key management |
-| FEATURE-WAVE-4-TERMINAL-PANEL.md | 2026-04-XX | Terminal Panel | ✅ Active | Embedded PTY terminal usage |
-| FEATURE-AGENTFACTORY-SKILL-PIPELINE.md | 2026-04-XX | Skill Pipeline | ✅ Active | Agent skill execution pipeline |
+| FEATURE-WAVE-5-REGISTRY-AUTH-2026-06-09.md | 2026-04-XX | Registry Auth | ✅ Active | Registry authentication & key management |
+| FEATURE-WAVE-4-TERMINAL-PANEL-2026-05-18.md | 2026-04-XX | Terminal Panel | ✅ Active | Embedded PTY terminal usage |
+| FEATURE-AGENTFACTORY-SKILL-PIPELINE-2026-05-01.md | 2026-04-XX | Skill Pipeline | ✅ Active | Agent skill execution pipeline |
 
 ---
 
@@ -121,7 +121,7 @@ Complete index of all documentation organized by type, feature, and date.
 
 | Doc | Date | System | Version | Status | Purpose |
 |-----|------|--------|---------|--------|---------|
-| FEATURE-SYSTEM-ARCHITECTURE-v0.4.0-2026-04-27.md | 2026-04-27 | Logs Panel | v0.4.0 | ✅ Active | System architecture overview |
+| docs/features/FEATURE-SYSTEM-ARCHITECTURE-v0.4.0-2026-05-18.md | 2026-04-27 | Logs Panel | v0.4.0 | ✅ Active | System architecture overview |
 
 ---
 
@@ -207,7 +207,7 @@ feature-dev approval. Also open in PR #23.
 
 | Type | Doc | Date | Status |
 |------|-----|------|--------|
-| FEATURE | FEATURE-WAVE-5-REGISTRY-AUTH.md | 2026-04-XX | ✅ Active |
+| FEATURE | FEATURE-WAVE-5-REGISTRY-AUTH-2026-06-09.md | 2026-04-XX | ✅ Active |
 
 **Status**: 🟡 Partial (needs testing, design, gaps docs)
 
@@ -217,7 +217,7 @@ feature-dev approval. Also open in PR #23.
 
 | Type | Doc | Date | Status |
 |------|-----|------|--------|
-| FEATURE | FEATURE-WAVE-4-TERMINAL-PANEL.md | 2026-04-XX | ✅ Active |
+| FEATURE | FEATURE-WAVE-4-TERMINAL-PANEL-2026-05-18.md | 2026-04-XX | ✅ Active |
 
 **Status**: 🟡 Partial (needs testing, design, gaps docs)
 
@@ -279,7 +279,7 @@ feature-dev approval. Also open in PR #23.
 
 ```
 1. Determine document TYPE (FEATURE, TESTING, DESIGN, GAPS, etc.)
-   See: docs/DOCUMENTATION-TAXONOMY.md
+   See: docs/documentation/DOCUMENTATION-TAXONOMY.md
 
 2. Search this registry for existing docs
    - By feature: Look in "Documentation by Feature" section
@@ -338,9 +338,9 @@ This registry is updated when:
 
 ## Related Documents
 
-- **Taxonomy**: docs/DOCUMENTATION-TAXONOMY.md (classification system)
-- **Templates**: docs/DOCUMENTATION-TEMPLATES.md (templates for each type)
-- **Navigation**: docs/reviews/INDEX-LOGS-PANEL-DOCUMENTATION.md (example index for a feature)
+- **Taxonomy**: docs/documentation/DOCUMENTATION-TAXONOMY.md (classification system)
+- **Templates**: docs/documentation/DOCUMENTATION-TEMPLATES.md (templates for each type)
+- **Navigation**: docs/reviews/INDEX-LOGS-PANEL-DOCUMENTATION-2026-06-09.md (example index for a feature)
 
 ---
 

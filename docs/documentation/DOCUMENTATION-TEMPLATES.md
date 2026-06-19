@@ -2,7 +2,7 @@
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-06-19 -->
 <!-- status: ACTIVE -->
 
 # Documentation Templates
@@ -911,19 +911,19 @@ EXPORTS: [symbol → consumers]
 
 ```bash
 # Copy PLAN template
-cp docs/DOCUMENTATION-TEMPLATES.md \
+cp docs/documentation/DOCUMENTATION-TEMPLATES.md \
   docs/PLANS/PLAN-<NN>-<NAME>.md
 
 # Copy FEATURE template
-cp docs/DOCUMENTATION-TEMPLATES.md \
+cp docs/documentation/DOCUMENTATION-TEMPLATES.md \
   docs/FEATURE-<NAME>-$(date +%Y-%m-%d).md
 
 # Copy TESTING template
-cp docs/DOCUMENTATION-TEMPLATES.md \
+cp docs/documentation/DOCUMENTATION-TEMPLATES.md \
   docs/testing/TESTING-<NAME>-$(date +%Y-%m-%d).md
 
 # Copy DESIGN template
-cp docs/DOCUMENTATION-TEMPLATES.md \
+cp docs/documentation/DOCUMENTATION-TEMPLATES.md \
   docs/reviews/DESIGN-<NAME>-$(date +%Y-%m-%d).md
 
 # etc.

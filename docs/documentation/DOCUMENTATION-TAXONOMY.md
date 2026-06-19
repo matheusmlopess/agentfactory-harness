@@ -1,7 +1,7 @@
 <!-- version: 1.1.0 -->
 <!-- classification: REVIEW -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-06-19 -->
 # Documentation Taxonomy & Classification System
 
 Complete guide to classifying, organizing, and managing documentation for agentfactory-harness.
@@ -454,7 +454,7 @@ PLAN-CORE-INTEGRATION-SEAM.md
 <!-- version: 1.0.0 -->
 <!-- classification: PLAN -->
 <!-- date: 2026-06-17 -->
-<!-- last-updated: 2026-06-17 -->
+<!-- last-updated: 2026-06-19 -->
 <!-- feature: src/<paths the plan implements> -->
 <!-- depends-on: PLAN-NN, ... -->
 <!-- enables: PLAN-NN, ... -->
@@ -595,7 +595,7 @@ docs/
 
 ## Documentation Registry
 
-See: `docs/DOCUMENTATION-REGISTRY.md`
+See: `docs/documentation/DOCUMENTATION-REGISTRY.md`
 
 This file maintains an index of all docs organized by:
 - Type (FEATURE, TESTING, DESIGN, etc.)
@@ -639,10 +639,10 @@ grep -r "<!-- classification: GAPS -->" docs/
 
 ### Before (Old Style)
 ```
-docs/FEATURE-LOGS-PANEL.md
-docs/TESTING-LOGS-PANEL.md
-docs/CHANGE-SUMMARY-LOGS-PANEL.md
-docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL.md
+docs/features/FEATURE-LOGS-PANEL-2026-06-09.md
+docs/testing/TESTING-LOGS-PANEL-2026-06-09.md
+docs/changes/CHANGE-LOGS-PANEL-2026-06-09.md
+docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL-2026-06-09.md
 ```
 
 ### After (New Style - Classified)

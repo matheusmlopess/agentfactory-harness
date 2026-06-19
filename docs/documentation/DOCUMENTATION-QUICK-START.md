@@ -2,7 +2,7 @@
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-06-19 -->
 <!-- status: ACTIVE -->
 
 # Documentation Quick Start Guide
@@ -31,7 +31,7 @@ What are you documenting? Choose one:
 | **SUMMARY** | Executive overview & status | "Implementation status of Logs Panel" |
 | **PLAN** | Spec-driven implementation plan (docs/PLANS/) | "PLAN-08 Team Executor spec" |
 
-**👉 See full descriptions**: `docs/DOCUMENTATION-TAXONOMY.md`
+**👉 See full descriptions**: `docs/documentation/DOCUMENTATION-TAXONOMY.md`
 
 ---
 
@@ -41,10 +41,10 @@ What are you documenting? Choose one:
 
 ```bash
 # Open the registry
-cat docs/DOCUMENTATION-REGISTRY.md
+cat docs/documentation/DOCUMENTATION-REGISTRY.md
 
 # Or search from command line
-grep -r "LOGS-PANEL" docs/DOCUMENTATION-REGISTRY.md
+grep -r "LOGS-PANEL" docs/documentation/DOCUMENTATION-REGISTRY.md
 ```
 
 **Find** the feature/system name in the registry.
@@ -69,11 +69,11 @@ grep -r "LOGS-PANEL" docs/DOCUMENTATION-REGISTRY.md
 
 ```bash
 # 1. Find the template for your type
-vim docs/DOCUMENTATION-TEMPLATES.md
+vim docs/documentation/DOCUMENTATION-TEMPLATES.md
 #    (search for your TYPE)
 
 # 2. Copy the template to a new file
-cp docs/DOCUMENTATION-TEMPLATES.md \
+cp docs/documentation/DOCUMENTATION-TEMPLATES.md \
    docs/TYPE-<NAME>-$(date +%Y-%m-%d).md
 
 # 3. Edit the file
@@ -107,7 +107,7 @@ vim docs/FEATURE-LOGS-PANEL-2026-06-09.md
 
 ### Step 5: Update the Registry
 
-Add an entry to `docs/DOCUMENTATION-REGISTRY.md`:
+Add an entry to `docs/documentation/DOCUMENTATION-REGISTRY.md`:
 
 ```markdown
 | FEATURE-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | Live logging, metrics, auto-analysis |
@@ -119,7 +119,7 @@ Add an entry to `docs/DOCUMENTATION-REGISTRY.md`:
 
 ```bash
 git add docs/FEATURE-LOGS-PANEL-2026-06-09.md
-git add docs/DOCUMENTATION-REGISTRY.md
+git add docs/documentation/DOCUMENTATION-REGISTRY.md
 git commit -m "docs: FEATURE Logs Panel — live logging, metrics, auto-analysis
 
 Classification: FEATURE
@@ -137,10 +137,10 @@ Also updated DOCUMENTATION-REGISTRY.md to track new doc."
 
 ```bash
 # 1. Check if FEATURE doc exists
-grep "FEATURE.*LOGS-PANEL" docs/DOCUMENTATION-REGISTRY.md
+grep "FEATURE.*LOGS-PANEL" docs/documentation/DOCUMENTATION-REGISTRY.md
 
 # 2. Get template
-head -30 docs/DOCUMENTATION-TEMPLATES.md | grep -A 30 "FEATURE Doc Template"
+head -30 docs/documentation/DOCUMENTATION-TEMPLATES.md | grep -A 30 "FEATURE Doc Template"
 
 # 3. Create file with template
 cat > docs/FEATURE-LOGS-PANEL-$(date +%Y-%m-%d).md << 'EOF'
@@ -156,11 +156,11 @@ cat > docs/FEATURE-LOGS-PANEL-$(date +%Y-%m-%d).md << 'EOF'
 EOF
 
 # 4. Update registry
-vim docs/DOCUMENTATION-REGISTRY.md
+vim docs/documentation/DOCUMENTATION-REGISTRY.md
 # Add: | FEATURE-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | [description] |
 
 # 5. Commit
-git add docs/FEATURE-LOGS-PANEL-2026-06-09.md docs/DOCUMENTATION-REGISTRY.md
+git add docs/FEATURE-LOGS-PANEL-2026-06-09.md docs/documentation/DOCUMENTATION-REGISTRY.md
 git commit -m "docs: FEATURE Logs Panel — [description]"
 ```
 
@@ -188,7 +188,7 @@ git commit -m "docs: FEATURE Logs Panel — clarify workflows section"
 
 ```bash
 # 1. Check existing analyses
-grep "ANALYSIS.*LOGS-PANEL" docs/DOCUMENTATION-REGISTRY.md
+grep "ANALYSIS.*LOGS-PANEL" docs/documentation/DOCUMENTATION-REGISTRY.md
 
 # 2. Previous was: ANALYSIS-DESIGN-LOGS-PANEL-2026-06-09.md
 # Now I want: ANALYSIS-PERFORMANCE-LOGS-PANEL-2026-06-10.md (different date)
@@ -199,7 +199,7 @@ cat > docs/reviews/ANALYSIS-PERFORMANCE-LOGS-PANEL-$(date +%Y-%m-%d).md << 'EOF'
 <!-- classification: ANALYSIS -->
 <!-- analysis-type: PERFORMANCE -->
 <!-- date: 2026-06-10 -->
-<!-- last-updated: 2026-06-10 -->
+<!-- last-updated: 2026-06-19 -->
 <!-- status: ACTIVE -->
 <!-- related-docs: ANALYSIS-DESIGN-LOGS-PANEL-2026-06-09.md -->
 
@@ -209,11 +209,11 @@ cat > docs/reviews/ANALYSIS-PERFORMANCE-LOGS-PANEL-$(date +%Y-%m-%d).md << 'EOF'
 EOF
 
 # 4. Update registry
-vim docs/DOCUMENTATION-REGISTRY.md
+vim docs/documentation/DOCUMENTATION-REGISTRY.md
 
 # 5. Commit
 git add docs/reviews/ANALYSIS-PERFORMANCE-LOGS-PANEL-2026-06-10.md \
-         docs/DOCUMENTATION-REGISTRY.md
+         docs/documentation/DOCUMENTATION-REGISTRY.md
 git commit -m "docs: ANALYSIS Performance — render time, memory usage"
 ```
 
@@ -223,39 +223,23 @@ git commit -m "docs: ANALYSIS Performance — render time, memory usage"
 
 ```
 docs/
-├── DOCUMENTATION-TAXONOMY.md           ← Classification system (read first)
-├── DOCUMENTATION-TEMPLATES.md          ← Templates for all types
-├── DOCUMENTATION-QUICK-START.md        ← This file
-├── DOCUMENTATION-REGISTRY.md           ← Index of all docs (update every time)
+├── documentation/                      ← Governance docs (this system)
+│   ├── DOCUMENTATION-TAXONOMY.md       ← Classification system (read first)
+│   ├── DOCUMENTATION-TEMPLATES.md      ← Templates for all types
+│   ├── DOCUMENTATION-QUICK-START.md    ← This file
+│   └── DOCUMENTATION-REGISTRY.md       ← Index of all docs (update every time)
 │
-├── README.md                           ← Main index
+├── WAVE-PLAN.md  FUTURE-WORK.md         ← roadmap docs (stay at root)
 │
-├── FEATURE-*.md                        ← Feature operational guides
-├── CHANGE-*.md                         ← Code & behavior changes
-├── SUMMARY-*.md                        ← Executive summaries
-│
-├── features/                           ← Feature-specific docs
-│   └── FEATURE-*.md
-│
-├── testing/                            ← Testing procedures
-│   └── TESTING-*.md
-│
-├── studies/                            ← Research & exploration
-│   └── STUDY-*.md
-│
-├── architecture/                       ← System architecture
-│   └── ARCHITECTURE-*.md
-│
+├── features/                           ← FEATURE-<NAME>-<DATE>.md
+├── testing/                            ← TESTING-<NAME>-<DATE>.md
+├── changes/                            ← CHANGE-<NAME>-<DATE>.md
 ├── PLANS/                              ← Document PLANs (PLAN-*) pending approval
 │   └── PLAN-*.md                       ← promoted to specs/docs/approvedPlans/ (dated) on approval
+├── ddd/                                ← design reference set (kept structure)
+├── assets/                             ← images
 │
-└── reviews/                            ← Analysis, design, gaps, reviews
-    ├── DESIGN-*.md
-    ├── GAPS-*.md
-    ├── ANALYSIS-*.md
-    ├── REVIEW-*.md
-    ├── INDEX-*.md
-    └── ...
+└── reviews/                            ← DESIGN- / GAPS- / ANALYSIS- / REVIEW- / INDEX- / IMPLEMENTATION-*.md
 ```
 
 ---
@@ -359,16 +343,16 @@ FEATURE-LOGS-PANEL-June-9-2026.md       ❌ Wrong date format
 ## 📞 Support
 
 ### Questions about Classification?
-→ Read: `docs/DOCUMENTATION-TAXONOMY.md` (full definitions)
+→ Read: `docs/documentation/DOCUMENTATION-TAXONOMY.md` (full definitions)
 
 ### Need a Template?
-→ Read: `docs/DOCUMENTATION-TEMPLATES.md` (copy-paste templates)
+→ Read: `docs/documentation/DOCUMENTATION-TEMPLATES.md` (copy-paste templates)
 
 ### Want to Find a Doc?
-→ Check: `docs/DOCUMENTATION-REGISTRY.md` (index of all docs)
+→ Check: `docs/documentation/DOCUMENTATION-REGISTRY.md` (index of all docs)
 
 ### Not Sure if Doc Exists?
-→ Search: `grep -r "FEATURE-NAME" docs/DOCUMENTATION-REGISTRY.md`
+→ Search: `grep -r "FEATURE-NAME" docs/documentation/DOCUMENTATION-REGISTRY.md`
 
 ---
 
@@ -398,7 +382,7 @@ FEATURE-LOGS-PANEL-June-9-2026.md       ❌ Wrong date format
 # Date: 2026-06-15
 
 # 1. Check registry
-grep "REGISTRY-AUTH" docs/DOCUMENTATION-REGISTRY.md
+grep "REGISTRY-AUTH" docs/documentation/DOCUMENTATION-REGISTRY.md
 # → Found: FEATURE-WAVE-5-REGISTRY-AUTH.md (old, needs update)
 
 # 2. Decide
@@ -410,7 +394,7 @@ cat > docs/FEATURE-REGISTRY-AUTH-LOGIN-2026-06-15.md << 'EOF'
 <!-- version: 1.0.0 -->
 <!-- classification: FEATURE -->
 <!-- date: 2026-06-15 -->
-<!-- last-updated: 2026-06-15 -->
+<!-- last-updated: 2026-06-19 -->
 <!-- status: ACTIVE -->
 
 # Feature: Registry Authentication & Login
@@ -422,7 +406,7 @@ EOF
 # → Add row: | FEATURE-REGISTRY-AUTH-LOGIN-2026-06-15.md | 2026-06-15 | Registry Auth | ✅ Active | Device-code login, key management |
 
 # 5. Commit
-git add docs/FEATURE-REGISTRY-AUTH-LOGIN-2026-06-15.md docs/DOCUMENTATION-REGISTRY.md
+git add docs/FEATURE-REGISTRY-AUTH-LOGIN-2026-06-15.md docs/documentation/DOCUMENTATION-REGISTRY.md
 git commit -m "docs: FEATURE Registry Auth Login — 2026-06-15
 
 Device-code OAuth flow, JWT storage, key import/export"
@@ -437,7 +421,7 @@ Device-code OAuth flow, JWT storage, key import/export"
 # Date: 2026-06-16 (new analysis found gaps)
 
 # 1. Check registry
-grep "GAPS.*LOGS-PANEL" docs/DOCUMENTATION-REGISTRY.md
+grep "GAPS.*LOGS-PANEL" docs/documentation/DOCUMENTATION-REGISTRY.md
 # → Not found (GAPS doc doesn't exist yet)
 
 # 2. Create
@@ -445,7 +429,7 @@ cat > docs/reviews/GAPS-LOGS-PANEL-2026-06-16.md << 'EOF'
 <!-- version: 1.0.0 -->
 <!-- classification: GAPS -->
 <!-- date: 2026-06-16 -->
-<!-- last-updated: 2026-06-16 -->
+<!-- last-updated: 2026-06-19 -->
 <!-- status: ACTIVE -->
 <!-- related-docs: DESIGN-LOGS-PANEL-2026-06-09.md -->
 
@@ -462,7 +446,7 @@ EOF
 # → Add row: | GAPS-LOGS-PANEL-2026-06-16.md | 2026-06-16 | Logs Panel | ✅ Active | 6 gaps identified, P0 blocker for timeout |
 
 # 4. Commit
-git add docs/reviews/GAPS-LOGS-PANEL-2026-06-16.md docs/DOCUMENTATION-REGISTRY.md
+git add docs/reviews/GAPS-LOGS-PANEL-2026-06-16.md docs/documentation/DOCUMENTATION-REGISTRY.md
 git commit -m "docs: GAPS Logs Panel — analysis timeout, confirmation, persistence"
 ```
 
@@ -470,9 +454,9 @@ git commit -m "docs: GAPS Logs Panel — analysis timeout, confirmation, persist
 
 ## 🎓 Next Steps
 
-1. **Read** `docs/DOCUMENTATION-TAXONOMY.md` for full details
-2. **Bookmark** `docs/DOCUMENTATION-REGISTRY.md` (check before creating docs)
-3. **Copy** templates from `docs/DOCUMENTATION-TEMPLATES.md` when creating
+1. **Read** `docs/documentation/DOCUMENTATION-TAXONOMY.md` for full details
+2. **Bookmark** `docs/documentation/DOCUMENTATION-REGISTRY.md` (check before creating docs)
+3. **Copy** templates from `docs/documentation/DOCUMENTATION-TEMPLATES.md` when creating
 4. **Follow** this workflow every time you create documentation
 5. **Update** registry + commit with clear message
 

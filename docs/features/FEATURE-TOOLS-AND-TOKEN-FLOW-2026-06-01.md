@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-06-01 -->
+<!-- last-updated: 2026-06-19 -->
 # Feature: Tool Definitions, Token Flow & Chat Mode
 
 ╔══════════════════════════════════════════════════════════════════════════════╗

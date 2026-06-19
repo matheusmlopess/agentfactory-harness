@@ -1,5 +1,8 @@
 # Feature: Wave 3 — DAG Orchestration Engine
 <!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-05-01 -->
+<!-- last-updated: 2026-06-19 -->
 
 ## What it does
 

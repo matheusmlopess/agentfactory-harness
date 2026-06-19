@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: SUMMARY -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-19 -->
 # Implementation Complete: Logs Panel with Metrics & Auto-Analysis
 
 Executive summary of the Logs Panel feature implementation (Wave 5.5).
@@ -98,12 +101,12 @@ Complete keyboard support:
 
 | File | Purpose | Lines |
 |------|---------|-------|
-| docs/FEATURE-LOGS-PANEL.md | Operational guide | 600 |
-| docs/TESTING-LOGS-PANEL.md | Testing procedures | 700 |
-| docs/CHANGE-SUMMARY-LOGS-PANEL.md | Code changes analysis | 700 |
-| docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL.md | Design decisions & trade-offs | 900 |
-| docs/reviews/DOCUMENTATION-VERIFICATION.md | Documentation audit | 500 |
-| docs/reviews/INDEX-LOGS-PANEL-DOCUMENTATION.md | Navigation guide | 400 |
+| docs/features/FEATURE-LOGS-PANEL-2026-06-09.md | Operational guide | 600 |
+| docs/testing/TESTING-LOGS-PANEL-2026-06-09.md | Testing procedures | 700 |
+| docs/changes/CHANGE-LOGS-PANEL-2026-06-09.md | Code changes analysis | 700 |
+| docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL-2026-06-09.md | Design decisions & trade-offs | 900 |
+| docs/reviews/REVIEW-DOCUMENTATION-VERIFICATION-2026-06-09.md | Documentation audit | 500 |
+| docs/reviews/INDEX-LOGS-PANEL-DOCUMENTATION-2026-06-09.md | Navigation guide | 400 |
 
 ---
 
@@ -338,11 +341,11 @@ Code Quality
 - **Logging calls**: SessionPanel.ts, ConfigPanel.ts, AgentsPanel.ts
 
 ### Documentation
-- **Feature guide**: docs/FEATURE-LOGS-PANEL.md
-- **Testing guide**: docs/TESTING-LOGS-PANEL.md
-- **Design analysis**: docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL.md
-- **Change summary**: docs/CHANGE-SUMMARY-LOGS-PANEL.md
-- **Index & navigation**: docs/reviews/INDEX-LOGS-PANEL-DOCUMENTATION.md
+- **Feature guide**: docs/features/FEATURE-LOGS-PANEL-2026-06-09.md
+- **Testing guide**: docs/testing/TESTING-LOGS-PANEL-2026-06-09.md
+- **Design analysis**: docs/reviews/DESIGN-ANALYSIS-LOGS-PANEL-2026-06-09.md
+- **Change summary**: docs/changes/CHANGE-LOGS-PANEL-2026-06-09.md
+- **Index & navigation**: docs/reviews/INDEX-LOGS-PANEL-DOCUMENTATION-2026-06-09.md
 
 ---
 

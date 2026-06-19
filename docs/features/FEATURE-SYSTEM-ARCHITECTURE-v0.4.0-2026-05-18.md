@@ -1,4 +1,7 @@
 <!-- version: 1.1.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-05-18 -->
+<!-- last-updated: 2026-06-19 -->
 # agentfactory-harness — System Architecture & Operational Reference
 # (Waves 0 – 4, v0.4.0)
 
@@ -633,11 +636,11 @@ Before/after view — each wave added a layer; nothing was removed.
   │                                                  │          │  needs     │
   │                                                  │          │  update    │
   ├──────────────────────────────────────────────────┼──────────┼───────────┤
-  │  docs/FEATURE-WAVE-0-SCAFFOLD.md                 │  current │            │
+  │  docs/features/FEATURE-WAVE-0-SCAFFOLD-2026-04-26.md                 │  current │            │
   ├──────────────────────────────────────────────────┼──────────┼───────────┤
-  │  docs/FEATURE-WAVE-1-SESSION.md                  │  current │            │
+  │  docs/features/FEATURE-WAVE-1-SESSION-2026-04-27.md                  │  current │            │
   ├──────────────────────────────────────────────────┼──────────┼───────────┤
-  │  docs/FEATURE-WAVE-2-ITUI-CANVAS.md              │  current │            │
+  │  docs/features/FEATURE-WAVE-2-ITUI-CANVAS-2026-04-27.md              │  current │            │
   ├──────────────────────────────────────────────────┼──────────┼───────────┤
   │  docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION  │  current │            │
   ├──────────────────────────────────────────────────┼──────────┼───────────┤
@@ -766,4 +769,4 @@ Before/after view — each wave added a layer; nothing was removed.
     ○ open:     VT-GAP-01 (wide chars), VT-GAP-06 (scrollback),
                 VT-GAP-07 (truecolour native)
 
-  Full detail: docs/features/FEATURE-WAVE-4-TERMINAL-PANEL.md
+  Full detail: docs/features/FEATURE-WAVE-4-TERMINAL-PANEL-2026-05-18.md

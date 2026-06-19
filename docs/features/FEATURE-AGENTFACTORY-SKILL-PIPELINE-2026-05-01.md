@@ -1,6 +1,8 @@
 <!-- version: 1.1.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-05-01 -->
+<!-- last-updated: 2026-06-19 -->
 # agentfactory-gen Skill Creation Pipeline — Documentation
-<!-- version: 1.1.0 -->
 
 > Full account of how to create a reusable skill through the `agentfactory-gen` CLI,
 > with expanded gap analysis: context, workflow failure paths, and Mermaid diagrams

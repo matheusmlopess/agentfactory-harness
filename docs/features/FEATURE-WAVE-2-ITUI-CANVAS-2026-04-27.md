@@ -1,5 +1,8 @@
 # Feature: Wave 2 — ITUI Mouse Canvas
 <!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-04-27 -->
+<!-- last-updated: 2026-06-19 -->
 
 ## What it does
 

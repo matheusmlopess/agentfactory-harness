@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: TESTING -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-19 -->
 # Testing Guide: Logs Panel with Metrics Dashboard and Auto-Analysis
 
 Complete end-to-end testing procedures for the Logs panel feature.

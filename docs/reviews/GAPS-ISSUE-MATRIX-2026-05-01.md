@@ -1,8 +1,10 @@
 <!-- version: 1.0.0 -->
+<!-- classification: GAPS -->
+<!-- date: 2026-05-01 -->
+<!-- last-updated: 2026-06-19 -->
 # Gap–Issue Relationship Matrix
-<!-- version: 1.0.0 -->
 
-> Cross-reference between the 10 skill-pipeline gaps (from `docs/FEATURE-AGENTFACTORY-SKILL-PIPELINE.md`)
+> Cross-reference between the 10 skill-pipeline gaps (from `docs/features/FEATURE-AGENTFACTORY-SKILL-PIPELINE-2026-05-01.md`)
 > and all open issues across both repos as of 2026-04-28.
 
 ---
@@ -222,5 +224,5 @@ Must be implemented fresh with no existing issue to piggyback:
 
 ---
 
-*Matrix built from: `docs/FEATURE-AGENTFACTORY-SKILL-PIPELINE.md` (10 gaps) ×*
+*Matrix built from: `docs/features/FEATURE-AGENTFACTORY-SKILL-PIPELINE-2026-05-01.md` (10 gaps) ×*
 *open issues in `agentfactory-harness` (#6, #8, #9) and `AgentFactory` (#132–#145) as of 2026-04-28.*

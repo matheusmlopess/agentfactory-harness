@@ -3,7 +3,7 @@
 <!-- review-type: DOCUMENTATION -->
 <!-- status: ACTIVE -->
 <!-- date: 2026-06-18 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-06-19 -->
 
 # Review: Documentation & Plan Workflow — How It Works (Every Scenario)
 
@@ -18,19 +18,21 @@ diagrams for every scenario.
 ```
 agentfactory-harness/
 ├── docs/
-│   ├── DOCUMENTATION-TAXONOMY.md      ← defines all doc types + rules
-│   ├── DOCUMENTATION-TEMPLATES.md     ← copy-paste header+body per type
-│   ├── DOCUMENTATION-QUICK-START.md   ← the 6-step workflow
-│   ├── DOCUMENTATION-REGISTRY.md      ← index of ALL docs (search before creating)
+│   ├── documentation/                ← the 4 governance docs (lowercase folder)
+│   │   ├── DOCUMENTATION-TAXONOMY.md      ← defines all doc types + rules
+│   │   ├── DOCUMENTATION-TEMPLATES.md     ← copy-paste header+body per type
+│   │   ├── DOCUMENTATION-QUICK-START.md   ← the 6-step workflow
+│   │   └── DOCUMENTATION-REGISTRY.md      ← index of ALL docs (search before creating)
 │   │
 │   ├── PLANS/                         ← ① DOCUMENT PLANS (pending approval)
 │   │   └── PLAN-<NN>-<NAME>.md           classification: PLAN
 │   ├── features/   FEATURE-<NAME>-<DATE>.md
 │   ├── testing/    TESTING-<NAME>-<DATE>.md
 │   ├── reviews/    DESIGN- / GAPS- / ANALYSIS- / REVIEW-<NAME>-<DATE>.md
-│   ├── studies/    STUDY-<NAME>-<DATE>.md
-│   ├── architecture/ ARCHITECTURE-<NAME>-<DATE>.md
-│   └── ddd/        (the design reference set)
+│   ├── changes/    CHANGE-<NAME>-<DATE>.md
+│   ├── ddd/        (the design reference set)
+│   ├── WAVE-PLAN.md  FUTURE-WORK.md   (roadmap — stay at root)
+│   └── assets/
 │
 ├── specs/docs/approvedPlans/          ← ② CLI-APPROVED PLANS (final)
 │   └── <YYYY-MM-DD>-<name>.md            dated format, NOT taxonomy-classified
@@ -176,7 +178,7 @@ The rule: **`date` is carved in stone; only `last-updated` moves.**
  <!-- version: 1.0.0 -->                <!-- version: 1.1.0 -->   ← bump
  <!-- classification: DESIGN -->        <!-- classification: DESIGN -->
  <!-- date: 2026-06-18 -->     ════►    <!-- date: 2026-06-18 -->  ← FROZEN (never changes)
- <!-- last-updated: 2026-06-18 -->      <!-- last-updated: 2026-07-02 --> ← changes
+ <!-- last-updated: 2026-06-19 -->      <!-- last-updated: 2026-07-02 --> ← changes
 
  decision tree on edit:
    minor clarification ─► same file, bump last-updated + version
@@ -232,6 +234,6 @@ into `specs/docs/approvedPlans/` per Scenario A.
 
 ---
 
-**References**: `docs/DOCUMENTATION-TAXONOMY.md` (PLAN type + lifecycle),
-`docs/DOCUMENTATION-QUICK-START.md` (6-step flow), `.ai/rules/doc-before-commit.md`,
+**References**: `docs/documentation/DOCUMENTATION-TAXONOMY.md` (PLAN type + lifecycle),
+`docs/documentation/DOCUMENTATION-QUICK-START.md` (6-step flow), `.ai/rules/doc-before-commit.md`,
 `.ai/rules/approved-plans.md`.

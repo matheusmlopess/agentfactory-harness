@@ -3,7 +3,7 @@
 <!-- version: 1.0.0 -->
 <!-- classification: DESIGN -->
 <!-- date: 2026-06-18 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-06-19 -->
 
 A complete design reference for the `factory` (agentfactory-harness) terminal app, written to
 feed into **Claude Design** for UI/UX iteration. Describes the **current implemented** app
@@ -60,7 +60,7 @@ These are collected from each section. Answer them to drive the redesign.
 ## Conventions in this doc set
 
 - Every file carries `<!-- version -->`, `<!-- classification -->`, `<!-- date -->`, and
-  `<!-- last-updated -->` markers per `docs/DOCUMENTATION-TAXONOMY.md` (`date` is set once;
+  `<!-- last-updated -->` markers per `docs/documentation/DOCUMENTATION-TAXONOMY.md` (`date` is set once;
   only `last-updated` changes on edits).
 - Mermaid diagrams use GitHub-safe patterns (no parentheses inside node labels).
 - Facts cite the source file; `file:line` where precision matters.

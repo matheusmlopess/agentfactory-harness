@@ -1,4 +1,7 @@
 <!-- version: 0.5.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-19 -->
 # Feature: Wave 5 — Registry Auth + Prompt Bar Redesign
 
 ╔═══════════════════════════════════╗

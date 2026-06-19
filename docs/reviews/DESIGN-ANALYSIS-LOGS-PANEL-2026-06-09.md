@@ -1,4 +1,7 @@
 <!-- version: 1.0.0 -->
+<!-- classification: DESIGN -->
+<!-- date: 2026-06-09 -->
+<!-- last-updated: 2026-06-19 -->
 # Design Analysis: Logs Panel Implementation
 
 Deep-dive analysis of design decisions, trade-offs, assumptions, gaps, and recommendations for the Logs Panel feature (Wave 5.5+).

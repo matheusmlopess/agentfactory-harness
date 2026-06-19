@@ -1,4 +1,7 @@
 <!-- version: 1.1.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-05-18 -->
+<!-- last-updated: 2026-06-19 -->
 # Feature: Wave 4 — TerminalPanel / PTY Embed + Mouse Navigation
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -857,7 +860,7 @@ Wave 4 adds two major capabilities to the `factory` TUI:
   ┌──────────────────────────────────────────────────┬──────────┬───────────┐
   │  Document                                        │  Status  │  Notes    │
   ├──────────────────────────────────────────────────┼──────────┼───────────┤
-  │  docs/features/FEATURE-WAVE-4-TERMINAL-PANEL.md  │  ✓ v1.1  │  this doc │
+  │  docs/features/FEATURE-WAVE-4-TERMINAL-PANEL-2026-05-18.md  │  ✓ v1.1  │  this doc │
   │  (this file)                                     │          │  updated  │
   ├──────────────────────────────────────────────────┼──────────┼───────────┤
   │  specs/docs/approvedPlans/                       │  ✓ cur   │  plan doc │

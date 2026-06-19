@@ -1,7 +1,7 @@
 # Rule: Documentation Before Commit
 <!-- version: 1.5.0 -->
 <!-- date: 2026-04-26 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-06-19 -->
 
 Every implemented and tested feature MUST have a detailed feature document written
 **before** the commit, **before** the PR, and **before** the milestone entry.
@@ -32,7 +32,7 @@ Examples:
 - `docs/features/FEATURE-WAVE-0-SCAFFOLD.md`
 - `docs/features/FEATURE-ITUI-CANVAS.md`
 - `docs/features/FEATURE-PTY-PANEL.md`
-- `docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION.md`
+- `docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION-2026-05-01.md`
 
 > **Legacy docs** in `docs/FEATURE-*.md` (Waves 0–2) are grandfathered.
 > All new feature docs MUST go in `docs/features/`.
@@ -70,7 +70,7 @@ Examples:
 ## Header markers (classification / date / last-updated) — MANDATORY
 
 Every `.md` document MUST carry the metadata markers defined by
-**`docs/DOCUMENTATION-TAXONOMY.md`**, directly under the H1 title:
+**`docs/documentation/DOCUMENTATION-TAXONOMY.md`**, directly under the H1 title:
 
 ```markdown
 <!-- version: x.y.z -->
@@ -97,8 +97,8 @@ violation. When backfilling onto a pre-existing doc, derive `date` from the firs
 `git log --diff-filter=A --format=%ad --date=short -- <file> | tail -1`.
 
 Applies to ALL `.md` under `docs/`, `specs/`, and `.ai/`. Before creating a doc, **search the
-registry** (`docs/DOCUMENTATION-REGISTRY.md`); after creating one, **add a registry entry**
-(see `docs/DOCUMENTATION-QUICK-START.md` Steps 2 & 5).
+registry** (`docs/documentation/DOCUMENTATION-REGISTRY.md`); after creating one, **add a registry entry**
+(see `docs/documentation/DOCUMENTATION-QUICK-START.md` Steps 2 & 5).
 
 ---
 
