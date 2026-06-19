@@ -36,6 +36,25 @@ Complete index of all documentation organized by type, feature, and date.
 
 ---
 
+## Navigation & Reference
+
+Each category folder has a master `README.md` (summary + linear linked index). The **Glossary**
+is the centralized term/acronym lookup.
+
+| Master | Folder |
+|---|---|
+| [docs/README.md](../README.md) | top-level map of all categories |
+| [documentation/README.md](README.md) | the doc system (taxonomy, templates, quick-start, registry, glossary) |
+| **[documentation/GLOSSARY.md](GLOSSARY.md)** | **Reference / Glossary** — acronyms + key terms |
+| [ddd/README.md](../ddd/README.md) · [ddd/INDEX.md](../ddd/INDEX.md) | design reference |
+| [features/README.md](../features/README.md) | feature guides |
+| [testing/README.md](../testing/README.md) | test procedures |
+| [reviews/README.md](../reviews/README.md) | design/gaps/analysis/review |
+| [changes/README.md](../changes/README.md) | change summaries |
+| [PLANS/README.md](../PLANS/README.md) · [PLANS/PLAN-INDEX-MULTI-AGENT.md](../PLANS/PLAN-INDEX-MULTI-AGENT.md) | document plans |
+
+---
+
 ## Documentation by Type
 
 ### FEATURE Docs (Operational Guides)
