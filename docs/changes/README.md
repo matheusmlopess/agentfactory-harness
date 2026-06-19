@@ -6,6 +6,8 @@
 
 # changes/ — Change Summaries
 
+> 📖 **Full compendium:** [MEMORIAL.md](MEMORIAL.md) · [[MEMORIAL]] — every doc in this folder in one date-ordered descriptive document (index + glossary).
+
 Before/after records of code and behavior changes introduced by a feature or fix.
 
 ## Summary

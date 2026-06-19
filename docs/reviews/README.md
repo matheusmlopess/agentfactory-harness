@@ -6,6 +6,8 @@
 
 # reviews/ — Design, Gaps, Analysis & Review
 
+> 📖 **Full compendium:** [MEMORIAL.md](MEMORIAL.md) · [[MEMORIAL]] — every doc in this folder in one date-ordered descriptive document (index + glossary).
+
 Consolidated home for DESIGN, GAPS, ANALYSIS, REVIEW (and INDEX/IMPLEMENTATION) docs — the
 "why", the risks, the audits, and the verifications.
 

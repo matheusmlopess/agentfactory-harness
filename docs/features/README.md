@@ -6,6 +6,8 @@
 
 # features/ — Feature Operational Guides
 
+> 📖 **Full compendium:** [MEMORIAL.md](MEMORIAL.md) · [[MEMORIAL]] — every doc in this folder in one date-ordered descriptive document (index + glossary).
+
 How each shipped feature works: architecture, workflows, configuration, interactions. Ordered by
 wave, then cross-cutting subsystems.
 

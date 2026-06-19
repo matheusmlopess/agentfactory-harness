@@ -28,8 +28,12 @@ copy-paste templates, the 6-step authoring workflow, the registry index, and the
 
 ## Helpers
 
+- `scripts/docs-compile.sh <folder|doc.md>` — (re)build the folder's **`MEMORIAL.md`**: one
+  descriptive compendium of every doc in the folder, **date-ordered**, with an index + glossary.
+  Deterministic rebuild → idempotent, picks up new docs, skips ones already in, re-sorts order.
+  Run it whenever you add a doc.
 - `scripts/docs-append.sh <doc.md> ["summary"]` — register a doc into its folder master
-  `README.md` (appends a link before the "## Reference" section, idempotent, bumps `last-updated`).
+  `README.md` index (appends a dual markdown + `[[wikilink]]` entry, idempotent).
 
 ## Reference
 

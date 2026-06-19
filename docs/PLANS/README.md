@@ -6,6 +6,8 @@
 
 # PLANS/ — Document Plans (pending approval)
 
+> 📖 **Full compendium:** [MEMORIAL.md](MEMORIAL.md) · [[MEMORIAL]] — every doc in this folder in one date-ordered descriptive document (index + glossary).
+
 Spec-driven implementation plans (`PLAN-*`) authored from studies/sessions. These are **document
 plans pending feature-dev approval** — on approval a plan is promoted to
 `specs/docs/approvedPlans/` and renamed to the dated CLI format.

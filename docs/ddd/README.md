@@ -6,6 +6,8 @@
 
 # ddd/ — Design-Driven Development Reference
 
+> 📖 **Full compendium:** [MEMORIAL.md](MEMORIAL.md) · [[MEMORIAL]] — every doc in this folder in one date-ordered descriptive document (index + glossary).
+
 The current-state design reference for `factory` (Waves 0–5), written to feed into Claude Design.
 Read [`MENTAL-MAP.md`](MENTAL-MAP.md) · [[MENTAL-MAP]] first; the detailed table of contents + aggregated open
 questions are in [`INDEX.md`](INDEX.md) · [[INDEX]].

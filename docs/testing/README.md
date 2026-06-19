@@ -6,6 +6,8 @@
 
 # testing/ — Test Procedures
 
+> 📖 **Full compendium:** [MEMORIAL.md](MEMORIAL.md) · [[MEMORIAL]] — every doc in this folder in one date-ordered descriptive document (index + glossary).
+
 End-to-end and feature test guides: preconditions, manual steps, expected results, validation,
 and failure indicators.
 
