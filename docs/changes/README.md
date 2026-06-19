@@ -15,7 +15,7 @@ specific change. For ongoing roadmap see [`../WAVE-PLAN.md`](../WAVE-PLAN.md).
 
 ## Contents (linear)
 
-1. [`CHANGE-LOGS-PANEL-2026-06-09.md`](CHANGE-LOGS-PANEL-2026-06-09.md) — before/after of the Logs
+1. [`CHANGE-LOGS-PANEL-2026-06-09.md`](CHANGE-LOGS-PANEL-2026-06-09.md) · [[CHANGE-LOGS-PANEL-2026-06-09]] — before/after of the Logs
    panel implementation (Wave 5.5): code changes, behavioral changes, performance.
 
 ## Reference

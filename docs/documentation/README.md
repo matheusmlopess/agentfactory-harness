@@ -16,15 +16,15 @@ copy-paste templates, the 6-step authoring workflow, the registry index, and the
 
 ## Contents (linear)
 
-1. [`DOCUMENTATION-TAXONOMY.md`](DOCUMENTATION-TAXONOMY.md) — doc **types**, naming rules, header
+1. [`DOCUMENTATION-TAXONOMY.md`](DOCUMENTATION-TAXONOMY.md) · [[DOCUMENTATION-TAXONOMY]] — doc **types**, naming rules, header
    markers, storage locations, and the PLAN-doc lifecycle. *Read first.*
-2. [`DOCUMENTATION-TEMPLATES.md`](DOCUMENTATION-TEMPLATES.md) — copy-paste templates with
+2. [`DOCUMENTATION-TEMPLATES.md`](DOCUMENTATION-TEMPLATES.md) · [[DOCUMENTATION-TEMPLATES]] — copy-paste templates with
    pre-filled headers for every type (incl. PLAN).
-3. [`DOCUMENTATION-QUICK-START.md`](DOCUMENTATION-QUICK-START.md) — the 6-step workflow:
+3. [`DOCUMENTATION-QUICK-START.md`](DOCUMENTATION-QUICK-START.md) · [[DOCUMENTATION-QUICK-START]] — the 6-step workflow:
    type → search registry → create/update → register → commit.
-4. [`DOCUMENTATION-REGISTRY.md`](DOCUMENTATION-REGISTRY.md) — the index of **all** docs; search
+4. [`DOCUMENTATION-REGISTRY.md`](DOCUMENTATION-REGISTRY.md) · [[DOCUMENTATION-REGISTRY]] — the index of **all** docs; search
    here before creating, add a row after.
-5. [`GLOSSARY.md`](GLOSSARY.md) — **Reference / Glossary**: centralized term & acronym lookups.
+5. [`GLOSSARY.md`](GLOSSARY.md) · [[GLOSSARY]] — **Reference / Glossary**: centralized term & acronym lookups.
 
 ## Helpers
 
@@ -33,5 +33,5 @@ copy-paste templates, the 6-step authoring workflow, the registry index, and the
 
 ## Reference
 
-- Glossary: [`GLOSSARY.md`](GLOSSARY.md)
+- Glossary: [`GLOSSARY.md`](GLOSSARY.md) · [[GLOSSARY]]
 - Marker rule: `.ai/rules/doc-before-commit.md` → "Header markers".

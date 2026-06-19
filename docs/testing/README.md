@@ -16,10 +16,10 @@ correctness checklist.
 
 ## Contents (linear)
 
-1. [`TESTING-FACTORY-E2E-2026-06-18.md`](TESTING-FACTORY-E2E-2026-06-18.md) — whole-app E2E:
+1. [`TESTING-FACTORY-E2E-2026-06-18.md`](TESTING-FACTORY-E2E-2026-06-18.md) · [[TESTING-FACTORY-E2E-2026-06-18]] — whole-app E2E:
    9 surfaces (doctor, chat, model picker, orchestration, terminal, config, logs, resume, copy)
    with happy/edge/failure paths + a correctness checklist.
-2. [`TESTING-LOGS-PANEL-2026-06-09.md`](TESTING-LOGS-PANEL-2026-06-09.md) — Logs panel test
+2. [`TESTING-LOGS-PANEL-2026-06-09.md`](TESTING-LOGS-PANEL-2026-06-09.md) · [[TESTING-LOGS-PANEL-2026-06-09]] — Logs panel test
    procedures, cases, and failure checklist.
 
 ## Reference

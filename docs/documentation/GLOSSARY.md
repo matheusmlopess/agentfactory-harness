@@ -22,7 +22,7 @@ alphabetical.
 | **factory** | The CLI binary / app (`agentfactory-harness`). No-args launches the TUI; subcommands run CLI mode. |
 | **ITUI** | *Interactive TUI* — the product concept: a mouse-driven, drag-and-drop ASCII canvas for building/running agent orchestration plans inside the terminal. |
 | **TUI** | *Terminal User Interface* — a full-screen text UI rendered with ANSI escape codes. |
-| **Three planes** | Agent (chat loop) · Orchestration (DAG) · Registry (auth/keys). *See* `docs/ddd/00-overview.md`. |
+| **Three planes** | Agent (chat loop) · Orchestration (DAG) · Registry (auth/keys). *See* [[00-overview]]. |
 | **Wave (0–5)** | Development phases: 0 scaffold · 1 session · 2 canvas · 3 orchestration · 3.5 multi-LLM · 4 terminal · 5 registry. |
 | **DDD** | *Design-Driven Development* — the `docs/ddd/` design reference set. |
 | **Nobel-laureate naming** | Chat sessions are auto-named after Nobel laureates (a deliberate delight). |
@@ -31,14 +31,14 @@ alphabetical.
 
 | Term | Definition |
 |---|---|
-| **cell-buffer** | The custom renderer grid (`Cell[][]`); produces minimal-diff ANSI output. *See* `docs/ddd/02-rendering.md`. |
+| **cell-buffer** | The custom renderer grid (`Cell[][]`); produces minimal-diff ANSI output. *See* [[02-rendering]]. |
 | **diff (frame)** | `CellBuffer.diff(prev)` — emits only changed cells as escape sequences. |
 | **ANSI** | Escape-code standard for terminal control (colors, cursor, mouse). |
 | **SGR** | *Select Graphic Rendition* — ANSI codes for color/bold/underline (`38;5;n`, `38;2;r;g;b`). |
 | **CSI** | *Control Sequence Introducer* — `ESC[` prefix for most escape codes. |
 | **OSC** | *Operating System Command* — `ESC]`. **OSC 8** = hyperlinks; **OSC 52** = clipboard copy. |
 | **PTY** | *Pseudo-terminal* — the OS device backing the embedded Terminal panel (`node-pty`). |
-| **VTScreen / VT** | Virtual terminal emulator that parses PTY output into a cell grid. *See* `docs/ddd/03-input-focus.md`. |
+| **VTScreen / VT** | Virtual terminal emulator that parses PTY output into a cell grid. *See* [[03-input-focus]]. |
 | **alt screen** | The alternate terminal screen buffer (`?1049h`) the TUI runs in. |
 | **bracketed paste** | Terminal mode (`?2004h`) that frames pasted text so it isn't treated as keystrokes. |
 | **focus model** | `activeTab` is the single focus source; keys go to the active panel, mouse to the panel under the cursor. |
@@ -47,7 +47,7 @@ alphabetical.
 
 | Term | Definition |
 |---|---|
-| **agentLoop** | The streaming LLM loop: send → stream → tool dispatch → repeat (`maxTurns` cap). *See* `docs/ddd/05-core-data.md`. |
+| **agentLoop** | The streaming LLM loop: send → stream → tool dispatch → repeat (`maxTurns` cap). *See* [[05-core-data]]. |
 | **LLM** | *Large Language Model*. |
 | **LLMAdapter** | Provider abstraction; converts canonical history to a provider's wire format and yields `StreamChunk`s. |
 | **StreamChunk** | Normalized streaming event (`text_delta`, `tool_start`, `usage`, …). |
@@ -65,7 +65,7 @@ alphabetical.
 | Term | Definition |
 |---|---|
 | **DAG** | *Directed Acyclic Graph* — the step dependency graph of a plan. |
-| **af-plan.json** | The orchestration plan format (DAG of single-agent steps). *See* `docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION-2026-05-01.md`. |
+| **af-plan.json** | The orchestration plan format (DAG of single-agent steps). *See* [[FEATURE-WAVE-3-DAG-ORCHESTRATION-2026-05-01]]. |
 | **af-team.json** | The multi-agent team format (roles, providers, handoffs, logic ports). *Planned* — *see* `docs/PLANS/`. |
 | **Executor** | Runs the DAG: toposort, ready-set scheduling, bounded concurrency, cascade-skip. |
 | **toposort / readySet** | Graph utilities: topological order / steps whose deps are all complete. |
@@ -103,8 +103,8 @@ alphabetical.
 | **registry (docs)** | `DOCUMENTATION-REGISTRY.md` — the index of all docs; search before creating, register after. |
 | **document PLAN** | A spec-driven plan in `docs/PLANS/` (classification: PLAN), *pending* approval. |
 | **approved plan** | A CLI-approved plan in `specs/docs/approvedPlans/` (dated `YYYY-MM-DD-<name>.md`). |
-| **promotion** | Moving an approved `docs/PLANS/PLAN-*` into `specs/docs/approvedPlans/` with the dated name. *See* `docs/reviews/REVIEW-DOCUMENTATION-WORKFLOW-2026-06-18.md`. |
-| **MENTAL-MAP** | The DDD orientation skeleton (`docs/ddd/MENTAL-MAP.md`) — read first. |
+| **promotion** | Moving an approved `docs/PLANS/PLAN-*` into `specs/docs/approvedPlans/` with the dated name. *See* [[REVIEW-DOCUMENTATION-WORKFLOW-2026-06-18]]. |
+| **MENTAL-MAP** | The DDD orientation skeleton ([[MENTAL-MAP]]) — read first. |
 
 ---
 

@@ -28,7 +28,8 @@ master="$dir/README.md"
 title="$(grep -m1 '^# ' "$doc" | sed 's/^#[[:space:]]*//')"
 summary="${2:-$(awk 'NR>1 && !/^<!--/ && !/^#/ && !/^---/ && NF {print; exit}' "$doc")}"
 [ -n "$summary" ] || summary="$title"
-entry="- [$base]($base) — $summary"
+# markdown link (GitHub-clickable) + Obsidian wikilink (basename, no extension)
+entry="- [$base]($base) · [[${base%.md}]] — $summary"
 
 # Idempotent: skip if the doc is already linked
 if grep -qF "($base)" "$master"; then
