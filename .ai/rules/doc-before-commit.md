@@ -102,6 +102,22 @@ registry** (`docs/documentation/DOCUMENTATION-REGISTRY.md`); after creating one,
 
 ---
 
+## Regenerate the folder compendium — MANDATORY after any doc change
+
+After you **create or edit** any doc under a `docs/<folder>/`, regenerate that folder's master
+compendium and include it in the same commit:
+
+```bash
+scripts/docs-compile.sh docs/<folder>      # or: scripts/docs-compile.sh <path/to/the/doc.md>
+```
+
+This rebuilds `docs/<folder>/MEMORIAL.md` (date-ordered compendium + index + glossary). The script
+is a deterministic, idempotent rebuild — it auto-picks-up the new doc, never duplicates, and
+re-sorts by date. **Do not hand-edit `MEMORIAL.md`.** Commit the regenerated file alongside the
+doc that triggered it. (See `docs/documentation/README.md` → "Scripts".)
+
+---
+
 ## Diagram, Legend, and Scenario Requirements
 
 ### 1 — Box-drawing ASCII diagrams
