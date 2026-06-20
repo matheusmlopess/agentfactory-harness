@@ -31,6 +31,58 @@ copy-paste templates, the 6-step authoring workflow, the registry index, and the
 Two helper scripts (in `scripts/`) maintain the per-folder navigation so you never hand-edit a
 master by hand.
 
+### How it works (diagrams)
+
+**Big picture — each folder gets two outputs:**
+
+```
+        docs/<folder>/                              produced by the two scripts
+   ┌───────────────────────────┐
+   │ <DOC-1>.md                 │──┐  docs-append.sh    ┌──────────────┐
+   │ <DOC-2>.md                 │  ├───────────────────►│  README.md   │  ← short INDEX (one-liners)
+   │ … (N source docs)          │  │  (1 link line/doc) └──────────────┘
+   └───────────────────────────┘  │  docs-compile.sh    ┌──────────────┐
+                                   └───────────────────►│ MEMORIAL.md  │  ← full COMPENDIUM
+                                      (concatenate all,  │ index+glossary│    (auto, rebuilt)
+                                       date-ordered)     │ + full bodies │
+                                                         └──────────────┘
+```
+
+**The compile pipeline (full rebuild every run):**
+
+```
+ docs-compile.sh docs/<folder>
+   │
+   ├─ 1. COLLECT   every *.md except README.md & MEMORIAL.md
+   ├─ 2. DATE      <!-- date: --> marker → git first-commit → date-in-filename → 9999-99-99
+   ├─ 3. SORT      by (date, name), oldest → newest
+   └─ 4. EMIT      header · # <FOLDER> — Memorial · ## Index · ## Glossary
+                   then per doc:  ## N · <date> · <Title>
+                                  Source: [file](file) · [[wiki]] · [↑ Index]
+                                  <the doc's full body>
+```
+
+**Worked example** — folder with three docs (dates in their markers):
+
+```
+docs/changes/                          run docs-compile.sh ─►   MEMORIAL.md "Index"
+├─ CHANGE-A.md  <!-- date 2026-02-10 -->                        1. Change B  2026-01-05
+├─ CHANGE-B.md  <!-- date 2026-01-05 -->     ───────────►       2. Change A  2026-02-10
+└─ CHANGE-C.md  <!-- date 2026-03-01 -->                        3. Change C  2026-03-01
+                                                                (ordered by DATE, then full bodies follow)
+```
+
+Each index entry carries both `[Title](#dN)` (anchor jump) and `[[DOC]]` (Obsidian wikilink).
+
+**The four guarantees (because it rebuilds, not appends):**
+
+```
+ (a) idempotent   run ×N            → identical file (same md5), no churn
+ (b) auto-append  +new doc, recompile → it appears, slotted by its date
+ (c) dedup        recompile ×N        → exactly ONE section per source file
+ (d) re-order     change a doc's date → sections re-sort automatically
+```
+
 ### `docs-compile.sh` — build the folder MEMORIAL (the big compendium)
 
 ```
