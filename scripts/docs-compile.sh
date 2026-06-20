@@ -13,14 +13,23 @@
 # first-commit date, else a YYYY-MM-DD in the filename.
 #
 # Usage:
-#   scripts/docs-compile.sh <folder>           # e.g. docs/features
-#   scripts/docs-compile.sh <path/to/DOC.md>   # compiles the doc's parent folder
+#   scripts/docs-compile.sh <folder>            # e.g. docs/features
+#   scripts/docs-compile.sh <path/to/DOC.md>    # compiles the doc's parent folder
+#   scripts/docs-compile.sh --clean <folder>    # REMOVE that folder's MEMORIAL.md (revert)
 set -euo pipefail
 
-arg="${1:?usage: docs-compile.sh <folder|doc.md>}"
+clean=0
+if [ "${1:-}" = "--clean" ]; then clean=1; shift; fi
+
+arg="${1:?usage: docs-compile.sh [--clean] <folder|doc.md>}"
 if [ -d "$arg" ]; then dir="$arg"; else dir="$(dirname "$arg")"; fi
 dir="${dir%/}"
 [ -d "$dir" ] || { echo "error: no such folder: $dir" >&2; exit 1; }
+
+if [ "$clean" = 1 ]; then
+  if [ -f "$dir/MEMORIAL.md" ]; then rm -f "$dir/MEMORIAL.md"; echo "✓ removed $dir/MEMORIAL.md"; else echo "• no MEMORIAL.md in $dir"; fi
+  exit 0
+fi
 
 out="$dir/MEMORIAL.md"
 folder="$(basename "$dir")"

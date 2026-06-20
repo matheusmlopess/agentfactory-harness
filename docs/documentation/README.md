@@ -109,6 +109,40 @@ The rule `.ai/rules/doc-before-commit.md` ("Header markers" / doc workflow) reco
 required step, so agents following the rules will run `docs-compile.sh` before committing a doc
 change without being asked.
 
+### Reverting — if you no longer want the compendiums
+
+The `MEMORIAL.md` files are **purely generated** — nothing else depends on them (the source docs
+and folder `README.md` indexes stand on their own). Removing them is safe and non-destructive.
+
+```bash
+# Remove ONE folder's compendium:
+scripts/docs-compile.sh --clean docs/reviews
+
+# Remove ALL compendiums:
+for d in documentation features testing reviews changes PLANS ddd; do
+  scripts/docs-compile.sh --clean "docs/$d"
+done
+#   …or simply:  find docs -name MEMORIAL.md -delete
+```
+
+To **fully uninstall** the system (not just the output):
+
+```
+┌─ full revert checklist ──────────────────────────────────────────────────┐
+│ 1. Delete the generated files:  find docs -name MEMORIAL.md -delete       │
+│ 2. Remove the scripts:          git rm scripts/docs-compile.sh \          │
+│                                        scripts/docs-append.sh             │
+│ 3. Remove this "Scripts" section from docs/documentation/README.md and    │
+│    the "📖 Full compendium" callouts from each folder README.             │
+│ 4. Remove the "Regenerate the folder compendium" step from                │
+│    .ai/rules/doc-before-commit.md                                         │
+│ 5. Commit.                                                                 │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+Or, since everything is in git, revert the introducing commits wholesale:
+`git revert <commit>` (the `docs: per-folder MEMORIAL …` and follow-up commits).
+
 ## Reference
 
 - Glossary: [`GLOSSARY.md`](GLOSSARY.md) · [[GLOSSARY]]
