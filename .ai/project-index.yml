@@ -527,7 +527,7 @@ cli:
 governance:
   - path: .ai/AgentFactory.md
     purpose: Master project brief — overview, wave plan, behavior rules, search protocol
-  version: "1.2.0"
+    version: "1.2.0"
     status: implemented
 
   - path: .ai/project-index.yml
@@ -574,6 +574,45 @@ docs:
     purpose: Public project overview — ITUI concept, install, keyboard shortcuts, wave plan
     wave: 0
     status: implemented
+
+  # ── Documentation system (governance) ──────────────────────────────────────
+  - path: docs/README.md
+    purpose: Top-level docs map — links every category folder's master README + glossary
+    wave: 5
+    status: implemented
+  - path: docs/documentation/README.md
+    purpose: Documentation-system master — taxonomy/templates/quick-start/registry/glossary order + the docs-compile/append scripts guide (how they work, manual triggers, directing Claude, revert)
+    wave: 5
+    status: implemented
+  - path: docs/documentation/DOCUMENTATION-TAXONOMY.md
+    purpose: Doc type definitions, naming rules, header markers (classification/date/last-updated), storage locations, PLAN-doc lifecycle
+    wave: 5
+    status: implemented
+  - path: docs/documentation/DOCUMENTATION-TEMPLATES.md
+    purpose: Copy-paste templates with pre-filled headers for every doc type (incl. PLAN)
+    wave: 5
+    status: implemented
+  - path: docs/documentation/DOCUMENTATION-QUICK-START.md
+    purpose: 6-step authoring workflow — type → search registry → create/update → register → commit
+    wave: 5
+    status: implemented
+  - path: docs/documentation/DOCUMENTATION-REGISTRY.md
+    purpose: Index of ALL docs by type/feature/date — search before creating, register after
+    wave: 5
+    status: implemented
+  - path: docs/documentation/GLOSSARY.md
+    purpose: Centralized term & acronym reference (the Glossary) for quick lookups
+    wave: 5
+    status: implemented
+  - path: scripts/docs-compile.sh
+    purpose: "Build a folder's MEMORIAL.md compendium (date-ordered, index+glossary, full bodies); deterministic rebuild — idempotent/auto-append/dedup/reorder; --clean removes it"
+    wave: 5
+    status: implemented
+  - path: scripts/docs-append.sh
+    purpose: Append a doc as a link line to its folder README index (idempotent)
+    wave: 5
+    status: implemented
+  # ────────────────────────────────────────────────────────────────────────────
 
   - path: docs/features/FEATURE-WAVE-0-SCAFFOLD-2026-04-26.md
     purpose: "Full Wave 0 feature doc — architecture, rendering pipeline, layout, doctor, usage, tests"
