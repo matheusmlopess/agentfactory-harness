@@ -262,3 +262,43 @@ hand-authored** docs (ddd/, specs, new reviews) that no reorganizer can invent.
 
 For a **local** import, or to get the **skill + commands** (not just scripts), use the bundle ZIP
 (`scripts/make-bundle.sh` / release asset): `agentfactory-gen import docs-system-agent.zip --allow-scripts`.
+
+## A4 — Scenario matrix (mock-doc repos, every case)
+
+Each row is an isolated throwaway git repo seeded with mock docs, then run through the agent's
+scripts (and, for S10, an AgentFactory import). **10/10 pass.**
+
+| # | Scenario | Setup | Result |
+|---|---|---|---|
+| S1 | **Clean / blank repo** (no docs, no agent) | empty repo + `.docs-system.conf` | bootstrap installs 6 governance docs + folders + scripts + rule; migrate = 0 moves ✅ |
+| S2 | Loose docs, no agent | `FEATURE-X.md`, `TESTING-X.md` | → `features/…-DATE`, `testing/…-DATE` ✅ |
+| S3 | Mixed known + unknown prefixes | `FEATURE-A.md`, `RANDOMNOTES.md` | known planned; unknown → **NEEDS-REVIEW** (not moved) ✅ |
+| S4 | Governance docs at root | `DOCUMENTATION-TAXONOMY.md`, `GLOSSARY.md` | → `documentation/` (keep name) ✅ |
+| S5 | Idempotency | already-foldered + dated doc | migrate = 0 moves; `compile` twice → identical md5 ✅ |
+| S6 | Bootstrap idempotency | run bootstrap twice (+ edited registry) | registry **not clobbered**, rule **not duplicated** ✅ |
+| S7 | Revert | compile then `--clean` | MEMORIAL created then removed ✅ |
+| S8 | Empty `docs/` edge | empty `docs/` | no crash (migrate/compile exit 0) ✅ |
+| S9 | Collision (observe) | two docs → same `stem+date` | **kit limitation:** same target name → 2nd overwrites 1st (see note) |
+| S10 | **AgentFactory import into a clean repo** (no `.ai/`, no agents) | `import <bundle.zip>` | auto-creates `.ai/`; imports **4 skill, 4 command, 1 doc, 4 script** ✅ |
+
+> **S9 — known kit limitation:** `docs-migrate.sh` derives the target as `TYPE-NAME-DATE.md`; two
+> source docs with the same name **and** same resolved date collide on one target (the later
+> `git mv` wins). Mitigation: rare in practice; a future guard could append a disambiguator or flag
+> the pair as NEEDS-REVIEW. This is a `docs-system` issue, **not** an `agentfactory-gen` one.
+
+## A5 — Gaps found → tracked
+
+**`agentfactory-gen` (filed: [AgentFactory#179](https://github.com/matheusmlopess/AgentFactory/issues/179)):**
+
+| # | Gap | Sev |
+|---|---|---|
+| 1 | `import --from-git` drops declared skills/commands/docs (imports **scripts only** — auto-retrofit regenerates its own manifest) | 🔴 |
+| 2 | `import --from-git` rejects **local** filesystem paths (URL schemes only) | 🟠 |
+| 3 | No `pack`/`wrap` command to emit an importable bundle ZIP | 🟠 |
+| 4 | `import --dry-run` is not read-only — **prompts & aborts** | 🟡 |
+| 5 | (UX) no `import-agent` alias | 🟡 |
+
+Verified working (not gaps): bundle-ZIP import = full agent; import into a clean repo with **no
+`.ai/`** auto-creates the harness; `--allow-scripts` skips the scripts gate.
+
+**`docs-system` kit:** S9 collision guard (above) — tracked in the docs-system repo.
