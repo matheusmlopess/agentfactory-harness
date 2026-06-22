@@ -71,7 +71,7 @@ mental model. Read and WebFetch have no write-side effects and can safely fan ou
 | `src/core/tools/web-fetch.ts` | 1 | `WebFetchTool` — fetch + text |
 | `src/tui/panels/SessionPanel.ts` | 1 | Chat panel — streaming display + input bar |
 | `src/tui/panels/AgentsPanel.ts` | 1 | Agent list sidebar (stub → basic status badges) |
-| `docs/FEATURE-WAVE-1-SESSION.md` | 1 | Rule 3 feature doc |
+| `docs/features/FEATURE-WAVE-1-SESSION-2026-04-27.md` | 1 | Rule 3 feature doc |
 
 ---
 

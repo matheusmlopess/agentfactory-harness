@@ -527,7 +527,7 @@ cli:
 governance:
   - path: .ai/AgentFactory.md
     purpose: Master project brief — overview, wave plan, behavior rules, search protocol
-  version: "1.2.0"
+    version: "1.2.0"
     status: implemented
 
   - path: .ai/project-index.yml
@@ -575,12 +575,51 @@ docs:
     wave: 0
     status: implemented
 
-  - path: docs/FEATURE-WAVE-0-SCAFFOLD.md
+  # ── Documentation system (governance) ──────────────────────────────────────
+  - path: docs/README.md
+    purpose: Top-level docs map — links every category folder's master README + glossary
+    wave: 5
+    status: implemented
+  - path: docs/documentation/README.md
+    purpose: Documentation-system master — taxonomy/templates/quick-start/registry/glossary order + the docs-compile/append scripts guide (how they work, manual triggers, directing Claude, revert)
+    wave: 5
+    status: implemented
+  - path: docs/documentation/DOCUMENTATION-TAXONOMY.md
+    purpose: Doc type definitions, naming rules, header markers (classification/date/last-updated), storage locations, PLAN-doc lifecycle
+    wave: 5
+    status: implemented
+  - path: docs/documentation/DOCUMENTATION-TEMPLATES.md
+    purpose: Copy-paste templates with pre-filled headers for every doc type (incl. PLAN)
+    wave: 5
+    status: implemented
+  - path: docs/documentation/DOCUMENTATION-QUICK-START.md
+    purpose: 6-step authoring workflow — type → search registry → create/update → register → commit
+    wave: 5
+    status: implemented
+  - path: docs/documentation/DOCUMENTATION-REGISTRY.md
+    purpose: Index of ALL docs by type/feature/date — search before creating, register after
+    wave: 5
+    status: implemented
+  - path: docs/documentation/GLOSSARY.md
+    purpose: Centralized term & acronym reference (the Glossary) for quick lookups
+    wave: 5
+    status: implemented
+  - path: scripts/docs-compile.sh
+    purpose: "Build a folder's MEMORIAL.md compendium (date-ordered, index+glossary, full bodies); deterministic rebuild — idempotent/auto-append/dedup/reorder; --clean removes it"
+    wave: 5
+    status: implemented
+  - path: scripts/docs-append.sh
+    purpose: Append a doc as a link line to its folder README index (idempotent)
+    wave: 5
+    status: implemented
+  # ────────────────────────────────────────────────────────────────────────────
+
+  - path: docs/features/FEATURE-WAVE-0-SCAFFOLD-2026-04-26.md
     purpose: "Full Wave 0 feature doc — architecture, rendering pipeline, layout, doctor, usage, tests"
     wave: 0
     status: implemented
 
-  - path: docs/FEATURE-PROJECT-INDEX.md
+  - path: docs/features/FEATURE-PROJECT-INDEX-2026-04-26.md
     purpose: Feature doc for project-index.yml — architecture, usage, yq queries, scenario walkthroughs
     wave: 0
     status: implemented
@@ -590,7 +629,7 @@ docs:
     wave: 0
     status: implemented
 
-  - path: docs/FEATURE-WAVE-1-SESSION.md
+  - path: docs/features/FEATURE-WAVE-1-SESSION-2026-04-27.md
     purpose: "Full Wave 1 feature doc — agent loop, streaming, tools, hooks, SessionPanel"
     wave: 1
     status: implemented
@@ -600,7 +639,7 @@ docs:
     wave: 1
     status: implemented
 
-  - path: docs/FEATURE-WAVE-2-ITUI-CANVAS.md
+  - path: docs/features/FEATURE-WAVE-2-ITUI-CANVAS-2026-04-27.md
     purpose: "Full Wave 2 feature doc — mouse input, block drag, wire routing, context menu"
     wave: 2
     status: implemented
@@ -620,32 +659,32 @@ docs:
     wave: 4
     status: implemented
 
-  - path: docs/features/FEATURE-SYSTEM-ARCHITECTURE-v0.4.0.md
+  - path: docs/features/FEATURE-SYSTEM-ARCHITECTURE-v0.4.0-2026-05-18.md
     purpose: System architecture + operational reference for Waves 0–3.5; E2E test plan, gap analysis, docs audit, infra audit
     wave: 4
     status: implemented
 
-  - path: docs/features/FEATURE-WAVE-4-TERMINAL-PANEL.md
+  - path: docs/features/FEATURE-WAVE-4-TERMINAL-PANEL-2026-05-18.md
     purpose: "Wave 4 feature doc — VTScreen + TerminalPanel: architecture, ANSI matrix, 9 E2E tests, design trade-offs, 9 gaps, infra notes"
     wave: 4
     status: implemented
 
-  - path: docs/features/FEATURE-TOOLS-AND-TOKEN-FLOW.md
+  - path: docs/features/FEATURE-TOOLS-AND-TOKEN-FLOW-2026-06-01.md
     purpose: "Tool catalog, request anatomy, token cost breakdown, agent vs /chat mode — mermaid diagrams, tree views, 10 worked scenarios"
     wave: 5
     status: implemented
 
-  - path: docs/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md
+  - path: docs/reviews/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md
     purpose: "Security & architecture review — component matrix, 7 Mermaid diagrams, SEV findings, design gaps, recommendations"
     wave: 0
     status: implemented
 
-  - path: docs/FEATURE-AGENTFACTORY-SKILL-PIPELINE.md
+  - path: docs/features/FEATURE-AGENTFACTORY-SKILL-PIPELINE-2026-05-01.md
     purpose: "agentfactory-gen skill creation pipeline — full workflow, file formats, 10 CLI gap analysis with Mermaid failure-path diagrams"
     wave: 0
     status: implemented
 
-  - path: docs/GAP-ISSUE-MATRIX.md
+  - path: docs/reviews/GAPS-ISSUE-MATRIX-2026-05-01.md
     purpose: "Cross-reference matrix: 10 skill-pipeline gaps vs all open issues in agentfactory-harness and AgentFactory repos"
     wave: 0
     status: implemented
@@ -670,7 +709,7 @@ docs:
     wave: 0
     status: implemented
 
-  - path: docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION.md
+  - path: docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION-2026-05-01.md
     purpose: "Full Wave 3 feature doc — DAG executor, toposort, readySet, cascade-skip, interpolation, CLI commands, 5 scenario walkthroughs"
     wave: 3
     status: implemented

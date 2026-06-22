@@ -152,7 +152,7 @@ sequenceDiagram
 A plain "hello" costs **~237 input tokens** in agent mode (the tool catalog
 dominates) and **~36** in `/chat` mode (tools stripped). Full breakdown,
 diagrams, and 10 worked scenarios:
-[`docs/features/FEATURE-TOOLS-AND-TOKEN-FLOW.md`](docs/features/FEATURE-TOOLS-AND-TOKEN-FLOW.md).
+[`docs/features/FEATURE-TOOLS-AND-TOKEN-FLOW-2026-06-01.md`](docs/features/FEATURE-TOOLS-AND-TOKEN-FLOW-2026-06-01.md).
 
 ---
 

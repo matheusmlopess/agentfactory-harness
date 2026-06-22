@@ -108,11 +108,11 @@ Each finding includes: file path, code snippet (3–8 lines), attack surface or 
 
 ## Historical Reports Convention
 
-Reports accumulate in `docs/` as:
+Reports accumulate in `docs/reviews/` as:
 ```
-docs/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md   ← initial review
-docs/REVIEW-SECURITY-ARCHITECTURE-2026-05-10.md   ← new review cycle
-docs/REVIEW-SECURITY-ARCHITECTURE-2026-06-01.md   ← next cycle
+docs/reviews/REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md   ← initial review
+docs/reviews/REVIEW-SECURITY-ARCHITECTURE-2026-05-10.md   ← new review cycle
+docs/reviews/REVIEW-SECURITY-ARCHITECTURE-2026-06-01.md   ← next cycle
 ```
 
 The date is the review cycle identifier, not the write date of the last update. A report updated on the same branch keeps its original date.

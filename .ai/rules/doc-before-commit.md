@@ -1,5 +1,7 @@
 # Rule: Documentation Before Commit
-<!-- version: 1.3.0 -->
+<!-- version: 1.5.0 -->
+<!-- date: 2026-04-26 -->
+<!-- last-updated: 2026-06-19 -->
 
 Every implemented and tested feature MUST have a detailed feature document written
 **before** the commit, **before** the PR, and **before** the milestone entry.
@@ -30,7 +32,7 @@ Examples:
 - `docs/features/FEATURE-WAVE-0-SCAFFOLD.md`
 - `docs/features/FEATURE-ITUI-CANVAS.md`
 - `docs/features/FEATURE-PTY-PANEL.md`
-- `docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION.md`
+- `docs/features/FEATURE-WAVE-3-DAG-ORCHESTRATION-2026-05-01.md`
 
 > **Legacy docs** in `docs/FEATURE-*.md` (Waves 0–2) are grandfathered.
 > All new feature docs MUST go in `docs/features/`.
@@ -40,6 +42,9 @@ Examples:
 ```markdown
 # Feature: <Title>
 <!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: YYYY-MM-DD -->
+<!-- last-updated: YYYY-MM-DD -->
 
 ## What it does
 <1-3 sentences. What problem does this solve?>
@@ -59,6 +64,57 @@ Examples:
 ## Known limitations
 <Edge cases, missing pieces, follow-up issues.>
 ```
+
+---
+
+## Header markers (classification / date / last-updated) — MANDATORY
+
+Every `.md` document MUST carry the metadata markers defined by
+**`docs/documentation/DOCUMENTATION-TAXONOMY.md`**, directly under the H1 title:
+
+```markdown
+<!-- version: x.y.z -->
+<!-- classification: TYPE -->      <!-- FEATURE | TESTING | DESIGN | GAPS | ANALYSIS | CHANGE | STUDY | REVIEW | ARCHITECTURE | SUMMARY | PLAN -->
+<!-- date: YYYY-MM-DD -->
+<!-- last-updated: YYYY-MM-DD -->
+```
+
+Discipline (this is the single source of truth for the date fields):
+
+```
+┌─ Marker discipline ──────────────────────────────────────────────────────┐
+│ • date         → CREATION date. Set ONCE. NEVER change it afterwards.     │
+│ • last-updated → equals `date` on day one. On EVERY subsequent edit,      │
+│                  update ONLY this field to the edit date.                 │
+│ • version      → bump per semver on meaningful edits.                     │
+│ • classification → the taxonomy doc type (see DOCUMENTATION-TAXONOMY.md). │
+│ • Format       → ISO 8601 date YYYY-MM-DD.                                │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+**Only `last-updated` (and `version`) may change after creation.** Altering `date` is a rule
+violation. When backfilling onto a pre-existing doc, derive `date` from the first commit:
+`git log --diff-filter=A --format=%ad --date=short -- <file> | tail -1`.
+
+Applies to ALL `.md` under `docs/`, `specs/`, and `.ai/`. Before creating a doc, **search the
+registry** (`docs/documentation/DOCUMENTATION-REGISTRY.md`); after creating one, **add a registry entry**
+(see `docs/documentation/DOCUMENTATION-QUICK-START.md` Steps 2 & 5).
+
+---
+
+## Regenerate the folder compendium — MANDATORY after any doc change
+
+After you **create or edit** any doc under a `docs/<folder>/`, regenerate that folder's master
+compendium and include it in the same commit:
+
+```bash
+scripts/docs-compile.sh docs/<folder>      # or: scripts/docs-compile.sh <path/to/the/doc.md>
+```
+
+This rebuilds `docs/<folder>/MEMORIAL.md` (date-ordered compendium + index + glossary). The script
+is a deterministic, idempotent rebuild — it auto-picks-up the new doc, never duplicates, and
+re-sorts by date. **Do not hand-edit `MEMORIAL.md`.** Commit the regenerated file alongside the
+doc that triggered it. (See `docs/documentation/README.md` → "Scripts".)
 
 ---
 
