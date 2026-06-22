@@ -3,7 +3,7 @@
 <!-- version: 1.0.0 -->
 <!-- classification: TESTING -->
 <!-- date: 2026-06-18 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-06-22 -->
 <!-- Manual E2E procedures for the implemented surfaces. Pair with docs/ddd/07-user-journeys.md. -->
 
 How to validate the implemented system end-to-end: preconditions, manual steps, expected
@@ -194,3 +194,71 @@ Confirm correctness baseline: `npm test` passes and `factory doctor` shows the e
 | Copy does nothing | terminal lacks OSC 52 (known gap) |
 | Layout overflow | terminal < 80 cols (known gap — no min-size guard) |
 | `[PTY unavailable]` | node-pty spawn failed (shell/permissions) |
+
+---
+
+# Appendix — docs-system agent reproduction (E2E)
+
+Validates that the **`docs-system`** AgentFactory agent (https://github.com/matheusmlopess/docs-system),
+when applied to a clean `main`, reproduces the documentation reorganization established on the
+benchmark branch `feature/ui-fixes`.
+
+## A1 — Structure comparison: `main` → benchmark (`feature/ui-fixes`)
+
+```
+BEFORE  (origin/main, 27 loose docs)            AFTER / BENCHMARK  (feature/ui-fixes)
+─────────────────────────────────────           ──────────────────────────────────────────
+docs/                                           docs/
+├── DOCUMENTATION-{TAXONOMY,TEMPLATES,           ├── documentation/   <- governance moved here
+│   QUICK-START,REGISTRY}.md   (root)            │     DOCUMENTATION-* GLOSSARY README MEMORIAL
+├── FEATURE-*.md            (7 loose, undated)   ├── features/   FEATURE-<NAME>-<DATE>.md x12
+├── FEATURE-WAVE-0/1/2 ...                       │               + README + MEMORIAL
+├── CHANGE-SUMMARY-LOGS-PANEL.md                 ├── changes/    CHANGE-<NAME>-<DATE>.md + MEMORIAL
+├── GAP-ISSUE-MATRIX.md                          ├── reviews/    DESIGN/GAPS/REVIEW/INDEX-*-<DATE> x9
+├── LOGGER.md                                    │               + README + MEMORIAL
+├── TESTING-LOGS-PANEL.md                        ├── testing/    TESTING-*-<DATE> + README + MEMORIAL
+├── REVIEW-SECURITY-*.md (2)                     ├── PLANS/      PLAN-* x16 + README + MEMORIAL
+├── FUTURE-WORK.md  WAVE-PLAN.md                 ├── ddd/        14-file design set + INDEX + MEMORIAL
+├── features/  (5 undated FEATURE-*)             ├── WAVE-PLAN.md  FUTURE-WORK.md  (roadmap, root)
+└── reviews/   (4 undated)                       └── assets/
+                                                 (+ markers on every doc, reference sweep, registry)
+```
+
+## A2 — Test output: applying the agent to a fresh `main`
+
+Imported via `agentfactory-gen import --from-git ...` -> ran the imported `docs-migrate.sh --apply`
++ `docs-compile.sh`. Migrate plan (excerpt) vs benchmark:
+
+```
+docs/FEATURE-LOGS-PANEL.md     -> docs/features/FEATURE-LOGS-PANEL-2026-06-09.md     FEATURE  ok
+docs/GAP-ISSUE-MATRIX.md       -> docs/reviews/GAPS-ISSUE-MATRIX-2026-05-01.md       GAPS     ok (GAP->GAPS auto)
+docs/TESTING-LOGS-PANEL.md     -> docs/testing/TESTING-LOGS-PANEL-2026-06-09.md      TESTING  ok
+docs/DOCUMENTATION-TAXONOMY.md -> docs/documentation/DOCUMENTATION-TAXONOMY.md       REVIEW   ok (v1.0.1 fix)
+... 24 moves total ...
+NEEDS-REVIEW (not auto-moved):  docs/LOGGER.md   <- no TYPE prefix (human decision)
+```
+
+Resulting folder counts (agent output vs benchmark):
+
+| Folder | agent output | benchmark | delta = |
+|---|---|---|---|
+| features/ | 11 + MEMORIAL | 12 | `FEATURE-LOGGER` (human reclassified `LOGGER.md`) |
+| testing/ | 1 + MEMORIAL | 2 | `TESTING-FACTORY-E2E` (**net-new authored**) |
+| reviews/ | 7 + MEMORIAL | 9 | 2 **net-new authored** reviews |
+| changes/ | 1 + MEMORIAL | 1 | identical |
+
+**Conclusion:** the agent reproduces the documentation **system + deterministic reorg** (folders,
+dated names, `GAP->GAPS`, governance -> `documentation/`, MEMORIAL compendiums). The only deltas are
+(1) one **human-judgment** item correctly flagged `NEEDS-REVIEW` (`LOGGER.md`), and (2) **net-new
+hand-authored** docs (ddd/, specs, new reviews) that no reorganizer can invent.
+
+## A3 — Import methods tested (agentfactory-gen 0.3.2)
+
+| Method | Local? | Imported | Notes |
+|---|---|---|---|
+| `import --from-git <https-url>` | no (URL only) | **scripts only** (4) | auto-retrofit regenerates its own manifest |
+| `import --from-git <local-path>` | — | **rejected** | requires `https://` / `git@` / `ssh://` |
+| `import <bundle.zip>` (pre-built) | **yes** | **full agent** — 4 skills, 4 commands, 1 doc, 4 scripts | recommended; bundle attached to each release |
+
+For a **local** import, or to get the **skill + commands** (not just scripts), use the bundle ZIP
+(`scripts/make-bundle.sh` / release asset): `agentfactory-gen import docs-system-agent.zip --allow-scripts`.
