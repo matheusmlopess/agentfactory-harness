@@ -1,8 +1,8 @@
-<!-- version: 1.1.0 -->
+<!-- version: 1.2.0 -->
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-06-19 -->
+<!-- last-updated: 2026-07-04 -->
 <!-- status: ACTIVE -->
 
 # Documentation Registry
@@ -179,6 +179,12 @@ Location: `docs/PLANS/`. Set introduced by **PR #23** (multi-agent orchestration
 `docs/PLANS/` (document plans). Promoted to `specs/docs/approvedPlans/` (dated format) on
 feature-dev approval. Also open in PR #23.
 
+**Approved plans** (`specs/docs/approvedPlans/`, latest first):
+
+| Doc | Date | Feature | Status | Purpose |
+|-----|------|---------|--------|---------|
+| 2026-07-04-ui-consolidation-studio.md | 2026-07-04 | UI Consolidation + Studio | ✅ Active | Addresses ddd/09–11: P0–P5 consolidation, Feature registry, standalone Studio + team dashboard |
+
 ---
 
 ## Documentation by Feature
@@ -271,6 +277,7 @@ feature-dev approval. Also open in PR #23.
 
 | Date | Type | Doc | Feature | Status |
 |------|------|-----|---------|--------|
+| 2026-07-04 | PLAN | specs/docs/approvedPlans/2026-07-04-ui-consolidation-studio.md | UI Consolidation + Studio | ✅ Active |
 | 2026-06-09 | SUMMARY | IMPLEMENTATION-COMPLETE-LOGS-PANEL-2026-06-09.md | Logs Panel | ✅ Active |
 | 2026-06-09 | REVIEW | INDEX-LOGS-PANEL-DOCUMENTATION-2026-06-09.md | Logs Panel | ✅ Active |
 | 2026-06-09 | REVIEW | REVIEW-DOCUMENTATION-LOGS-2026-06-09.md | Logs Panel | ✅ Active |
