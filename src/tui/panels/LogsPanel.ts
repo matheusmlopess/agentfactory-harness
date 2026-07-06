@@ -443,14 +443,15 @@ export class LogsPanel extends Panel {
     if (e.col >= r.col && e.col < splitCol) {
       const entries = getRecentLogs(this.selectedSource ?? undefined)
 
+      // Text-pane wheel convention: ×3 rows per tick
       if (e.button === 'scroll_up') {
-        this.scrollOffset = Math.min(this.scrollOffset + 1, Math.max(0, entries.length - 1))
+        this.scrollOffset = Math.min(this.scrollOffset + 3, Math.max(0, entries.length - 1))
         this.onUpdate()
         return true
       }
 
       if (e.button === 'scroll_down') {
-        this.scrollOffset = Math.max(0, this.scrollOffset - 1)
+        this.scrollOffset = Math.max(0, this.scrollOffset - 3)
         this.onUpdate()
         return true
       }
@@ -485,16 +486,16 @@ export class LogsPanel extends Panel {
         return true
       }
 
-      // Insights scroll
+      // Insights scroll — text-pane wheel convention: ×3 rows per tick
       if (e.button === 'scroll_up') {
         const insightLines = this.wrapText(this.insightsText, this.inner.width - 8)
-        this.insightsScroll = Math.min(this.insightsScroll + 1, Math.max(0, insightLines.length - 1))
+        this.insightsScroll = Math.min(this.insightsScroll + 3, Math.max(0, insightLines.length - 1))
         this.onUpdate()
         return true
       }
 
       if (e.button === 'scroll_down') {
-        this.insightsScroll = Math.max(0, this.insightsScroll - 1)
+        this.insightsScroll = Math.max(0, this.insightsScroll - 3)
         this.onUpdate()
         return true
       }

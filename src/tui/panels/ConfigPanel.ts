@@ -12,6 +12,7 @@ import type { LoginEvent } from '../../registry/login.js'
 import type { ImportCandidate } from '../../registry/import-keys.js'
 import { logger } from '../../core/logger.js'
 import { maskSecret } from '../../core/config/mask.js'
+import { Overlay } from '../widgets/Overlay.js'
 
 type PanelMode = 'browse' | 'edit' | 'login' | 'import'
 
@@ -65,6 +66,20 @@ export class ConfigPanel extends Panel {
 
   // Import overlay state
   private importCandidates: ImportCandidate[] = []
+
+  // Shared modal frames (gap 8) — content stays bespoke, geometry/dismissal unified
+  private readonly editOverlay = new Overlay({
+    title: 'Configure', tier: 'md',
+    onDismiss: () => { this.mode = 'browse'; this.editBuf = ''; this.onUpdate() },
+  })
+  private readonly loginOverlay = new Overlay({
+    title: 'Login to AgentFactory', tier: 'md',
+    onDismiss: () => { this.mode = 'browse'; this.onUpdate() },
+  })
+  private readonly importOverlay = new Overlay({
+    title: 'Import API Keys', tier: 'md',
+    onDismiss: () => { this.mode = 'browse'; this.onUpdate() },
+  })
 
   constructor(rect: Rect, onUpdate: () => void, callbacks: ConfigPanelCallbacks = {}) {
     super(rect)
@@ -252,22 +267,8 @@ export class ConfigPanel extends Panel {
   }
 
   private renderLoginOverlay(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
-    const modalW = Math.min(r.width - 4, 58)
-    const modalH = 11
-    const modalRow = r.row + Math.floor((r.height - modalH) / 2)
-    const modalCol = r.col + Math.floor((r.width  - modalW) / 2)
-
-    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
-    const hLine = '─'.repeat(modalW - 2)
-    buf.write(modalRow,             modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    for (let i = 1; i < modalH - 1; i++) {
-      buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.fill(modalRow + i, modalCol + 1, 1, modalW - 2, ' ', { bg: Colors.bgPanel })
-    }
-
-    buf.write(modalRow, modalCol + 2, ' Login to AgentFactory ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+    const f = this.loginOverlay.renderFrame(buf, r, 9)
+    const { row: modalRow, col: modalCol, width: modalW } = f
 
     // Final message (success or error) replaces step content
     if (this.loginMessage) {
@@ -289,22 +290,9 @@ export class ConfigPanel extends Panel {
 
   private renderImportOverlay(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
     const candidates = this.importCandidates
-    const modalW = Math.min(r.width - 4, 58)
     const listRows = Math.max(1, candidates.length)
-    const modalH = 5 + listRows + 3
-    const modalRow = r.row + Math.floor((r.height - modalH) / 2)
-    const modalCol = r.col + Math.floor((r.width  - modalW) / 2)
-
-    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
-    const hLine = '─'.repeat(modalW - 2)
-    buf.write(modalRow,             modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    for (let i = 1; i < modalH - 1; i++) {
-      buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.fill(modalRow + i, modalCol + 1, 1, modalW - 2, ' ', { bg: Colors.bgPanel })
-    }
-    buf.write(modalRow, modalCol + 2, ' Import API Keys ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+    const f = this.importOverlay.renderFrame(buf, r, 6 + listRows)
+    const { row: modalRow, col: modalCol, width: modalW } = f
 
     if (candidates.length === 0) {
       buf.write(modalRow + 2, modalCol + 2, 'No importable keys found.', { fg: Colors.textDim, bg: Colors.bgPanel })
@@ -326,27 +314,8 @@ export class ConfigPanel extends Panel {
   }
 
   private renderEditModal(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }, def: ProviderDef): void {
-    const modalW = Math.min(r.width - 4, 56)
-    const modalH = 10
-    const modalRow = r.row + Math.floor((r.height - modalH) / 2)
-    const modalCol = r.col + Math.floor((r.width - modalW) / 2)
-
-    // Dim area behind modal
-    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
-
-    // Border
-    const hLine = '─'.repeat(modalW - 2)
-    buf.write(modalRow,           modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    for (let i = 1; i < modalH - 1; i++) {
-      buf.write(modalRow + i, modalCol, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.write(modalRow + i, modalCol + modalW - 1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.fill(modalRow + i, modalCol + 1, 1, modalW - 2, ' ', { bg: Colors.bgPanel })
-    }
-
-    // Title in top border
-    const titleStr = ` Configure: ${def.name} `
-    buf.write(modalRow, modalCol + 2, titleStr.substring(0, modalW - 4), { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+    const f = this.editOverlay.renderFrame(buf, r, 8, `Configure: ${def.name}`)
+    const { row: modalRow, col: modalCol, width: modalW } = f
 
     // Field label (env var or config key)
     const fieldLabel = def.envVar ?? def.configKey.toUpperCase()
@@ -477,14 +446,22 @@ export class ConfigPanel extends Panel {
   }
 
   override onMouse(e: MouseEvent): boolean {
-    // Scroll wheel — navigate selection like arrow keys
-    if (e.button === 'scroll_up')   { this.moveSelection(-1); this.onUpdate(); return true }
-    if (e.button === 'scroll_down') { this.moveSelection(1);  this.onUpdate(); return true }
+    // Wheel convention: viewport offset ×1, never the selection (gap 1)
+    if (e.button === 'scroll_up')   { this.scrollListBy(-1); this.onUpdate(); return true }
+    if (e.button === 'scroll_down') { this.scrollListBy(1);  this.onUpdate(); return true }
 
     if (e.button !== 'left' || e.action !== 'press') return false
 
-    // ── Login / Import overlays consume all clicks ────────────────────────
-    if (this.mode === 'login' || this.mode === 'import') return true
+    // ── Login / Import overlays: click-outside dismisses, inside is consumed ─
+    if (this.mode === 'login') {
+      this.loginOverlay.handleMouse(e, this.loginOverlay.layout(this.inner, 9))
+      return true
+    }
+    if (this.mode === 'import') {
+      const contentRows = 6 + Math.max(1, this.importCandidates.length)
+      this.importOverlay.handleMouse(e, this.importOverlay.layout(this.inner, contentRows))
+      return true
+    }
 
     // ── Auth header clicks (rows 0–1 of inner rect) ───────────────────────
     const r = this.inner
@@ -504,25 +481,14 @@ export class ConfigPanel extends Panel {
 
     // ── Edit modal intercepts all clicks when open ────────────────────────
     if (this.mode === 'edit') {
-      const r = this.inner
-      const modalW   = Math.min(r.width - 4, 56)
-      const modalH   = 10
-      const modalRow = r.row + Math.floor((r.height - modalH) / 2)
-      const modalCol = r.col + Math.floor((r.width  - modalW) / 2)
-      const modalEndRow = modalRow + modalH - 1
-      const modalEndCol = modalCol + modalW - 1
+      const f = this.editOverlay.layout(this.inner, 8)
 
-      // Click outside modal → cancel
-      if (e.row < modalRow || e.row > modalEndRow || e.col < modalCol || e.col > modalEndCol) {
-        this.mode = 'browse'
-        this.editBuf = ''
-        this.onUpdate()
-        return true
-      }
+      // Click outside modal → cancel (standard Overlay dismissal)
+      if (this.editOverlay.handleMouse(e, f)) return true
 
-      // Click on button row (modalRow + 7): left half = Save, right half = Cancel
-      if (e.row === modalRow + 7) {
-        const midCol = modalCol + Math.floor(modalW / 2)
+      // Click on button row (f.row + 7): left half = Save, right half = Cancel
+      if (e.row === f.row + 7) {
+        const midCol = f.col + Math.floor(f.width / 2)
         if (e.col < midCol) {
           // Save — same as Enter
           const def = this.entries[this.selectedIdx]
@@ -615,6 +581,12 @@ export class ConfigPanel extends Panel {
     }
     this.selectedIdx = next
     this.syncScrollToSelected()
+  }
+
+  /** Move the viewport window without touching the selection (wheel). */
+  private scrollListBy(delta: number): void {
+    const maxScroll = Math.max(0, this.rows.length - this.visibleListHeight())
+    this.scrollTop = Math.max(0, Math.min(maxScroll, this.scrollTop + delta))
   }
 
   private syncScrollToSelected(): void {

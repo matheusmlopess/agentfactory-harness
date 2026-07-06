@@ -251,6 +251,40 @@ tui_widgets:
     wave: 1
     status: implemented
 
+  - path: src/tui/widgets/Overlay.ts
+    purpose: Shared modal frame — sm/md/lg tiers (46/56/64), centered geometry, title, footer hint, Esc + click-outside dismissal
+    exports:
+      - OverlayTier (type)
+      - OverlayOpts (interface)
+      - OverlayFrame (interface)
+      - Overlay (class)
+    wave: 5
+    status: implemented
+
+  - path: src/tui/widgets/Overlay.test.ts
+    purpose: Overlay geometry/clamping/frame/dismissal tests
+    wave: 5
+    status: implemented
+
+  - path: src/tui/widgets/ScrollableList.ts
+    purpose: The shared list behaviour — selection + viewport, ListOptions (wrap, wheel viewport|selection, wheelStep), headless-capable
+    exports:
+      - ListRow (interface)
+      - ListOptions (interface)
+      - ScrollableList (class)
+    wave: 5
+    status: implemented
+
+  - path: src/tui/widgets/ScrollableList.test.ts
+    purpose: clamp/wrap nav, header skip, wheel semantics, click mapping
+    wave: 5
+    status: implemented
+
+  - path: src/tui/widgets/ContextMenu.test.ts
+    purpose: ContextMenu keyboard/mouse/dismissal tests (first coverage)
+    wave: 5
+    status: implemented
+
   # layout.ts extended in Wave 4 to add terminal: Rect
 
 core:

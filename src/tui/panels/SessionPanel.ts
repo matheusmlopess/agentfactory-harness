@@ -11,6 +11,7 @@ import { createAdapter, defaultProvider, listModels } from '../../core/llm/index
 import type { Provider, ModelEntry } from '../../core/llm/index.js'
 import { store } from '../../core/config/store.js'
 import { ScrollableList } from '../widgets/ScrollableList.js'
+import { Overlay } from '../widgets/Overlay.js'
 import { nextLaureate, type Laureate } from '../../core/nobel.js'
 import { rolloutStore, type RolloutHandle, type RolloutEvent } from '../../core/rollout.js'
 import { logger } from '../../core/logger.js'
@@ -131,6 +132,16 @@ export class SessionPanel extends Panel {
   private newSessionList = new ScrollableList(8)
   private newSessionTargets: ({ kind: 'standard' } | { kind: 'provider'; provider: Provider })[] = []
   private log = logger('Session')
+
+  // Shared modal frames (gap 8)
+  private readonly newSessionOverlay = new Overlay({
+    title: 'New Session', tier: 'sm',
+    onDismiss: () => { this.newSessionOpen = false; this.onUpdate() },
+  })
+  private readonly pickerOverlay = new Overlay({
+    title: 'Select Model', tier: 'md',
+    onDismiss: () => { this.modelPickerOpen = false; this.onUpdate() },
+  })
 
   constructor(
     rect: Rect,
@@ -437,24 +448,14 @@ export class SessionPanel extends Panel {
     if (this.modelPickerOpen) this.renderModelPicker(buf, r)
   }
 
-  private renderNewSessionMenu(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
-    const modalW   = Math.min(r.width - 4, 46)
-    const rows     = this.newSessionList.shownCount + (this.newSessionList.isScrollable ? 1 : 0)
-    const modalH   = rows + 2
-    const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
-    const modalCol = r.col + Math.floor((r.width - modalW) / 2)
-    const inner    = modalW - 2
+  /** Content rows for the new-session menu (list + optional scroll hint). */
+  private newSessionRows(): number {
+    return this.newSessionList.shownCount + (this.newSessionList.isScrollable ? 1 : 0)
+  }
 
-    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
-    const hLine = '─'.repeat(inner)
-    buf.write(modalRow,              modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    for (let i = 1; i < modalH - 1; i++) {
-      buf.write(modalRow + i, modalCol,            '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.write(modalRow + i, modalCol + modalW-1, '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    }
-    buf.write(modalRow, modalCol + 2, ' New Session ', { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
-    this.newSessionList.render(buf, modalRow + 1, modalCol + 1, inner)
+  private renderNewSessionMenu(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
+    const f = this.newSessionOverlay.renderFrame(buf, r, this.newSessionRows())
+    this.newSessionList.render(buf, f.inner.row, f.inner.col, f.inner.width)
   }
 
   /** Commands matching the current input, or [] if autocomplete isn't active. */
@@ -514,25 +515,18 @@ export class SessionPanel extends Panel {
   // ── Picker geometry helper ────────────────────────────────────────────────
 
   private pickerGeometry(r: { row: number; col: number; height: number; width: number }, contentRows: number) {
-    const modalW   = Math.min(r.width - 4, 56)
-    const modalH   = Math.min(contentRows + 2, r.height - 4)  // border top/bot
-    const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
-    const modalCol = r.col + Math.floor((r.width - modalW) / 2)
-    return { modalW, modalH, modalRow, modalCol, inner: modalW - 2 }
+    const f = this.pickerOverlay.layout(r, contentRows)
+    return { modalW: f.width, modalH: f.height, modalRow: f.row, modalCol: f.col, inner: f.width - 2 }
   }
 
-  private drawPickerFrame(buf: CellBuffer, title: string, g: ReturnType<SessionPanel['pickerGeometry']>): void {
-    const { modalW, modalH, modalRow, modalCol, inner } = g
-    buf.fill(modalRow, modalCol, modalH, modalW, ' ', { bg: Colors.bgPanel })
-    const hLine = '─'.repeat(inner)
-    buf.write(modalRow,              modalCol, '┌' + hLine + '┐', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    buf.write(modalRow + modalH - 1, modalCol, '└' + hLine + '┘', { fg: Colors.borderActive, bg: Colors.bgPanel })
-    for (let i = 1; i < modalH - 1; i++) {
-      buf.write(modalRow + i, modalCol,            '│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.write(modalRow + i, modalCol + modalW - 1,'│', { fg: Colors.borderActive, bg: Colors.bgPanel })
-      buf.fill(modalRow + i, modalCol + 1, 1, inner, ' ', { bg: Colors.bgPanel })
-    }
-    buf.write(modalRow, modalCol + 2, ` ${title} `, { fg: Colors.textBright, bg: Colors.bgPanel, bold: true })
+  private drawPickerFrame(
+    buf: CellBuffer,
+    title: string,
+    r: { row: number; col: number; height: number; width: number },
+    contentRows: number,
+  ): ReturnType<SessionPanel['pickerGeometry']> {
+    const f = this.pickerOverlay.renderFrame(buf, r, contentRows, title)
+    return { modalW: f.width, modalH: f.height, modalRow: f.row, modalCol: f.col, inner: f.width - 2 }
   }
 
   // ── Picker click ──────────────────────────────────────────────────────────
@@ -585,8 +579,7 @@ export class SessionPanel extends Panel {
   private renderModelPicker(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
     if (this.pickerStep === 'provider') {
       const provs = this.pickerProviders
-      const g = this.pickerGeometry(r, provs.length)
-      this.drawPickerFrame(buf, 'Select Provider', g)
+      const g = this.drawPickerFrame(buf, 'Select Provider', r, provs.length)
       for (let i = 0; i < provs.length; i++) {
         const sel = i === this.pickerProviderIdx
         const label = (sel ? '► ' : '  ') + provs[i]!.name
@@ -599,8 +592,7 @@ export class SessionPanel extends Panel {
 
     // step = 'model'
     if (this.pickerLoading) {
-      const g = this.pickerGeometry(r, 1)
-      this.drawPickerFrame(buf, 'Loading models…', g)
+      const g = this.drawPickerFrame(buf, 'Loading models…', r, 1)
       buf.write(g.modalRow + 1, g.modalCol + 2, '⣾ Fetching from provider…', { fg: Colors.textDim, bg: Colors.bgPanel })
       return
     }
@@ -611,9 +603,7 @@ export class SessionPanel extends Panel {
     const prov         = this.pickerProviders[this.pickerProviderIdx]
     const title        = prov ? `${prov.name} models` : 'Select Model'
     const contentRows  = visibleCount + (scrollable ? 1 : 0)
-    const g            = this.pickerGeometry(r, contentRows)
-
-    this.drawPickerFrame(buf, title, g)
+    const g            = this.drawPickerFrame(buf, title, r, contentRows)
 
     for (let i = 0; i < visibleCount; i++) {
       const modelIdx  = this.pickerScrollOffset + i
@@ -756,20 +746,12 @@ export class SessionPanel extends Panel {
   override onMouse(e: MouseEvent): boolean {
     // New-session menu intercepts all mouse when open
     if (this.newSessionOpen) {
-      if (e.button === 'scroll_up')   { this.newSessionList.scrollUp();   this.onUpdate(); return true }
-      if (e.button === 'scroll_down') { this.newSessionList.scrollDown(); this.onUpdate(); return true }
+      if (e.button === 'scroll_up')   { this.newSessionList.onWheel('up');   this.onUpdate(); return true }
+      if (e.button === 'scroll_down') { this.newSessionList.onWheel('down'); this.onUpdate(); return true }
       if (e.button === 'left' && e.action === 'press') {
-        const r = this.inner
-        const displayRows = this.getDisplayRows()  // account for multi-line input
-        const modalW   = Math.min(r.width - 4, 46)
-        const rows     = this.newSessionList.shownCount + (this.newSessionList.isScrollable ? 1 : 0)
-        const modalH   = rows + 2
-        const modalRow = r.row + Math.max(0, Math.floor((r.height - modalH) / 2))
-        const modalCol = r.col + Math.floor((r.width - modalW) / 2)
-        if (e.row < modalRow || e.row >= modalRow + modalH || e.col < modalCol || e.col >= modalCol + modalW) {
-          this.newSessionOpen = false; this.onUpdate(); return true
-        }
-        const vRow = e.row - (modalRow + 1)
+        const f = this.newSessionOverlay.layout(this.inner, this.newSessionRows())
+        if (this.newSessionOverlay.handleMouse(e, f)) return true
+        const vRow = e.row - f.inner.row
         if (this.newSessionList.selectAtViewportRow(vRow) >= 0) this.confirmNewSession()
       }
       return true
