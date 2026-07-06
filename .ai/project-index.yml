@@ -1,5 +1,5 @@
 meta:
-  version: "1.6.0"
+  version: "1.7.0"
   wave: 5
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
@@ -70,6 +70,11 @@ tui_renderer:
     wave: 0
     status: implemented
 
+  - path: src/tui/renderer/layout.test.ts
+    purpose: Characterization tests — exact computeLayout rects + drawBorder chrome (ui-consolidation P0)
+    wave: 5
+    status: implemented
+
 tui_input:
   - path: src/tui/input/keyboard.ts
     purpose: Raw stdin buffer to KeyEvent; drops mouse escape bytes
@@ -93,6 +98,27 @@ tui_input:
       - InputRouter (class)
       - "dispatch(event, panels, focused)"
     wave: 2
+    status: implemented
+
+  - path: src/tui/input/router.test.ts
+    purpose: Characterization tests freezing InputRouter dispatch contract (ui-consolidation P0)
+    wave: 5
+    status: implemented
+
+  - path: src/tui/tab-bar.ts
+    purpose: Pure tab-bar geometry — label spans + tab/exit hit-testing (extracted from app.ts)
+    exports:
+      - EXIT_BTN
+      - TabHit (type)
+      - TabSpan (interface)
+      - "tabLabelSpans(tabs)"
+      - "tabBarHit(col, cols, tabs)"
+    wave: 5
+    status: implemented
+
+  - path: src/tui/tab-bar.test.ts
+    purpose: tab-bar geometry tests — spans, hits, gaps, exit-button precedence
+    wave: 5
     status: implemented
 
 tui_panels:
@@ -235,6 +261,42 @@ core:
       - AgentLoopOptions (interface)
       - "agentLoop(session, opts): AsyncIterable<AgentEvent>"
     wave: 1
+    status: implemented
+
+  - path: src/core/version.ts
+    purpose: Single source of truth for the app version — cached runtime read of package.json
+    exports:
+      - "getVersion(): string"
+    wave: 5
+    status: implemented
+
+  - path: src/core/version.test.ts
+    purpose: getVersion matches package.json + caching
+    wave: 5
+    status: implemented
+
+  - path: src/core/config/mask.ts
+    purpose: Centralized secret masking (prefix + …▓▓▓▓; urls unmasked) — replaces 2 ad-hoc schemes
+    exports:
+      - "maskSecret(value, fieldType?): string"
+    wave: 5
+    status: implemented
+
+  - path: src/core/config/mask.test.ts
+    purpose: maskSecret edge cases — dashes, short values, urls, default fieldType
+    wave: 5
+    status: implemented
+
+  - path: src/core/llm/limits.ts
+    purpose: Model-aware output-token ceilings (claude 8192 / big-openai 16384 / fallback 4096)
+    exports:
+      - "maxOutputTokens(model): number"
+    wave: 5
+    status: implemented
+
+  - path: src/core/llm/limits.test.ts
+    purpose: maxOutputTokens prefix table tests
+    wave: 5
     status: implemented
 
   - path: src/core/session.ts
@@ -610,6 +672,16 @@ docs:
     status: implemented
   - path: scripts/docs-append.sh
     purpose: Append a doc as a link line to its folder README index (idempotent)
+    wave: 5
+    status: implemented
+
+  - path: scripts/smoke-tui.sh
+    purpose: tmux-driven TUI smoke test — captures panes and greps expected chrome per phase
+    wave: 5
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-07-04-ui-consolidation-studio.md
+    purpose: Approved plan — UI consolidation (ddd/09–11) + standalone orchestration studio
     wave: 5
     status: implemented
   # ────────────────────────────────────────────────────────────────────────────

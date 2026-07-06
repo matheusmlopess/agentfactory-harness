@@ -1,8 +1,7 @@
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import { Colors } from '../renderer/theme.js'
 import type { Rect } from '../renderer/layout.js'
-
-const VERSION = '0.4.0'
+import { getVersion } from '../../core/version.js'
 
 export interface StatusBarLayout {
   /** Column where the model tag starts (-1 if not shown). */
@@ -34,7 +33,7 @@ export function renderStatusBar(
     return { modelTagCol: -1, modelTagLen: 0, toolToggleCol: -1, toolToggleLen: 0 }
   }
 
-  const left = ` factory v${VERSION}  [${mode}] `
+  const left = ` factory v${getVersion()}  [${mode}] `
   buf.write(row, col, left, { fg: Colors.textBright, bg, bold: true })
 
   // Model tag + tool toggle — clickable indicators

@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest'
 // so we can test it without spinning up a full App (process.stdin, PTY, etc.).
 type TerminalBypassAction =
   | 'quit'
+  | 'palette-toggle'
   | 'tab-0' | 'tab-1' | 'tab-2'
   | 'f4-noop'
   | 'config'
@@ -18,6 +19,7 @@ type TerminalBypassAction =
 
 function classifyTerminalInput(data: Buffer): TerminalBypassAction {
   if (data[0] === 0x11) return 'quit'
+  if (data[0] === 0x10) return 'palette-toggle'
   const s = data.toString('binary')
   if (s === '\x1bOP' || s === '\x1b[11~') return 'tab-0'   // F1
   if (s === '\x1bOQ' || s === '\x1b[12~') return 'tab-1'   // F2
@@ -33,6 +35,10 @@ function classifyTerminalInput(data: Buffer): TerminalBypassAction {
 describe('Terminal tab input bypass — raw byte classification', () => {
   it('Ctrl+Q triggers quit', () => {
     expect(classifyTerminalInput(Buffer.from([0x11]))).toBe('quit')
+  })
+
+  it('Ctrl+P toggles the command palette (checked before F-keys)', () => {
+    expect(classifyTerminalInput(Buffer.from([0x10]))).toBe('palette-toggle')
   })
 
   it('F1 xterm form (\\x1bOP) → tab-0', () => {

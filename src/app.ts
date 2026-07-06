@@ -31,6 +31,8 @@ import { getUser, clearToken } from './registry/auth.js'
 import { startDeviceLogin } from './registry/login.js'
 import { importFromTools } from './registry/import-keys.js'
 import { logger, getLogFilePath, getRecentLogs, type LogEntry } from './core/logger.js'
+import { tabBarHit, tabLabelSpans, EXIT_BTN } from './tui/tab-bar.js'
+import { getVersion } from './core/version.js'
 
 const log = logger('App')
 
@@ -38,7 +40,6 @@ const TABS = ['Session', 'Orchestration', 'Agents', 'Terminal', 'Config', 'Logs'
 const TAB_TERMINAL = 3
 const TAB_CONFIG   = 4
 const TAB_LOGS     = 5
-const EXIT_BTN = ' ✕ Quit '
 
 export class App {
   private rows = process.stdout.rows ?? 24
@@ -85,7 +86,7 @@ export class App {
   }
 
   async start(): Promise<void> {
-    log.info('startup', { version: '0.6.0', cols: this.cols, rows: this.rows })
+    log.info('startup', { version: getVersion(), cols: this.cols, rows: this.rows })
     this.running = true
     this.setup()
     await store.init()
@@ -481,16 +482,15 @@ export class App {
   }
 
   private renderTabBar(row: number): void {
-    let col = 1
+    const spans = tabLabelSpans(TABS)
     for (let i = 0; i < TABS.length; i++) {
       const label = ` ${TABS[i]} `
       const active = i === this.activeTab
-      this.buf.write(row, col, label, {
+      this.buf.write(row, spans[i]!.col, label, {
         fg: active ? Colors.bg      : Colors.textDim,
         bg: active ? Colors.accent  : Colors.bgPanel,
         bold: active,
       })
-      col += label.length + 1
     }
     // Exit button — right-aligned in the tab bar
     const exitCol = this.cols - EXIT_BTN.length - 1
@@ -499,19 +499,13 @@ export class App {
 
   /** True if a click at (row=0, col) lands on the exit button. */
   private isExitBtn(col: number): boolean {
-    const exitCol = this.cols - EXIT_BTN.length - 1
-    return col >= exitCol && col < exitCol + EXIT_BTN.length
+    return tabBarHit(col, this.cols, TABS).kind === 'exit'
   }
 
   /** Returns tab index (0-based) for a click on the tab bar row, or -1. */
   private tabAt(col: number): number {
-    let c = 1
-    for (let i = 0; i < TABS.length; i++) {
-      const label = ` ${TABS[i]!} `
-      if (col >= c && col < c + label.length) return i
-      c += label.length + 1
-    }
-    return -1
+    const hit = tabBarHit(col, this.cols, TABS)
+    return hit.kind === 'tab' ? hit.index : -1
   }
 
   /** Returns the tab index that a click at (row, col) should focus, or -1. */

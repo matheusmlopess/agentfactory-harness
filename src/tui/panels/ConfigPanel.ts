@@ -11,6 +11,7 @@ import type { AuthUser } from '../../registry/auth.js'
 import type { LoginEvent } from '../../registry/login.js'
 import type { ImportCandidate } from '../../registry/import-keys.js'
 import { logger } from '../../core/logger.js'
+import { maskSecret } from '../../core/config/mask.js'
 
 type PanelMode = 'browse' | 'edit' | 'login' | 'import'
 
@@ -29,15 +30,6 @@ const CATEGORY_LABELS: Record<Category, string> = {
   ide:       'IDE / Editor',
   framework: 'Agent Frameworks',
   local:     'Local Models',
-}
-
-function maskValue(val: string, def: ProviderDef): string {
-  if (def.fieldType === 'url') return val  // URLs shown unmasked
-  if (val.length === 0) return ''
-  // Show first few chars before the first meaningful delimiter, then mask
-  const dashIdx = val.indexOf('-', 3)
-  const prefix = dashIdx > 0 ? val.slice(0, dashIdx + 1) : val.slice(0, Math.min(6, val.length))
-  return `${prefix}…▓▓▓▓`
 }
 
 const DOUBLE_CLICK_MS = 350
@@ -193,7 +185,7 @@ export class ConfigPanel extends Panel {
         } else {
           const val = store.getKey(def.configKey, def.envVar)
           hasValue = (val !== undefined && val !== '')
-          valStr = hasValue ? `${maskValue(val!, def)} [set]` : '(not set)'
+          valStr = hasValue ? `${maskSecret(val!, def.fieldType)} [set]` : '(not set)'
         }
         const valFg = isAlias ? Colors.textDim : (hasValue ? Colors.success : Colors.textDim)
         // Leave room for delete button when value is set
@@ -325,7 +317,7 @@ export class ConfigPanel extends Panel {
       const c = candidates[i]!
       const nameW = 14
       const srcW  = 24
-      const masked = c.value.length > 8 ? c.value.slice(0, 6) + '…' : c.value
+      const masked = maskSecret(c.value)
       const line = `  ✓ ${c.name.padEnd(nameW).substring(0, nameW)}  ${masked.padEnd(12).substring(0, 12)}  ${c.source}`.substring(0, modalW - 4)
       buf.write(modalRow + 4 + i, modalCol + 2, line, { fg: Colors.success, bg: Colors.bgPanel })
       void srcW

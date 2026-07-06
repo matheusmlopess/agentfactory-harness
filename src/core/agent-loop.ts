@@ -8,6 +8,7 @@ import { type Session } from './session.js'
 import { listTools, dispatch } from './tools/index.js'
 import { runHook } from './hooks.js'
 import { createAdapter, defaultProvider, type LLMAdapter } from './llm/index.js'
+import { maxOutputTokens } from './llm/limits.js'
 
 export type AgentEvent =
   | { type: 'text_delta'; delta: string }
@@ -25,11 +26,10 @@ export interface AgentLoopOptions {
   adapter?: LLMAdapter
   /** Plain-chat mode: don't send tool definitions (saves ~220 input tokens/call). */
   noTools?: boolean
+  /** Output-token ceiling; defaults to a model-aware limit (limits.ts). */
+  maxTokens?: number
 }
 
-// Conservative default — keeps total usage well within older models' context windows.
-// Users on large-context models (claude-3+, gpt-4o, o3) won't notice the cap.
-const DEFAULT_MAX_TOKENS = 2048
 const DEFAULT_SYSTEM = 'You are a helpful assistant in the factory ITUI agent shell.'
 
 export async function* agentLoop(
@@ -44,6 +44,7 @@ export async function* agentLoop(
 
   const adapter = opts.adapter ?? createAdapter(defaultProvider())
   const model = opts.model ?? adapter.defaultModel
+  const maxTokens = opts.maxTokens ?? maxOutputTokens(model)
   const tools = opts.noTools ? [] : listTools()
 
   const toolDefs = tools.map((t) => ({
@@ -78,7 +79,7 @@ export async function* agentLoop(
         model,
         systemPrompt,
         tools: toolDefs,
-        maxTokens: DEFAULT_MAX_TOKENS,
+        maxTokens,
         ...(signal !== undefined ? { signal } : {}),
       })) {
         if (signal?.aborted) return
