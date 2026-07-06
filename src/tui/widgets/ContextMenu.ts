@@ -1,5 +1,6 @@
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import type { KeyEvent } from '../input/keyboard.js'
+import type { MouseEvent } from '../input/mouse.js'
 import { Colors } from '../renderer/theme.js'
 
 export interface MenuItem {
@@ -13,8 +14,10 @@ export class ContextMenu {
   private col: number
   private items: MenuItem[]
   private selectedIdx = 0
+  private lastW = 0
+  private lastH = 0
 
-  constructor(row: number, col: number, items: MenuItem[]) {
+  constructor(row: number, col: number, items: MenuItem[], private readonly onDismiss?: () => void) {
     this.row = row
     this.col = col
     this.items = items
@@ -26,6 +29,8 @@ export class ContextMenu {
       maxCols - this.col
     ))
     const menuHeight = Math.max(3, Math.min(this.items.length + 2, maxRows - this.row))
+    this.lastW = menuWidth
+    this.lastH = menuHeight
 
     // Border
     buf.write(this.row, this.col, '┌' + '─'.repeat(menuWidth - 2) + '┐', { fg: Colors.border })
@@ -51,6 +56,10 @@ export class ContextMenu {
   }
 
   onKey(e: KeyEvent): boolean {
+    if (e.key === 'escape') {
+      this.onDismiss?.()
+      return true
+    }
     if (e.key === 'arrow_up') {
       this.selectedIdx = Math.max(0, this.selectedIdx - 1)
       return true
@@ -65,5 +74,27 @@ export class ContextMenu {
       return true
     }
     return false
+  }
+
+  /**
+   * Mouse convention (gap 4): left-press on an item activates it; any other
+   * left-press dismisses. Requires a prior render() for geometry.
+   */
+  onMouse(e: MouseEvent): boolean {
+    if (e.button !== 'left' || e.action !== 'press') return false
+    const inside =
+      e.row >= this.row && e.row < this.row + this.lastH &&
+      e.col >= this.col && e.col < this.col + this.lastW
+    if (inside) {
+      const itemIdx = e.row - (this.row + 1)
+      const item = itemIdx >= 0 && itemIdx + 1 < this.lastH - 1 ? this.items[itemIdx] : undefined
+      if (item) {
+        this.selectedIdx = itemIdx
+        item.action()
+        return true
+      }
+    }
+    this.onDismiss?.()
+    return true
   }
 }

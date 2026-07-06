@@ -197,9 +197,10 @@ export class OrchestrationCanvas extends Panel {
       return false
     }
 
-    // Close menu on any click — consume the event so it doesn't also start a drag
+    // Menu owns clicks while open — items are clickable, elsewhere dismisses.
+    // Consume so the event doesn't also start a drag.
     if (this.menu && e.action === 'press') {
-      this.menu = null
+      this.menu.onMouse(e)
       this.onUpdate()
       return true
     }
@@ -368,7 +369,8 @@ export class OrchestrationCanvas extends Panel {
           }},
         ]
 
-    this.menu = new ContextMenu(r.row + row, r.col + col, items)
+    this.menu = new ContextMenu(r.row + row, r.col + col, items,
+      () => { this.menu = null; this.onUpdate() })
     this.onUpdate()
   }
 
