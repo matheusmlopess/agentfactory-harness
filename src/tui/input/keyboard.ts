@@ -30,6 +30,7 @@ const SPECIAL: Record<string, string> = {
   '\x1b[13~':   'f3',
   '\x1b[14~':   'f4',
   '\x1b[15~':   'f5',
+  '\x1b[17~':   'f6',   // note: VT sequence numbering skips 16
 }
 
 /** Parse a raw stdin buffer chunk into a KeyEvent (if it's a keyboard event). */

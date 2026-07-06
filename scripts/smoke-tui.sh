@@ -48,7 +48,7 @@ echo "== Phase 0: tab switching =="
 send F5
 check "F5 opens Config tab"              "API Providers"
 send F6
-check "F6 opens Logs tab"                " Logs "
+check "F6 opens Logs tab (panel content, not tab label)" "Metrics"
 send F1
 
 # Quit cleanly

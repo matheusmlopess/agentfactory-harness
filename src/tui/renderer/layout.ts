@@ -15,6 +15,7 @@ export interface PanelLayout {
   agents: Rect
   terminal: Rect
   config: Rect
+  logs: Rect
   statusBar: Rect
 }
 
@@ -43,6 +44,7 @@ export function computeLayout(rows: number, cols: number): PanelLayout {
     agents:    { row: 1 + canvasHeight, col: sessionWidth, height: agentsHeight, width: rightWidth },
     terminal:  { row: 1, col: sessionWidth, height: mainHeight, width: rightWidth },
     config:    { row: 1, col: sessionWidth, height: mainHeight, width: rightWidth },
+    logs:      { row: 1, col: 0, height: mainHeight, width: cols },
     statusBar: { row: rows - 1, col: 0, height: 1, width: cols },
   }
 }
