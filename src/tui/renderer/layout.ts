@@ -55,7 +55,7 @@ export function drawBorder(
   focused = false
 ): void {
   const { row, col, height, width } = rect
-  const borderColor = focused ? Colors.borderActive : Colors.border
+  const borderColor = focused ? Colors.focus : Colors.border
   const style = { fg: borderColor }
 
   // Corners
@@ -75,9 +75,10 @@ export function drawBorder(
     buf.write(r, col + width - 1, Box.v, style)
   }
 
-  // Title inline in top border
+  // Title inline in top border — focused panels get inverse-video bold so
+  // focus is legible without color (a11y, gap 18)
   if (title) {
     const label = ` ${title} `
-    buf.write(row, col + 2, label, { fg: Colors.textBright, bold: focused })
+    buf.write(row, col + 2, label, { fg: Colors.textBright, bold: focused, reverse: focused })
   }
 }

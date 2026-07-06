@@ -3,7 +3,8 @@ import { resolve } from 'node:path'
 import { CellBuffer } from './tui/renderer/cell-buffer.js'
 import { computeLayout, drawBorder } from './tui/renderer/layout.js'
 import { renderStatusBar } from './tui/panels/StatusBar.js'
-import { Colors } from './tui/renderer/theme.js'
+import { Colors, setTheme } from './tui/renderer/theme.js'
+import { motionEnabled } from './tui/renderer/motion.js'
 import * as A from './tui/renderer/ansi.js'
 import { parseKey } from './tui/input/keyboard.js'
 import { parseMouse } from './tui/input/mouse.js'
@@ -90,6 +91,7 @@ export class App {
     this.running = true
     this.setup()
     await store.init()
+    setTheme(store.getSetting('theme') === 'high-contrast' ? 'high-contrast' : 'default')
     log.debug('config store initialized')
     this.initPanels()
     log.debug('panels initialized')
@@ -196,14 +198,17 @@ export class App {
       void this.runLogsAnalysis(true)  // true = auto
     }, 2 * 60 * 1000)
 
-    // Start countdown ticker (updates every second)
-    let countdown = 120
-    this.logsCountdownInterval = setInterval(() => {
-      countdown = Math.max(0, countdown - 1)
-      this.logsPanel.setCountdown(countdown)
-      if (countdown === 0) countdown = 120
-      this.scheduleRender()
-    }, 1000)
+    // Start countdown ticker (updates every second) — skipped entirely under
+    // reduced motion; the heartbeat itself still runs
+    if (motionEnabled()) {
+      let countdown = 120
+      this.logsCountdownInterval = setInterval(() => {
+        countdown = Math.max(0, countdown - 1)
+        this.logsPanel.setCountdown(countdown)
+        if (countdown === 0) countdown = 120
+        this.scheduleRender()
+      }, 1000)
+    }
   }
 
   private stopLogsHeartbeat(): void {
@@ -414,7 +419,7 @@ export class App {
     const layout = computeLayout(this.rows, this.cols)
     const onTerminal = this.activeTab === TAB_TERMINAL
 
-    this.buf.fill(0, 0, this.rows, this.cols, ' ', { bg: Colors.bg })
+    this.buf.fill(0, 0, this.rows, this.cols, ' ', { bg: Colors.surface })
     this.renderTabBar(layout.tabBar.row)
 
     // Left column — always visible
@@ -487,14 +492,14 @@ export class App {
       const label = ` ${TABS[i]} `
       const active = i === this.activeTab
       this.buf.write(row, spans[i]!.col, label, {
-        fg: active ? Colors.bg      : Colors.textDim,
-        bg: active ? Colors.accent  : Colors.bgPanel,
+        fg: active ? Colors.surface      : Colors.textDim,
+        bg: active ? Colors.primary  : Colors.surfacePanel,
         bold: active,
       })
     }
     // Exit button — right-aligned in the tab bar
     const exitCol = this.cols - EXIT_BTN.length - 1
-    this.buf.write(row, exitCol, EXIT_BTN, { fg: Colors.bg, bg: 196, bold: true })
+    this.buf.write(row, exitCol, EXIT_BTN, { fg: Colors.surface, bg: Colors.danger, bold: true })
   }
 
   /** True if a click at (row=0, col) lands on the exit button. */

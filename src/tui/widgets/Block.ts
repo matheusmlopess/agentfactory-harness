@@ -28,7 +28,7 @@ export function renderBlock(
   const borderFg = faded
     ? Colors.textDim
     : focused
-    ? Colors.borderActive
+    ? Colors.focus
     : Colors.border
 
   const style = { fg: borderFg }
@@ -46,7 +46,7 @@ export function renderBlock(
   for (let i = 1; i < height - 1; i++) {
     buf.write(r + i, c, DBox.v, style)
     buf.write(r + i, c + width - 1, DBox.v, style)
-    buf.fill(r + i, c + 1, 1, width - 2, ' ', { bg: Colors.bgPanel })
+    buf.fill(r + i, c + 1, 1, width - 2, ' ', { bg: Colors.surfacePanel })
   }
 
   // Title on header row
@@ -68,7 +68,7 @@ export function renderBlock(
   for (let i = 0; i < inputs.length && i + 1 < height - 1; i++) {
     const portLabel = (inputs[i] ?? '').substring(0, width - 3)
     const portRow = r + 1 + i
-    const portFg = faded ? Colors.textDim : Colors.accent
+    const portFg = faded ? Colors.textDim : Colors.primary
     buf.write(portRow, c, Wire.portIn, { fg: portFg })
     buf.write(portRow, c + 1, portLabel, { fg: portFg })
   }

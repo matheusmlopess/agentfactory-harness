@@ -64,7 +64,7 @@ describe('drawBorder', () => {
   it('focused border uses the active color, unfocused the base color', () => {
     const { raw: focusedRaw } = renderPlain(rect, '', true)
     const { raw: normalRaw } = renderPlain(rect, '', false)
-    expect(focusedRaw).toContain(`38;5;${Colors.borderActive}m`)
+    expect(focusedRaw).toContain(`38;5;${Colors.focus}m`)
     expect(normalRaw).toContain(`38;5;${Colors.border}m`)
   })
 })

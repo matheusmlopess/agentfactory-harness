@@ -13,6 +13,7 @@ import type { ImportCandidate } from '../../registry/import-keys.js'
 import { logger } from '../../core/logger.js'
 import { maskSecret } from '../../core/config/mask.js'
 import { Overlay } from '../widgets/Overlay.js'
+import { motionEnabled } from '../renderer/motion.js'
 
 type PanelMode = 'browse' | 'edit' | 'login' | 'import'
 
@@ -153,7 +154,7 @@ export class ConfigPanel extends Panel {
     const listHeight = r.height - 2 - HEADER_ROWS
 
     // Fill background
-    buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.bgPanel })
+    buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.surfacePanel })
 
     // ── Auth header (always visible) ─────────────────────────────────────
     this.renderAuthHeader(buf, r)
@@ -171,9 +172,9 @@ export class ConfigPanel extends Panel {
 
       if (item.kind === 'header') {
         const label = `▸ ${CATEGORY_LABELS[item.category]}`
-        buf.write(screenRow, r.col, label.substring(0, r.width), { fg: Colors.accent, bg: Colors.bgPanel, bold: true })
+        buf.write(screenRow, r.col, label.substring(0, r.width), { fg: Colors.primary, bg: Colors.surfacePanel, bold: true })
         if (rowsRendered + 1 < listHeight) {
-          buf.write(screenRow + 1, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.bgPanel })
+          buf.write(screenRow + 1, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.surfacePanel })
           screenRow += 2; rowsRendered += 2
         } else {
           screenRow++; rowsRendered++
@@ -185,7 +186,7 @@ export class ConfigPanel extends Panel {
 
         const namePrefix = isSelected ? '► ' : '  '
         const nameFg = isAlias ? Colors.textDim : (isSelected ? Colors.textBright : Colors.text)
-        const nameBg = isSelected ? Colors.bgActive : Colors.bgPanel
+        const nameBg = isSelected ? Colors.surfaceActive : Colors.surfacePanel
 
         const nameCol = Math.floor(r.width * 0.55)
         const nameStr = (namePrefix + def.name).substring(0, nameCol)
@@ -207,7 +208,7 @@ export class ConfigPanel extends Panel {
         const valWidth = hasValue ? valCol - DEL_BTN.length - 1 : valCol - 1
         buf.write(screenRow, r.col + nameCol, valStr.substring(0, valWidth).padStart(valWidth), { fg: valFg, bg: nameBg })
         if (hasValue) {
-          buf.write(screenRow, r.col + r.width - DEL_BTN.length, DEL_BTN, { fg: Colors.error, bg: nameBg, bold: isSelected })
+          buf.write(screenRow, r.col + r.width - DEL_BTN.length, DEL_BTN, { fg: Colors.danger, bg: nameBg, bold: isSelected })
         }
 
         screenRow++; rowsRendered++
@@ -217,16 +218,16 @@ export class ConfigPanel extends Panel {
 
     // ── Scroll indicators ─────────────────────────────────────────────────
     if (this.rows.length > rowsRendered) {
-      if (this.scrollTop > 0)        buf.write(r.row + HEADER_ROWS, r.col + r.width - 3, ' ▲ ', { fg: Colors.textDim, bg: Colors.bgPanel })
-      if (rowIdx < this.rows.length) buf.write(r.row + HEADER_ROWS + listHeight - 1, r.col + r.width - 3, ' ▼ ', { fg: Colors.textDim, bg: Colors.bgPanel })
+      if (this.scrollTop > 0)        buf.write(r.row + HEADER_ROWS, r.col + r.width - 3, ' ▲ ', { fg: Colors.textDim, bg: Colors.surfacePanel })
+      if (rowIdx < this.rows.length) buf.write(r.row + HEADER_ROWS + listHeight - 1, r.col + r.width - 3, ' ▼ ', { fg: Colors.textDim, bg: Colors.surfacePanel })
     }
 
     // ── Hint bar ──────────────────────────────────────────────────────────
     if (this.mode === 'browse' || this.mode === 'edit') {
       const hintRow = r.row + r.height - 2
-      buf.write(hintRow, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.bgPanel })
+      buf.write(hintRow, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.surfacePanel })
       const hint = ' [↑↓] Navigate  [Enter/DblClick] Edit  [Ctrl+R] Delete key  [PgUp/Dn] Scroll'
-      buf.write(hintRow + 1, r.col, hint.substring(0, r.width), { fg: Colors.textDim, bg: Colors.bgPanel })
+      buf.write(hintRow + 1, r.col, hint.substring(0, r.width), { fg: Colors.textDim, bg: Colors.surfacePanel })
     }
 
     // ── Edit modal overlay ────────────────────────────────────────────────
@@ -244,7 +245,7 @@ export class ConfigPanel extends Panel {
 
     // ── Write error if last persist failed ────────────────────────────────
     if (store.lastWriteError) {
-      buf.write(r.row + r.height - 1, r.col, ` ⚠ ${store.lastWriteError} `.substring(0, r.width), { fg: Colors.bg, bg: Colors.error })
+      buf.write(r.row + r.height - 1, r.col, ` ⚠ ${store.lastWriteError} `.substring(0, r.width), { fg: Colors.surface, bg: Colors.danger })
     }
   }
 
@@ -254,16 +255,16 @@ export class ConfigPanel extends Panel {
       ? `● @${this.authUser.github_handle}  (${this.authUser.plan})`
       : '○ Not logged in'
     const statusFg = this.authUser ? Colors.success : Colors.textDim
-    buf.write(r.row, r.col, statusLine.padEnd(r.width).substring(0, r.width), { fg: statusFg, bg: Colors.bgPanel, bold: !!this.authUser })
+    buf.write(r.row, r.col, statusLine.padEnd(r.width).substring(0, r.width), { fg: statusFg, bg: Colors.surfacePanel, bold: !!this.authUser })
 
     // Row 1: action buttons
     const loginLabel  = this.authUser ? '  [→ Logout]  ' : '  [→ Login]   '
     const importLabel = '  [→ Import keys from tools]'
-    buf.write(r.row + 1, r.col,                       loginLabel.substring(0, Math.floor(r.width / 2)), { fg: Colors.accent, bg: Colors.bgPanel })
-    buf.write(r.row + 1, r.col + Math.floor(r.width / 2), importLabel.substring(0, r.width - Math.floor(r.width / 2)), { fg: Colors.info, bg: Colors.bgPanel })
+    buf.write(r.row + 1, r.col,                       loginLabel.substring(0, Math.floor(r.width / 2)), { fg: Colors.primary, bg: Colors.surfacePanel })
+    buf.write(r.row + 1, r.col + Math.floor(r.width / 2), importLabel.substring(0, r.width - Math.floor(r.width / 2)), { fg: Colors.info, bg: Colors.surfacePanel })
 
     // Row 2: divider
-    buf.write(r.row + 2, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.bgPanel })
+    buf.write(r.row + 2, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.surfacePanel })
   }
 
   private renderLoginOverlay(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
@@ -272,20 +273,20 @@ export class ConfigPanel extends Panel {
 
     // Final message (success or error) replaces step content
     if (this.loginMessage) {
-      const msgFg = this.loginMessage.startsWith('✓') ? Colors.success : Colors.error
-      buf.write(modalRow + 5, modalCol + 2, this.loginMessage.substring(0, modalW - 4), { fg: msgFg, bg: Colors.bgPanel, bold: true })
+      const msgFg = this.loginMessage.startsWith('✓') ? Colors.success : Colors.danger
+      buf.write(modalRow + 5, modalCol + 2, this.loginMessage.substring(0, modalW - 4), { fg: msgFg, bg: Colors.surfacePanel, bold: true })
     } else if (this.loginUserCode) {
-      buf.write(modalRow + 2, modalCol + 2, '1. Open this URL in your browser:', { fg: Colors.text, bg: Colors.bgPanel })
-      buf.write(modalRow + 3, modalCol + 2, `   ↗  ${this.loginVerifyUrl}`.substring(0, modalW - 4), { fg: Colors.info, bg: Colors.bgPanel, underline: true })
-      buf.write(modalRow + 5, modalCol + 2, '2. Enter this code:', { fg: Colors.text, bg: Colors.bgPanel })
-      buf.write(modalRow + 6, modalCol + 6, this.loginUserCode, { fg: Colors.textBright, bg: Colors.bgActive, bold: true })
-      const spinner = SPINNER[this.spinnerFrame]!
-      buf.write(modalRow + 8, modalCol + 2, `${spinner} Waiting…  (${this.loginSeconds}s remaining)`.substring(0, modalW - 4), { fg: Colors.textDim, bg: Colors.bgPanel })
+      buf.write(modalRow + 2, modalCol + 2, '1. Open this URL in your browser:', { fg: Colors.text, bg: Colors.surfacePanel })
+      buf.write(modalRow + 3, modalCol + 2, `   ↗  ${this.loginVerifyUrl}`.substring(0, modalW - 4), { fg: Colors.info, bg: Colors.surfacePanel, underline: true })
+      buf.write(modalRow + 5, modalCol + 2, '2. Enter this code:', { fg: Colors.text, bg: Colors.surfacePanel })
+      buf.write(modalRow + 6, modalCol + 6, this.loginUserCode, { fg: Colors.textBright, bg: Colors.surfaceActive, bold: true })
+      const spinner = motionEnabled() ? SPINNER[this.spinnerFrame]! : '●'
+      buf.write(modalRow + 8, modalCol + 2, `${spinner} Waiting…  (${this.loginSeconds}s remaining)`.substring(0, modalW - 4), { fg: Colors.textDim, bg: Colors.surfacePanel })
     } else {
-      buf.write(modalRow + 5, modalCol + 2, 'Connecting…', { fg: Colors.textDim, bg: Colors.bgPanel })
+      buf.write(modalRow + 5, modalCol + 2, 'Connecting…', { fg: Colors.textDim, bg: Colors.surfacePanel })
     }
 
-    buf.write(modalRow + 9, modalCol + 2, '[Esc] Cancel', { fg: Colors.textDim, bg: Colors.bgPanel })
+    buf.write(modalRow + 9, modalCol + 2, '[Esc] Cancel', { fg: Colors.textDim, bg: Colors.surfacePanel })
   }
 
   private renderImportOverlay(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }): void {
@@ -295,22 +296,22 @@ export class ConfigPanel extends Panel {
     const { row: modalRow, col: modalCol, width: modalW } = f
 
     if (candidates.length === 0) {
-      buf.write(modalRow + 2, modalCol + 2, 'No importable keys found.', { fg: Colors.textDim, bg: Colors.bgPanel })
-      buf.write(modalRow + 4, modalCol + 2, '[Esc] Close', { fg: Colors.textDim, bg: Colors.bgPanel })
+      buf.write(modalRow + 2, modalCol + 2, 'No importable keys found.', { fg: Colors.textDim, bg: Colors.surfacePanel })
+      buf.write(modalRow + 4, modalCol + 2, '[Esc] Close', { fg: Colors.textDim, bg: Colors.surfacePanel })
       return
     }
 
-    buf.write(modalRow + 2, modalCol + 2, `Found ${candidates.length} key${candidates.length > 1 ? 's' : ''}:`, { fg: Colors.text, bg: Colors.bgPanel })
+    buf.write(modalRow + 2, modalCol + 2, `Found ${candidates.length} key${candidates.length > 1 ? 's' : ''}:`, { fg: Colors.text, bg: Colors.surfacePanel })
     for (let i = 0; i < candidates.length; i++) {
       const c = candidates[i]!
       const nameW = 14
       const srcW  = 24
       const masked = maskSecret(c.value)
       const line = `  ✓ ${c.name.padEnd(nameW).substring(0, nameW)}  ${masked.padEnd(12).substring(0, 12)}  ${c.source}`.substring(0, modalW - 4)
-      buf.write(modalRow + 4 + i, modalCol + 2, line, { fg: Colors.success, bg: Colors.bgPanel })
+      buf.write(modalRow + 4 + i, modalCol + 2, line, { fg: Colors.success, bg: Colors.surfacePanel })
       void srcW
     }
-    buf.write(modalRow + 4 + candidates.length + 1, modalCol + 2, '[Enter] Import all    [Esc] Cancel', { fg: Colors.textDim, bg: Colors.bgPanel })
+    buf.write(modalRow + 4 + candidates.length + 1, modalCol + 2, '[Enter] Import all    [Esc] Cancel', { fg: Colors.textDim, bg: Colors.surfacePanel })
   }
 
   private renderEditModal(buf: CellBuffer, r: { row: number; col: number; height: number; width: number }, def: ProviderDef): void {
@@ -319,17 +320,17 @@ export class ConfigPanel extends Panel {
 
     // Field label (env var or config key)
     const fieldLabel = def.envVar ?? def.configKey.toUpperCase()
-    buf.write(modalRow + 2, modalCol + 2, fieldLabel.substring(0, modalW - 4), { fg: Colors.accent, bg: Colors.bgPanel, bold: true })
+    buf.write(modalRow + 2, modalCol + 2, fieldLabel.substring(0, modalW - 4), { fg: Colors.primary, bg: Colors.surfacePanel, bold: true })
 
     // Format hint
-    buf.write(modalRow + 3, modalCol + 2, `Format: ${def.hint}`.substring(0, modalW - 4), { fg: Colors.textDim, bg: Colors.bgPanel })
+    buf.write(modalRow + 3, modalCol + 2, `Format: ${def.hint}`.substring(0, modalW - 4), { fg: Colors.textDim, bg: Colors.surfacePanel })
 
     // Token URL — row 4; OSC 8 makes it Ctrl+clickable in modern terminals
     if (def.tokenUrl) {
       const urlLabel = `  ↗  ${def.tokenUrl}`
       buf.write(modalRow + 4, modalCol + 2, urlLabel.substring(0, modalW - 4), {
         fg: Colors.info,
-        bg: Colors.bgPanel,
+        bg: Colors.surfacePanel,
         underline: true,
         link: `https://${def.tokenUrl}`,
       })
@@ -341,15 +342,15 @@ export class ConfigPanel extends Panel {
     const fieldW = modalW - prompt.length - 3
     const inputDisplay = this.editBuf.length > fieldW ? this.editBuf.slice(-fieldW) + cursor : this.editBuf + cursor
     const inputLine = (prompt + inputDisplay).substring(0, modalW - 2).padEnd(modalW - 2)
-    buf.write(modalRow + 5, modalCol + 1, inputLine, { fg: Colors.text, bg: Colors.bgActive })
+    buf.write(modalRow + 5, modalCol + 1, inputLine, { fg: Colors.text, bg: Colors.surfaceActive })
 
     // Ctrl+click hint — row 6 (only when a link is shown)
     if (def.tokenUrl) {
-      buf.write(modalRow + 6, modalCol + 2, 'Ctrl+click ↗ to open in browser', { fg: Colors.textDim, bg: Colors.bgPanel })
+      buf.write(modalRow + 6, modalCol + 2, 'Ctrl+click ↗ to open in browser', { fg: Colors.textDim, bg: Colors.surfacePanel })
     }
 
     // Save/cancel hint
-    buf.write(modalRow + 7, modalCol + 2, '[Enter] Save    [Esc] Cancel', { fg: Colors.textDim, bg: Colors.bgPanel })
+    buf.write(modalRow + 7, modalCol + 2, '[Enter] Save    [Esc] Cancel', { fg: Colors.textDim, bg: Colors.surfacePanel })
   }
 
   // ── Input handling ────────────────────────────────────────────────────────

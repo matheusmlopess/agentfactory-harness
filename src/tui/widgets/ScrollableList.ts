@@ -128,7 +128,7 @@ export class ScrollableList {
       if (!r) break
       const y = row + i
       if (r.header) {
-        buf.write(y, col, r.text.substring(0, width).padEnd(width), { fg: Colors.accent, bg: Colors.bgPanel, bold: true })
+        buf.write(y, col, r.text.substring(0, width).padEnd(width), { fg: Colors.primary, bg: Colors.surfacePanel, bold: true })
         continue
       }
       const selected = idx === this.selectedIdx
@@ -136,8 +136,8 @@ export class ScrollableList {
       const prefix = selected ? '► ' : '  '
       const labelMax = width - suffix.length
       const label = (prefix + r.text).substring(0, labelMax).padEnd(labelMax)
-      const fg = selected ? Colors.bg : Colors.text
-      const bg = selected ? Colors.accent : Colors.bgPanel
+      const fg = selected ? Colors.surface : Colors.text
+      const bg = selected ? Colors.primary : Colors.surfacePanel
       buf.write(y, col, label, { fg, bg, bold: selected })
       if (suffix) buf.write(y, col + labelMax, suffix, { fg, bg })
     }

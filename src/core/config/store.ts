@@ -6,10 +6,12 @@ import type { FieldType } from './providers.js'
 export interface ConfigFile {
   keys: Record<string, string>
   urls: Record<string, string>
+  /** UI settings: theme, reducedMotion, sizeProfile, layout.*Ratio, … */
+  settings: Record<string, string>
 }
 
 export class ConfigStore {
-  private data: ConfigFile = { keys: {}, urls: {} }
+  private data: ConfigFile = { keys: {}, urls: {}, settings: {} }
   private loaded = false
   lastWriteError: string | null = null
 
@@ -24,12 +26,22 @@ export class ConfigStore {
         this.data = {
           keys: isStringRecord(p['keys']) ? p['keys'] : {},
           urls: isStringRecord(p['urls']) ? p['urls'] : {},
+          settings: isStringRecord(p['settings']) ? p['settings'] : {},
         }
       }
     } catch (err) {
       if (isEnoent(err)) return  // first run — no config yet
       this.lastWriteError = `config read: ${err instanceof Error ? err.message : String(err)}`
     }
+  }
+
+  getSetting(key: string): string | undefined {
+    return this.data.settings[key]
+  }
+
+  setSetting(key: string, value: string): void {
+    this.data.settings[key] = value
+    this.persist()
   }
 
   getKey(configKey: string, envVar?: string): string | undefined {

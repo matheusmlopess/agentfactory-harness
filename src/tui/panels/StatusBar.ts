@@ -23,13 +23,13 @@ export function renderStatusBar(
   chatMode? : boolean,
 ): StatusBarLayout {
   const { row, col, width } = rect
-  const bg = Colors.bgActive
+  const bg = Colors.surfaceActive
 
   buf.write(row, col, ' '.repeat(width), { bg })
 
   if (error) {
     const msg = ` ⚠ ${error} `.substring(0, width)
-    buf.write(row, col, msg, { fg: Colors.bg, bg: 196, bold: true })
+    buf.write(row, col, msg, { fg: Colors.surface, bg: Colors.danger, bold: true })
     return { modelTagCol: -1, modelTagLen: 0, toolToggleCol: -1, toolToggleLen: 0 }
   }
 
@@ -46,7 +46,7 @@ export function renderStatusBar(
     modelTagLen = tag.length
     if (nextCol + modelTagLen < col + width - 36) {
       modelTagCol = nextCol
-      buf.write(row, nextCol, tag, { fg: Colors.accent, bg, bold: false })
+      buf.write(row, nextCol, tag, { fg: Colors.primary, bg, bold: false })
       nextCol += modelTagLen
     }
   }
@@ -56,8 +56,8 @@ export function renderStatusBar(
     toolToggleLen = toggle.length
     if (nextCol + toolToggleLen < col + width - 36) {
       toolToggleCol = nextCol
-      const toggleBg = chatMode ? Colors.success : Colors.accent
-      buf.write(row, nextCol, toggle, { fg: Colors.bg, bg: toggleBg, bold: true })
+      const toggleBg = chatMode ? Colors.success : Colors.primary
+      buf.write(row, nextCol, toggle, { fg: Colors.surface, bg: toggleBg, bold: true })
       nextCol += toolToggleLen
     }
   }

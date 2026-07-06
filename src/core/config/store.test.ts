@@ -139,3 +139,29 @@ describe('ConfigStore.clearKey()', () => {
     expect((written['keys'] as Record<string, string>)['anthropic']).toBeUndefined()
   })
 })
+
+describe('ConfigStore settings (ui-consolidation P2)', () => {
+  it('get/set roundtrip and persistence', async () => {
+    mockReadFile.mockResolvedValue(JSON.stringify({ keys: {}, urls: {}, settings: { theme: 'default' } }))
+
+    const s = new ConfigStore()
+    await s.init()
+    expect(s.getSetting('theme')).toBe('default')
+
+    s.setSetting('theme', 'high-contrast')
+    expect(s.getSetting('theme')).toBe('high-contrast')
+
+    await vi.waitFor(() => expect(mockWriteFile).toHaveBeenCalledOnce())
+    const written = JSON.parse(mockWriteFile.mock.calls[0]![1] as string) as Record<string, unknown>
+    expect((written['settings'] as Record<string, string>)['theme']).toBe('high-contrast')
+  })
+
+  it('legacy config file without settings parses to empty settings', async () => {
+    mockReadFile.mockResolvedValue(JSON.stringify({ keys: { anthropic: 'x' }, urls: {} }))
+
+    const s = new ConfigStore()
+    await s.init()
+    expect(s.getSetting('theme')).toBeUndefined()
+    expect(s.getKey('anthropic')).toBe('x')
+  })
+})

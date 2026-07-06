@@ -68,43 +68,43 @@ export class CommandPalette {
     const topRight = '─'.repeat(Math.max(0, inner - 2 - title.length))
     buf.write(startRow, startCol,
       '┌─' + title + topRight + '┐',
-      { fg: Colors.borderActive })
+      { fg: Colors.focus })
 
     // ── query row ───────────────────────────────────────────────────────────
     const promptText = ('  > ' + this.query).padEnd(inner).substring(0, inner)
-    buf.write(startRow + 1, startCol, '│', { fg: Colors.borderActive })
-    buf.write(startRow + 1, startCol + 1, promptText, { fg: Colors.textBright, bg: Colors.bgPanel })
-    buf.write(startRow + 1, startCol + 1 + inner, '│', { fg: Colors.borderActive })
+    buf.write(startRow + 1, startCol, '│', { fg: Colors.focus })
+    buf.write(startRow + 1, startCol + 1, promptText, { fg: Colors.textBright, bg: Colors.surfacePanel })
+    buf.write(startRow + 1, startCol + 1 + inner, '│', { fg: Colors.focus })
 
     // ── separator ───────────────────────────────────────────────────────────
     buf.write(startRow + 2, startCol,
       '├' + '─'.repeat(inner) + '┤',
-      { fg: Colors.borderActive })
+      { fg: Colors.focus })
 
     // ── items ────────────────────────────────────────────────────────────────
     if (items.length === 0) {
       const noMatch = '  (no matches)'.padEnd(inner).substring(0, inner)
-      buf.write(startRow + 3, startCol, '│', { fg: Colors.borderActive })
-      buf.write(startRow + 3, startCol + 1, noMatch, { fg: Colors.textDim, bg: Colors.bgActive })
-      buf.write(startRow + 3, startCol + 1 + inner, '│', { fg: Colors.borderActive })
+      buf.write(startRow + 3, startCol, '│', { fg: Colors.focus })
+      buf.write(startRow + 3, startCol + 1, noMatch, { fg: Colors.textDim, bg: Colors.surfaceActive })
+      buf.write(startRow + 3, startCol + 1 + inner, '│', { fg: Colors.focus })
     } else {
       for (let i = 0; i < nItems; i++) {
         const item     = items[i]!
         const selected = i === this.selIdx
-        const fg  = selected ? Colors.bg   : Colors.text
-        const bg  = selected ? Colors.accent : Colors.bgActive
-        const hfg = selected ? Colors.bg   : Colors.textDim
+        const fg  = selected ? Colors.surface   : Colors.text
+        const bg  = selected ? Colors.primary : Colors.surfaceActive
+        const hfg = selected ? Colors.surface   : Colors.textDim
 
         const hintPad = item.hint.length > 0 ? '  ' + item.hint : ''
         const labelMax = inner - hintPad.length
         const labelText = (' ' + item.label).padEnd(labelMax).substring(0, labelMax)
 
-        buf.write(startRow + 3 + i, startCol, '│', { fg: Colors.borderActive })
+        buf.write(startRow + 3 + i, startCol, '│', { fg: Colors.focus })
         buf.write(startRow + 3 + i, startCol + 1, labelText, { fg, bg, bold: selected })
         if (hintPad.length > 0) {
           buf.write(startRow + 3 + i, startCol + 1 + labelMax, hintPad, { fg: hfg, bg })
         }
-        buf.write(startRow + 3 + i, startCol + 1 + inner, '│', { fg: Colors.borderActive })
+        buf.write(startRow + 3 + i, startCol + 1 + inner, '│', { fg: Colors.focus })
       }
     }
 
@@ -112,7 +112,7 @@ export class CommandPalette {
     const botRow = startRow + 3 + Math.max(1, nItems)
     buf.write(botRow, startCol,
       '└' + '─'.repeat(inner) + '┘',
-      { fg: Colors.borderActive })
+      { fg: Colors.focus })
   }
 
   onKey(e: KeyEvent): 'consumed' | 'close' | 'passthrough' {

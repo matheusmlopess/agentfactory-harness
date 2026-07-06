@@ -55,13 +55,13 @@ export class TerminalPanel extends Panel {
   override render(buf: CellBuffer): void {
     const inner = this.inner
 
-    buf.fill(inner.row, inner.col, inner.height, inner.width, ' ', { bg: Colors.bg })
+    buf.fill(inner.row, inner.col, inner.height, inner.width, ' ', { bg: Colors.surface })
 
     if (!this.alive) {
       const msg = this.spawnError
         ? `[PTY unavailable: ${this.spawnError}]`
         : '[terminal exited — press F1–F3 to switch panel]'
-      buf.write(inner.row, inner.col, msg.substring(0, inner.width), { fg: Colors.textDim, bg: Colors.bg })
+      buf.write(inner.row, inner.col, msg.substring(0, inner.width), { fg: Colors.textDim, bg: Colors.surface })
       return
     }
 
@@ -72,7 +72,7 @@ export class TerminalPanel extends Panel {
     const cc = this.screen.cursorCol
     if (this.focused && this.screen.isCursorVisible && !this.screen.isScrolledBack
         && cr < inner.height && cc < inner.width) {
-      buf.write(inner.row + cr, inner.col + cc, '█', { fg: Colors.accent, bg: Colors.bg })
+      buf.write(inner.row + cr, inner.col + cc, '█', { fg: Colors.primary, bg: Colors.surface })
     }
   }
 

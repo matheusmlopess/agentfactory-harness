@@ -1,21 +1,77 @@
-/** Color palette and box-drawing character constants. */
+/** Semantic theme tokens + box-drawing character constants. */
 
-export const Colors = {
-  // Named 256-color indices
-  bg:        232,  // near-black background
-  bgPanel:   234,  // slightly lighter for panels
-  bgActive:  236,  // active/focused panel
-  border:    240,  // inactive border
-  borderActive: 75, // focused border (blue)
-  text:      252,  // default text
-  textDim:   245,  // dim/secondary text
-  textBright: 255, // bright text / headings
-  accent:    75,   // blue accent
-  success:   82,   // green
-  warning:   214,  // orange
-  error:     196,  // red
-  info:      117,  // light blue
-} as const
+/**
+ * Semantic color tokens (gap 18). `focus` and `primary` are distinct tokens —
+ * they share a value in the default theme but diverge in high-contrast.
+ */
+export interface Theme {
+  surface: number        // app background
+  surfacePanel: number   // panel background
+  surfaceActive: number  // active/focused panel background
+  border: number         // inactive border
+  focus: number          // focused border / focus indicator
+  primary: number        // brand accent (tabs, selection)
+  text: number
+  textDim: number
+  textBright: number
+  success: number
+  warning: number
+  danger: number
+  info: number
+}
+
+export type ThemeName = 'default' | 'high-contrast'
+
+export const themes: Record<ThemeName, Theme> = {
+  default: {
+    surface: 232,        // near-black background
+    surfacePanel: 234,   // slightly lighter for panels
+    surfaceActive: 236,  // active/focused panel
+    border: 240,         // inactive border
+    focus: 75,           // focused border (blue)
+    primary: 75,         // blue accent
+    text: 252,
+    textDim: 245,
+    textBright: 255,
+    success: 82,         // green
+    warning: 214,        // orange
+    danger: 196,         // red
+    info: 117,           // light blue
+  },
+  'high-contrast': {
+    surface: 16,         // pure black
+    surfacePanel: 16,
+    surfaceActive: 232,
+    border: 255,         // white borders
+    focus: 226,          // yellow focus — distinct from primary
+    primary: 51,         // bright cyan
+    text: 231,           // pure white
+    textDim: 250,
+    textBright: 231,
+    success: 46,
+    warning: 220,
+    danger: 196,
+    info: 87,
+  },
+}
+
+/**
+ * Live token view. Panels reference `Colors.<token>` directly; `setTheme`
+ * swaps the values in place so the next render picks up the new theme
+ * without any call-site changes.
+ */
+export const Colors: Theme = { ...themes.default }
+
+let active: ThemeName = 'default'
+
+export function setTheme(name: ThemeName): void {
+  active = name
+  Object.assign(Colors, themes[name])
+}
+
+export function activeTheme(): ThemeName {
+  return active
+}
 
 /** Box-drawing chars for single-line borders */
 export const Box = {

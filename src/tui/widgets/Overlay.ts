@@ -50,10 +50,10 @@ export class Overlay {
   /** Draw the frame (fill, border, title, footer hint) and return its geometry. */
   renderFrame(buf: CellBuffer, container: Rect, contentRows: number, titleOverride?: string): OverlayFrame {
     const f = this.layout(container, contentRows)
-    const style = { fg: Colors.borderActive, bg: Colors.bgPanel }
+    const style = { fg: Colors.focus, bg: Colors.surfacePanel }
     const hLine = '─'.repeat(f.width - 2)
 
-    buf.fill(f.row, f.col, f.height, f.width, ' ', { bg: Colors.bgPanel })
+    buf.fill(f.row, f.col, f.height, f.width, ' ', { bg: Colors.surfacePanel })
     buf.write(f.row, f.col, '┌' + hLine + '┐', style)
     buf.write(f.row + f.height - 1, f.col, '└' + hLine + '┘', style)
     for (let i = 1; i < f.height - 1; i++) {
@@ -63,14 +63,14 @@ export class Overlay {
 
     const title = ` ${titleOverride ?? this.opts.title} `
     buf.write(f.row, f.col + 2, title.substring(0, f.width - 4), {
-      fg: Colors.textBright, bg: Colors.bgPanel, bold: true,
+      fg: Colors.textBright, bg: Colors.surfacePanel, bold: true,
     })
 
     if (this.opts.footerHint) {
       const hint = ` ${this.opts.footerHint} `
       const col = f.col + Math.max(2, f.width - hint.length - 2)
       buf.write(f.row + f.height - 1, col, hint.substring(0, f.width - 4), {
-        fg: Colors.textDim, bg: Colors.bgPanel,
+        fg: Colors.textDim, bg: Colors.surfacePanel,
       })
     }
     return f

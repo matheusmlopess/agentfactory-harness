@@ -84,7 +84,7 @@ export class LogsPanel extends Panel {
 
   override render(buf: CellBuffer): void {
     const r = this.inner
-    buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.bgPanel })
+    buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.surfacePanel })
 
     const splitCol = r.col + Math.floor(r.width * 0.4)
     const leftW = splitCol - r.col
@@ -104,8 +104,8 @@ export class LogsPanel extends Panel {
     // Filter row
     let col = r.col + 1
     const renderChip = (text: string, selected: boolean) => {
-      const bg = selected ? Colors.accent : Colors.bgPanel
-      const fg = selected ? Colors.bg : Colors.textDim
+      const bg = selected ? Colors.primary : Colors.surfacePanel
+      const fg = selected ? Colors.surface : Colors.textDim
       const chip = `[${text}]`
       buf.write(r.row, col, chip, { fg, bg, bold: selected })
       col += chip.length + 1
@@ -127,7 +127,7 @@ export class LogsPanel extends Panel {
       const entryIdx = start + i
       const isSelected = entryIdx === this.selectedIdx
 
-      const bg = isSelected ? Colors.bgActive : Colors.bgPanel
+      const bg = isSelected ? Colors.surfaceActive : Colors.surfacePanel
       buf.fill(row, r.col, 1, leftW, ' ', { bg })
 
       if (!entry) continue
@@ -145,7 +145,7 @@ export class LogsPanel extends Panel {
 
     // ── DIVIDER ──────────────────────────────────────────────────────────
     for (let i = 1; i < r.height - 1; i++) {
-      buf.write(r.row + i, splitCol, '│', { fg: Colors.border, bg: Colors.bgPanel })
+      buf.write(r.row + i, splitCol, '│', { fg: Colors.border, bg: Colors.surfacePanel })
     }
 
     // ── RIGHT COLUMN ─────────────────────────────────────────────────────
@@ -168,7 +168,7 @@ export class LogsPanel extends Panel {
 
     buf.write(r.row + 1, r.col + leftW + 1, headerLine.substring(0, rightW - 1), {
       fg: Colors.textDim,
-      bg: Colors.bgPanel,
+      bg: Colors.surfacePanel,
     })
 
     // Metrics content
@@ -177,14 +177,14 @@ export class LogsPanel extends Panel {
 
     buf.write(row, r.col + leftW + 2, `Total: ${metrics.total} entries   Rate: ${rates}/min`, {
       fg: Colors.text,
-      bg: Colors.bgPanel,
+      bg: Colors.surfacePanel,
     })
     row++
 
     // By Level bars
     buf.write(row, r.col + leftW + 2, 'By Level:', {
       fg: Colors.textDim,
-      bg: Colors.bgPanel,
+      bg: Colors.surfacePanel,
     })
     row++
 
@@ -197,7 +197,7 @@ export class LogsPanel extends Panel {
       const line = `  ${level.padEnd(5)} ${bar.padEnd(12)} ${count.toString().padStart(2)}`
       buf.write(row, r.col + leftW + 2, line.substring(0, rightW - 3), {
         fg: this.levelColor(level),
-        bg: Colors.bgPanel,
+        bg: Colors.surfacePanel,
       })
       row++
     }
@@ -207,7 +207,7 @@ export class LogsPanel extends Panel {
     // By Source
     buf.write(row, r.col + leftW + 2, 'By Source:', {
       fg: Colors.textDim,
-      bg: Colors.bgPanel,
+      bg: Colors.surfacePanel,
     })
     row++
 
@@ -217,7 +217,7 @@ export class LogsPanel extends Panel {
       const line = `  ${source.padEnd(10)} ${count.toString().padStart(3)}  ${bar}`
       buf.write(row, r.col + leftW + 2, line.substring(0, rightW - 3), {
         fg: Colors.text,
-        bg: Colors.bgPanel,
+        bg: Colors.surfacePanel,
       })
       row++
     }
@@ -228,7 +228,7 @@ export class LogsPanel extends Panel {
       const insightHdr = ` ─ Insights ──────────────────────────────────────────`
       buf.write(insightsRow, r.col + leftW + 1, insightHdr.substring(0, rightW - 1), {
         fg: Colors.textDim,
-        bg: Colors.bgPanel,
+        bg: Colors.surfacePanel,
       })
 
       // Insights text
@@ -242,7 +242,7 @@ export class LogsPanel extends Panel {
         const line = insightVisible[i] ?? ''
         buf.write(irow, r.col + leftW + 2, line.padEnd(rightW - 3), {
           fg: Colors.text,
-          bg: Colors.bgPanel,
+          bg: Colors.surfacePanel,
         })
       }
 
@@ -254,7 +254,7 @@ export class LogsPanel extends Panel {
         const countdownRow = r.row + r.height - 2
         buf.write(countdownRow, r.col + leftW + 2, countdownText, {
           fg: Colors.textDim,
-          bg: Colors.bgPanel,
+          bg: Colors.surfacePanel,
         })
       }
     }
@@ -270,7 +270,7 @@ export class LogsPanel extends Panel {
 
     buf.write(r.row + 1, r.col + leftW + 1, headerLine.substring(0, rightW - 1), {
       fg: Colors.textDim,
-      bg: Colors.bgPanel,
+      bg: Colors.surfacePanel,
     })
 
     // Details
@@ -293,7 +293,7 @@ export class LogsPanel extends Panel {
       if (detailRow >= r.row + r.height - 2) break
       buf.write(detailRow, r.col + leftW + 2, line.substring(0, rightW - 3).padEnd(rightW - 3), {
         fg: Colors.text,
-        bg: Colors.bgPanel,
+        bg: Colors.surfacePanel,
       })
       detailRow++
     }
@@ -304,7 +304,7 @@ export class LogsPanel extends Panel {
       const insightHdr = ` ─ Insights ──────────────────────────────────────────`
       buf.write(insightsRow, r.col + leftW + 1, insightHdr.substring(0, rightW - 1), {
         fg: Colors.textDim,
-        bg: Colors.bgPanel,
+        bg: Colors.surfacePanel,
       })
 
       const insightsContentRows = r.row + r.height - 1 - (insightsRow + 1)
@@ -317,7 +317,7 @@ export class LogsPanel extends Panel {
         const line = insightVisible[i] ?? ''
         buf.write(irow, r.col + leftW + 2, line.padEnd(rightW - 3), {
           fg: Colors.text,
-          bg: Colors.bgPanel,
+          bg: Colors.surfacePanel,
         })
       }
     }
@@ -328,7 +328,7 @@ export class LogsPanel extends Panel {
       case 'DEBUG': return Colors.textDim
       case 'INFO': return Colors.text
       case 'WARN': return Colors.warning
-      case 'ERROR': return Colors.error
+      case 'ERROR': return Colors.danger
       default: return Colors.text
     }
   }

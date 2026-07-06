@@ -382,11 +382,11 @@ export class SessionPanel extends Panel {
       const line = visible[i]
       // Table rows (markdown `|…|`) get a boxed look: tinted bg + edge markers
       const isTable = !!line && line.text.includes('|')
-      const rowBg = isTable ? Colors.bgActive : Colors.bgPanel
+      const rowBg = isTable ? Colors.surfaceActive : Colors.surfacePanel
       buf.fill(r.row + i, r.col, 1, contentWidth, ' ', { bg: rowBg })
       if (line) {
         const fg = line.role === 'user'
-          ? Colors.accent
+          ? Colors.primary
           : line.role === 'system'
           ? Colors.textDim
           : Colors.text
@@ -407,7 +407,7 @@ export class SessionPanel extends Panel {
           if (sel) {
             for (let c = sel.from; c < sel.to; c++) {
               const ch = clipped[c] ?? ' '
-              buf.write(r.row + i, r.col + c, ch, { fg: Colors.bg, bg: Colors.accent })
+              buf.write(r.row + i, r.col + c, ch, { fg: Colors.surface, bg: Colors.primary })
             }
           }
         }
@@ -418,7 +418,7 @@ export class SessionPanel extends Panel {
     if (anyClipped || this.hScroll > 0) {
       const hint = ` ◂ ← → ▸  scroll table (col ${this.hScroll}) `
       const hintCol = r.col + Math.max(0, contentWidth - hint.length)
-      buf.write(r.row + displayRows - 1, hintCol, hint.substring(0, contentWidth), { fg: Colors.bg, bg: Colors.warning, bold: true })
+      buf.write(r.row + displayRows - 1, hintCol, hint.substring(0, contentWidth), { fg: Colors.surface, bg: Colors.warning, bold: true })
     }
 
     // Scrollbar
@@ -428,16 +428,16 @@ export class SessionPanel extends Panel {
       )
       for (let i = 0; i < displayRows; i++) {
         const ch = i === thumbRow ? '█' : '│'
-        buf.write(r.row + i, scrollbarCol, ch, { fg: Colors.textDim, bg: Colors.bgPanel })
+        buf.write(r.row + i, scrollbarCol, ch, { fg: Colors.textDim, bg: Colors.surfacePanel })
       }
     }
 
     // Input bar with multi-line wrap
     for (let i = 0; i < inputRowCount; i++) {
       const row = inputRow + i
-      buf.fill(row, r.col, 1, r.width, ' ', { bg: Colors.bg })
+      buf.fill(row, r.col, 1, r.width, ' ', { bg: Colors.surface })
       const lineText = i === 0 ? prompt + (inputLines[i] ?? '') : '  ' + (inputLines[i] ?? '')
-      buf.write(row, r.col, lineText.substring(0, r.width), { fg: Colors.text, bg: Colors.bg })
+      buf.write(row, r.col, lineText.substring(0, r.width), { fg: Colors.text, bg: Colors.surface })
     }
 
     // Slash command autocomplete (above the input bar)
@@ -503,11 +503,11 @@ export class SessionPanel extends Panel {
     for (let i = 0; i < popupH; i++) {
       const m = matches[i]!
       const selected = i === this.acIndex
-      const fg = selected ? Colors.bg : Colors.accent
-      const bg = selected ? Colors.accent : Colors.bgActive
+      const fg = selected ? Colors.surface : Colors.primary
+      const bg = selected ? Colors.primary : Colors.surfaceActive
       const namePart = m.name.padEnd(nameW)
       const line = (namePart + m.desc).substring(0, popupW).padEnd(popupW)
-      buf.write(startRow + i, r.col, line, { fg: selected ? Colors.bg : Colors.text, bg })
+      buf.write(startRow + i, r.col, line, { fg: selected ? Colors.surface : Colors.text, bg })
       buf.write(startRow + i, r.col, namePart.substring(0, popupW), { fg, bg, bold: true })
     }
   }
@@ -585,7 +585,7 @@ export class SessionPanel extends Panel {
         const label = (sel ? '► ' : '  ') + provs[i]!.name
         buf.write(g.modalRow + 1 + i, g.modalCol + 1,
           label.substring(0, g.inner).padEnd(g.inner),
-          { fg: sel ? Colors.bg : Colors.text, bg: sel ? Colors.accent : Colors.bgPanel, bold: sel })
+          { fg: sel ? Colors.surface : Colors.text, bg: sel ? Colors.primary : Colors.surfacePanel, bold: sel })
       }
       return
     }
@@ -593,7 +593,7 @@ export class SessionPanel extends Panel {
     // step = 'model'
     if (this.pickerLoading) {
       const g = this.drawPickerFrame(buf, 'Loading models…', r, 1)
-      buf.write(g.modalRow + 1, g.modalCol + 2, '⣾ Fetching from provider…', { fg: Colors.textDim, bg: Colors.bgPanel })
+      buf.write(g.modalRow + 1, g.modalCol + 2, '⣾ Fetching from provider…', { fg: Colors.textDim, bg: Colors.surfacePanel })
       return
     }
 
@@ -615,7 +615,7 @@ export class SessionPanel extends Panel {
       const suffix    = isCurrent ? ' ✓' : ''
       const label     = (prefix + m.label + suffix).substring(0, g.inner).padEnd(g.inner)
       buf.write(g.modalRow + 1 + i, g.modalCol + 1, label, {
-        fg: selected ? Colors.bg : Colors.text, bg: selected ? Colors.accent : Colors.bgPanel, bold: selected,
+        fg: selected ? Colors.surface : Colors.text, bg: selected ? Colors.primary : Colors.surfacePanel, bold: selected,
       })
     }
 
@@ -628,7 +628,7 @@ export class SessionPanel extends Panel {
       else if (above)        indicator = `  ▲ scroll up`
       else if (more > 0)     indicator = `  ▼ ${more} more  (scroll)`
       buf.write(g.modalRow + 1 + visibleCount, g.modalCol + 1,
-        indicator.substring(0, g.inner).padEnd(g.inner), { fg: Colors.textDim, bg: Colors.bgPanel })
+        indicator.substring(0, g.inner).padEnd(g.inner), { fg: Colors.textDim, bg: Colors.surfacePanel })
     }
   }
 

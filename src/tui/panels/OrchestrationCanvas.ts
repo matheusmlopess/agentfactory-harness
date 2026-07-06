@@ -108,12 +108,12 @@ export class OrchestrationCanvas extends Panel {
 
   render(buf: CellBuffer): void {
     const r = this.inner
-    buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.bgPanel })
+    buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.surfacePanel })
 
     // Draw grid dots
     for (let row = 0; row < r.height; row += GRID_ROWS) {
       for (let col = 0; col < r.width; col += GRID_COLS) {
-        buf.write(r.row + row, r.col + col, '·', { fg: Colors.bgActive })
+        buf.write(r.row + row, r.col + col, '·', { fg: Colors.surfaceActive })
       }
     }
 
@@ -124,7 +124,7 @@ export class OrchestrationCanvas extends Panel {
       if (!from || !to) continue
       for (const pt of routeWire(from, to)) {
         if (pt.row >= 0 && pt.row < r.height && pt.col >= 0 && pt.col < r.width) {
-          buf.write(r.row + pt.row, r.col + pt.col, pt.char, { fg: Colors.accent })
+          buf.write(r.row + pt.row, r.col + pt.col, pt.char, { fg: Colors.primary })
         }
       }
     }

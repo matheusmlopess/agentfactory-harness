@@ -37,7 +37,7 @@ export class ContextMenu {
     buf.write(this.row + menuHeight - 1, this.col, '└' + '─'.repeat(menuWidth - 2) + '┘', { fg: Colors.border })
     for (let r = 1; r < menuHeight - 1; r++) {
       buf.write(this.row + r, this.col, '│', { fg: Colors.border })
-      buf.fill(this.row + r, this.col + 1, 1, menuWidth - 2, ' ', { bg: Colors.bgActive })
+      buf.fill(this.row + r, this.col + 1, 1, menuWidth - 2, ' ', { bg: Colors.surfaceActive })
       buf.write(this.row + r, this.col + menuWidth - 1, '│', { fg: Colors.border })
     }
 
@@ -47,9 +47,9 @@ export class ContextMenu {
       if (!item) continue
       const selected = i === this.selectedIdx
       const fg = item.danger
-        ? Colors.error
-        : selected ? Colors.bg : Colors.text
-      const bg = selected ? Colors.accent : Colors.bgActive
+        ? Colors.danger
+        : selected ? Colors.surface : Colors.text
+      const bg = selected ? Colors.primary : Colors.surfaceActive
       const label = ` ${item.label}`.padEnd(menuWidth - 2).substring(0, menuWidth - 2)
       buf.write(this.row + 1 + i, this.col + 1, label, { fg, bg })
     }

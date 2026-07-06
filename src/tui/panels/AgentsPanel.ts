@@ -55,12 +55,12 @@ export class AgentsPanel extends Panel {
 
   render(buf: CellBuffer): void {
     const r = this.inner
-    buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.bgPanel })
+    buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.surfacePanel })
 
     if (this.agents.length === 0) {
       const msg = 'No sessions — F1 to create'
       buf.write(r.row + Math.floor(r.height / 2), r.col + Math.max(0, Math.floor((r.width - msg.length) / 2)),
-        msg, { fg: Colors.textDim, bg: Colors.bgPanel })
+        msg, { fg: Colors.textDim, bg: Colors.surfacePanel })
       return
     }
 
@@ -72,8 +72,8 @@ export class AgentsPanel extends Panel {
       const star = a.active ? '★ ' : '  '
       const badge = statusBadge(a.status)
       const line = `${star}${badge} ${a.name}`.padEnd(r.width).substring(0, r.width)
-      const bg = selected ? Colors.bgActive : Colors.bgPanel
-      const fg = selected ? Colors.textBright : a.active ? Colors.accent : statusColor(a.status)
+      const bg = selected ? Colors.surfaceActive : Colors.surfacePanel
+      const fg = selected ? Colors.textBright : a.active ? Colors.primary : statusColor(a.status)
       buf.write(r.row + i, r.col, line, { fg, bg, bold: selected || !!a.active })
     }
 
@@ -81,7 +81,7 @@ export class AgentsPanel extends Panel {
     if (!detail || r.height <= listH + 1 || !this.showStats) return
 
     const dividerRow = r.row + listH
-    buf.write(dividerRow, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.bgPanel })
+    buf.write(dividerRow, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.surfacePanel })
 
     const rows: { label: string; value: string; fg?: number }[] = []
     if (detail.model) rows.push({ label: 'Model', value: detail.model, fg: Colors.info })
@@ -96,7 +96,7 @@ export class AgentsPanel extends Panel {
     if (inp !== undefined) {
       rows.push({ label: 'Input',  value: inp.toLocaleString() + ' tok', fg: Colors.textDim })
       rows.push({ label: 'Output', value: (out ?? 0).toLocaleString() + ' tok', fg: Colors.textDim })
-      rows.push({ label: 'Total',  value: (inp + (out ?? 0)).toLocaleString() + ' tok', fg: Colors.accent })
+      rows.push({ label: 'Total',  value: (inp + (out ?? 0)).toLocaleString() + ' tok', fg: Colors.primary })
     }
     if (detail.toolCalls !== undefined) {
       const tc = detail.toolCalls, t = detail.turns ?? 1
@@ -107,8 +107,8 @@ export class AgentsPanel extends Panel {
     const maxRows = r.height - listH - 1
     for (let i = 0; i < Math.min(rows.length, maxRows); i++) {
       const sr = rows[i]!, y = dividerRow + 1 + i
-      buf.write(y, r.col, sr.label.padEnd(labelW).substring(0, labelW), { fg: Colors.textDim, bg: Colors.bgPanel })
-      buf.write(y, r.col + labelW, sr.value.substring(0, r.width - labelW - 2), { fg: sr.fg ?? Colors.text, bg: Colors.bgPanel })
+      buf.write(y, r.col, sr.label.padEnd(labelW).substring(0, labelW), { fg: Colors.textDim, bg: Colors.surfacePanel })
+      buf.write(y, r.col + labelW, sr.value.substring(0, r.width - labelW - 2), { fg: sr.fg ?? Colors.text, bg: Colors.surfacePanel })
     }
 
     // ── Hover tooltip — laureate quote + contribution ─────────────────────
@@ -128,15 +128,15 @@ export class AgentsPanel extends Panel {
     const boxH = lines.length + 2
     const boxRow = r.row + r.height - boxH    // anchored to bottom of the panel
     const boxCol = r.col
-    buf.fill(boxRow, boxCol, boxH, boxW, ' ', { bg: Colors.bgActive })
+    buf.fill(boxRow, boxCol, boxH, boxW, ' ', { bg: Colors.surfaceActive })
     const hLine = '─'.repeat(boxW - 2)
-    buf.write(boxRow, boxCol, '┌' + hLine + '┐', { fg: Colors.warning, bg: Colors.bgActive })
-    buf.write(boxRow + boxH - 1, boxCol, '└' + hLine + '┘', { fg: Colors.warning, bg: Colors.bgActive })
+    buf.write(boxRow, boxCol, '┌' + hLine + '┐', { fg: Colors.warning, bg: Colors.surfaceActive })
+    buf.write(boxRow + boxH - 1, boxCol, '└' + hLine + '┘', { fg: Colors.warning, bg: Colors.surfaceActive })
     for (let i = 0; i < lines.length; i++) {
       const fg = i === 0 ? Colors.warning : i === 1 ? Colors.textBright : Colors.textDim
-      buf.write(boxRow + 1 + i, boxCol, '│', { fg: Colors.warning, bg: Colors.bgActive })
-      buf.write(boxRow + 1 + i, boxCol + 1, lines[i]!.substring(0, boxW - 2).padEnd(boxW - 2), { fg, bg: Colors.bgActive })
-      buf.write(boxRow + 1 + i, boxCol + boxW - 1, '│', { fg: Colors.warning, bg: Colors.bgActive })
+      buf.write(boxRow + 1 + i, boxCol, '│', { fg: Colors.warning, bg: Colors.surfaceActive })
+      buf.write(boxRow + 1 + i, boxCol + 1, lines[i]!.substring(0, boxW - 2).padEnd(boxW - 2), { fg, bg: Colors.surfaceActive })
+      buf.write(boxRow + 1 + i, boxCol + boxW - 1, '│', { fg: Colors.warning, bg: Colors.surfaceActive })
     }
   }
 
@@ -183,8 +183,8 @@ function statusBadge(status: AgentEntry['status']): string {
 function statusColor(status: AgentEntry['status']): number {
   switch (status) {
     case 'idle':    return Colors.textDim
-    case 'running': return Colors.accent
+    case 'running': return Colors.primary
     case 'done':    return Colors.success
-    case 'error':   return Colors.error
+    case 'error':   return Colors.danger
   }
 }
