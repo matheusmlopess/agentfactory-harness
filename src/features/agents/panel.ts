@@ -1,10 +1,13 @@
 import { Panel } from '../../shared/panel.js'
 import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
 import type { Rect } from '../../shared/renderer/layout.js'
+import type { KeyEvent } from '../../shared/input/keyboard.js'
 import type { MouseEvent } from '../../shared/input/mouse.js'
 import { Colors } from '../../shared/renderer/theme.js'
 import { findLaureate } from '../../core/nobel.js'
 import { logger } from '../../core/logger.js'
+import type { Plan } from '../../orchestration/schema.js'
+import type { StepEvent, StepStatus } from '../../orchestration/executor.js'
 
 export interface AgentEntry {
   name:         string
@@ -19,7 +22,18 @@ export interface AgentEntry {
   endTime?:     number
 }
 
+/** One plan step in team mode (PLAN-10 standalone: fed by StepEvents). */
+interface TeamRow {
+  id: string
+  agent: string
+  status: StepStatus
+  durationMs?: number
+  output?: string
+  error?: string
+}
+
 const LIST_ROWS = 6  // max rows for the session list at the top
+const TEAM_LOG_MAX = 100
 
 export class AgentsPanel extends Panel {
   private agents: AgentEntry[] = []
@@ -30,10 +44,58 @@ export class AgentsPanel extends Panel {
   private onSelect?: (idx: number) => void
   private log = logger('Agents')
 
+  // Team mode (PLAN-10 standalone) — sessions mode stays byte-identical
+  private panelMode: 'sessions' | 'team' = 'sessions'
+  private teamName = ''
+  private teamRows: TeamRow[] = []
+  private teamLog: string[] = []
+  private teamSelected = 0
+
   constructor(rect: Rect, onUpdate: () => void, onSelect?: (idx: number) => void) {
     super(rect)
     this.onUpdate = onUpdate
     if (onSelect) this.onSelect = onSelect
+  }
+
+  get mode(): 'sessions' | 'team' {
+    return this.panelMode
+  }
+
+  /** Enter team mode for a plan run — rows start pending. */
+  setPlan(plan: Plan): void {
+    this.panelMode = 'team'
+    this.teamName = plan.name
+    this.teamRows = plan.steps.map(s => ({ id: s.id, agent: s.agent, status: 'pending' as StepStatus }))
+    this.teamLog = []
+    this.teamSelected = 0
+    this.onUpdate()
+  }
+
+  /** Mutate rows + rolling event log from an executor StepEvent. */
+  onPlanEvent(ev: StepEvent): void {
+    const ts = new Date().toTimeString().slice(0, 8)
+    if (ev.type === 'plan:done') {
+      this.teamLog.push(`${ts} plan:done`)
+    } else {
+      const row = this.teamRows.find(r => r.id === ev.stepId)
+      if (row) {
+        row.status = ev.status
+        if (ev.durationMs !== undefined) row.durationMs = ev.durationMs
+        if (ev.output !== undefined) row.output = ev.output
+        if (ev.error !== undefined) row.error = ev.error
+      }
+      const dur = ev.durationMs !== undefined ? ` (${(ev.durationMs / 1000).toFixed(1)}s)` : ''
+      const err = ev.error !== undefined ? ` — ${ev.error}` : ''
+      this.teamLog.push(`${ts} ${ev.type} ${ev.stepId}${dur}${err}`)
+    }
+    if (this.teamLog.length > TEAM_LOG_MAX) this.teamLog.splice(0, this.teamLog.length - TEAM_LOG_MAX)
+    this.onUpdate()
+  }
+
+  /** Back to the session list (Esc in team mode). */
+  exitTeamMode(): void {
+    this.panelMode = 'sessions'
+    this.onUpdate()
   }
 
   /** Replace the full session list (preserves selection by name when possible). */
@@ -56,6 +118,12 @@ export class AgentsPanel extends Panel {
   render(buf: CellBuffer): void {
     const r = this.inner
     buf.fill(r.row, r.col, r.height, r.width, ' ', { bg: Colors.surfacePanel })
+
+    // Team mode replaces the session list entirely (tooltip suppressed)
+    if (this.panelMode === 'team') {
+      this.renderTeam(buf, r)
+      return
+    }
 
     if (this.agents.length === 0) {
       const msg = 'No sessions — F1 to create'
@@ -116,6 +184,84 @@ export class AgentsPanel extends Panel {
     if (hov) this.renderTooltip(buf, r, hov.name)
   }
 
+  /**
+   * Team dashboard (PLAN-10 standalone): step list with glyph+text status
+   * (a11y — never color-only), selected-step detail, rolling event log.
+   * Two columns at ≥70 cols, stacked below.
+   */
+  private renderTeam(buf: CellBuffer, r: Rect): void {
+    const running = this.teamRows.filter(t => t.status === 'running').length
+    const header = ` Team — ${this.teamName}  [${running} running / ${this.teamRows.length} total]  (Esc: sessions)`
+    buf.write(r.row, r.col, header.substring(0, r.width), { fg: Colors.textBright, bg: Colors.surfacePanel, bold: true })
+
+    const twoCol = r.width >= 70
+    const listW = twoCol ? Math.floor(r.width * 0.45) : r.width
+    const listTop = r.row + 1
+    const listH = twoCol ? r.height - 1 : Math.max(1, Math.floor((r.height - 1) / 2))
+
+    for (let i = 0; i < Math.min(this.teamRows.length, listH); i++) {
+      const row = this.teamRows[i]!
+      const selected = i === this.teamSelected
+      const line = ` ${teamBadge(row.status)} ${row.id} [${row.status}]${row.durationMs !== undefined ? ` ${(row.durationMs / 1000).toFixed(1)}s` : ''}`
+      buf.write(listTop + i, r.col, line.substring(0, listW).padEnd(listW), {
+        fg: selected ? Colors.textBright : teamColor(row.status),
+        bg: selected ? Colors.surfaceActive : Colors.surfacePanel,
+        bold: selected,
+      })
+    }
+
+    // Detail + event log column (or stacked lower half)
+    const detailCol = twoCol ? r.col + listW + 1 : r.col
+    const detailTop = twoCol ? listTop : listTop + listH
+    const detailW = twoCol ? r.width - listW - 1 : r.width
+    const detailH = twoCol ? r.height - 1 : r.height - 1 - listH
+    if (detailH <= 0) return
+
+    if (twoCol) {
+      for (let i = 0; i < detailH; i++) {
+        buf.write(detailTop + i, r.col + listW, '│', { fg: Colors.border, bg: Colors.surfacePanel })
+      }
+    }
+
+    const sel = this.teamRows[this.teamSelected]
+    let y = detailTop
+    if (sel) {
+      const excerpt = sel.error ?? sel.output ?? ''
+      buf.write(y, detailCol, ` ${sel.id} · agent: ${sel.agent}`.substring(0, detailW), {
+        fg: Colors.textBright, bg: Colors.surfacePanel, bold: true,
+      })
+      y++
+      if (excerpt && y < detailTop + detailH) {
+        const fg = sel.error !== undefined ? Colors.danger : Colors.textDim
+        for (const line of excerpt.split('\n').slice(0, 3)) {
+          if (y >= detailTop + detailH) break
+          buf.write(y, detailCol, ` ${line}`.substring(0, detailW), { fg, bg: Colors.surfacePanel })
+          y++
+        }
+      }
+      y++
+    }
+
+    // Rolling event log fills the rest, newest last
+    const logRows = detailTop + detailH - y
+    if (logRows > 0) {
+      const visible = this.teamLog.slice(-logRows)
+      for (let i = 0; i < visible.length; i++) {
+        buf.write(y + i, detailCol, ` ${visible[i]!}`.substring(0, detailW), {
+          fg: Colors.textDim, bg: Colors.surfacePanel,
+        })
+      }
+    }
+  }
+
+  override onKey(e: KeyEvent): boolean {
+    if (this.panelMode !== 'team') return false
+    if (e.key === 'escape') { this.exitTeamMode(); return true }
+    if (e.key === 'arrow_up')   { this.teamSelected = Math.max(0, this.teamSelected - 1); this.onUpdate(); return true }
+    if (e.key === 'arrow_down') { this.teamSelected = Math.min(this.teamRows.length - 1, this.teamSelected + 1); this.onUpdate(); return true }
+    return false
+  }
+
   private renderTooltip(buf: CellBuffer, r: Rect, name: string): void {
     const l = findLaureate(name)
     if (!l) return
@@ -142,6 +288,20 @@ export class AgentsPanel extends Panel {
 
   override onMouse(e: MouseEvent): boolean {
     const r = this.inner
+
+    // Team mode: click selects a step row
+    if (this.panelMode === 'team') {
+      if (e.button === 'left' && e.action === 'press') {
+        const idx = e.row - (r.row + 1)
+        if (idx >= 0 && idx < this.teamRows.length) {
+          this.teamSelected = idx
+          this.onUpdate()
+          return true
+        }
+      }
+      return false
+    }
+
     const listH = Math.min(this.agents.length, LIST_ROWS, Math.max(1, r.height - 8))
     const row = e.row - r.row
 
@@ -186,5 +346,25 @@ function statusColor(status: AgentEntry['status']): number {
     case 'running': return Colors.primary
     case 'done':    return Colors.success
     case 'error':   return Colors.danger
+  }
+}
+
+function teamBadge(status: StepStatus): string {
+  switch (status) {
+    case 'pending': return '◎'
+    case 'running': return '●'
+    case 'done':    return '✓'
+    case 'error':   return '✗'
+    case 'skipped': return '⊘'
+  }
+}
+
+function teamColor(status: StepStatus): number {
+  switch (status) {
+    case 'pending': return Colors.textDim
+    case 'running': return Colors.primary
+    case 'done':    return Colors.success
+    case 'error':   return Colors.danger
+    case 'skipped': return Colors.textDim
   }
 }

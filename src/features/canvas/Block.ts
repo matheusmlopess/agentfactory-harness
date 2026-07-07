@@ -8,7 +8,7 @@ export interface Block {
   height: number
   width: number
   title: string
-  status: 'idle' | 'running' | 'done' | 'error'
+  status: 'idle' | 'pending' | 'running' | 'done' | 'error' | 'skipped'
   outputs: string[]
   inputs: string[]
 }
@@ -77,8 +77,10 @@ export function renderBlock(
 function statusBadge(status: Block['status']): string {
   switch (status) {
     case 'idle':    return '○'
+    case 'pending': return '◎'
     case 'running': return '●'
     case 'done':    return '✓'
     case 'error':   return '✗'
+    case 'skipped': return '⊘'
   }
 }

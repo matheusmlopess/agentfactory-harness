@@ -47,11 +47,33 @@ function validatePlan(
   }
 }
 
+/**
+ * Optional, additive studio extension (ui-consolidation P6): carries canvas
+ * layout and typed edge metadata for lossless round-trips. The executor and
+ * CLI ignore it entirely — old plan files parse unchanged.
+ */
+export const StudioExtSchema = z.object({
+  layout: z.record(z.object({ row: z.number().int(), col: z.number().int() })).default({}),
+  edges: z
+    .array(
+      z.object({
+        from: z.string(),
+        to: z.string(),
+        kind: z.enum(['dependency', 'handoff']),
+        payload: z.string().optional(),
+      }),
+    )
+    .default([]),
+})
+
+export type StudioExt = z.infer<typeof StudioExtSchema>
+
 export const PlanSchema = z
   .object({
     version: z.literal('1.0'),
     name: z.string().min(1),
     steps: z.array(StepSchema).min(1),
+    'x-studio': StudioExtSchema.optional(),
   })
   .superRefine(validatePlan)
 

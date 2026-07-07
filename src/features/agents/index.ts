@@ -9,7 +9,7 @@ export function agentsFeature(): Feature {
   /** Push the session list into the panel (was App.refreshAgents). */
   function refresh(): void {
     const bridge = ctx?.services.get('session') as SessionBridge | undefined
-    if (!bridge || !panel) return
+    if (!bridge || !panel || panel.mode === 'team') return
     const metas = bridge.metas()
     panel.setAgents(metas.map(m => ({
       name:         m.name,
@@ -44,6 +44,11 @@ export function agentsFeature(): Feature {
             c.render()
           },
         )
+        // Live team dashboard: the canvas feature fans run events here
+        c.services.set('plan-events', {
+          setPlan: (plan) => panel?.setPlan(plan),
+          onPlanEvent: (ev) => panel?.onPlanEvent(ev),
+        } satisfies import('../canvas/index.js').PlanEventSink)
         return panel
       },
       beforeRender: refresh,

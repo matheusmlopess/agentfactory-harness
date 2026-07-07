@@ -117,7 +117,15 @@ function makeWiringCanvas(): OrchestrationCanvas {
 const M = (row: number, col: number, button: 'left'|'right' = 'left', action: 'press'|'release'|'move' = 'press') =>
   ({ button, action, row, col, shift: false, ctrl: false, alt: false } as const)
 
-describe('OrchestrationCanvas — interactive wiring', () => {
+/** Complete a wire b1→b2 and confirm the connector-type menu with Enter. */
+function wire(c: OrchestrationCanvas, connectorNav = 0): void {
+  c.onMouse(M(5, 58))    // start wiring from b1 output
+  c.onMouse(M(5, 67))    // click b2 input ● → typed-connector menu opens
+  for (let i = 0; i < connectorNav; i++) c.onKey({ key: 'arrow_down', raw: Buffer.from('\x1b[B') })
+  c.onKey({ key: 'enter', raw: Buffer.from('\r') })
+}
+
+describe('OrchestrationCanvas — interactive wiring (typed connectors)', () => {
   it('clicking output port enters wiring state', () => {
     const c = makeWiringCanvas()
     c.onMouse(M(5, 58))     // b1 output ○ at terminal(5,58)
@@ -136,18 +144,23 @@ describe('OrchestrationCanvas — interactive wiring', () => {
     }
   })
 
-  it('clicking input port of another block creates wire and returns to idle', () => {
+  it('completing a wire opens the connector menu; Enter creates a dependency edge', () => {
     const c = makeWiringCanvas()
-    c.onMouse(M(5, 58))    // start wiring from b1 output
-    c.onMouse(M(5, 67))    // click b2 input ●
+    wire(c)
     const state = c.getState()
     expect(state.drag.kind).toBe('idle')
     expect(state.wires).toHaveLength(1)
-    expect(state.wires[0]?.fromBlockId).toBe('b1')
-    expect(state.wires[0]?.toBlockId).toBe('b2')
+    expect(state.wires[0]).toMatchObject({ fromBlockId: 'b1', toBlockId: 'b2', kind: 'dependency' })
+    expect(c.getModel().edges[0]).toMatchObject({ from: 'b1', to: 'b2', kind: 'dependency' })
   })
 
-  it('self-loop is rejected', () => {
+  it('second connector item creates a handoff edge with summary payload', () => {
+    const c = makeWiringCanvas()
+    wire(c, 1)  // arrow_down once → 'handoff: summary'
+    expect(c.getState().wires[0]).toMatchObject({ kind: 'handoff', payload: 'summary' })
+  })
+
+  it('self-loop is rejected (no menu, no wire)', () => {
     const c = makeWiringCanvas()
     c.onMouse(M(5, 58))    // start wiring from b1 output
     c.onMouse(M(5, 43))    // click b1 input ● (same block)
@@ -155,10 +168,11 @@ describe('OrchestrationCanvas — interactive wiring', () => {
     expect(c.getState().wires).toHaveLength(0)
   })
 
-  it('duplicate wire is rejected', () => {
+  it('duplicate wire is rejected before the menu opens', () => {
     const c = makeWiringCanvas()
-    c.onMouse(M(5, 58)); c.onMouse(M(5, 67))   // create b1→b2
-    c.onMouse(M(5, 58)); c.onMouse(M(5, 67))   // attempt duplicate
+    wire(c)
+    c.onMouse(M(5, 58)); c.onMouse(M(5, 67))   // attempt duplicate — no menu
+    c.onKey({ key: 'enter', raw: Buffer.from('\r') })
     expect(c.getState().wires).toHaveLength(1)
   })
 
@@ -180,8 +194,7 @@ describe('OrchestrationCanvas — interactive wiring', () => {
 
   it('delete wire via right-click context menu', () => {
     const c = makeWiringCanvas()
-    // Create a wire first
-    c.onMouse(M(5, 58)); c.onMouse(M(5, 67))
+    wire(c)
     expect(c.getState().wires).toHaveLength(1)
     // The wire runs from output(3,17) to input(3,26): horizontal mid at col ~21
     // At canvas(3,21) → terminal(5, 62) — on the wire path
@@ -193,7 +206,7 @@ describe('OrchestrationCanvas — interactive wiring', () => {
 
   it('deleting a block also removes its wires', () => {
     const c = makeWiringCanvas()
-    c.onMouse(M(5, 58)); c.onMouse(M(5, 67))   // b1→b2 wire
+    wire(c)
     expect(c.getState().wires).toHaveLength(1)
     // Right-click b1 header → delete block
     c.onMouse(M(4, 43, 'right'))  // b1 header at terminal(4,43)
@@ -201,5 +214,47 @@ describe('OrchestrationCanvas — interactive wiring', () => {
     c.onKey({ key: 'enter', raw: Buffer.from('\r') })
     expect(c.getState().blocks.find(b => b.id === 'b1')).toBeUndefined()
     expect(c.getState().wires).toHaveLength(0)
+  })
+})
+
+describe('OrchestrationCanvas — build mode (ownership inversion)', () => {
+  it('the model is the source of truth: drag release writes back into it', () => {
+    const c = makeWiringCanvas()
+    c.onMouse(M(4, 43))                          // grab b1 header
+    c.onMouse(M(8, 51, 'left', 'move'))
+    c.onMouse(M(8, 51, 'left', 'release'))
+    const node = c.getModel().nodes.find(n => n.id === 'b1')!
+    expect(node.row % 2).toBe(0)
+    expect(node.col % 4).toBe(0)
+    expect(c.getState().blocks.find(b => b.id === 'b1')!.row).toBe(node.row)
+  })
+
+  it('body click selects a node; Esc deselects', () => {
+    const c = makeWiringCanvas()
+    c.onMouse(M(6, 45))                          // b1 body (not header)
+    expect(c.selectedId).toBe('b1')
+    c.onKey({ key: 'escape', raw: Buffer.from('\x1b') })
+    expect(c.selectedId).toBeNull()
+  })
+
+  it('t toggles the toolbox; clicking an item enters placing mode; drop creates a real node', () => {
+    const c = makeWiringCanvas()
+    c.onKey({ key: 't', raw: Buffer.from('t') })
+    c.onMouse(M(3, 42))                          // toolbox item 0 → 'generic' (canvas row 1, col 1)
+    expect(c.getState().drag.kind).toBe('placing')
+    c.onMouse(M(20, 80))                         // drop on empty canvas
+    expect(c.getModel().nodes).toHaveLength(3)
+    const added = c.getModel().nodes[2]!
+    expect(added.agent).toBe('generic')
+    // Dropping opens the inspector — Esc closes it
+    c.onKey({ key: 'escape', raw: Buffer.from('\x1b') })
+  })
+
+  it('syncFromPlan keeps pending/skipped statuses distinct via applyStepEvent', () => {
+    const c = makeWiringCanvas()
+    c.applyStepEvent({ type: 'step:skipped', stepId: 'b2', status: 'skipped' })
+    expect(c.getState().blocks.find(b => b.id === 'b2')!.status).toBe('skipped')
+    c.applyStepEvent({ type: 'step:start', stepId: 'b1', status: 'running' })
+    expect(c.getState().blocks.find(b => b.id === 'b1')!.status).toBe('running')
   })
 })

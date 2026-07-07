@@ -548,13 +548,35 @@ core:
 
 orchestration:
   - path: src/orchestration/schema.ts
-    purpose: "af-plan.json Zod schema — PlanSchema, StepSchema"
+    purpose: "af-plan.json Zod schema — PlanSchema, StepSchema + additive x-studio extension (layout + typed edges)"
     exports:
       - PlanSchema
       - StepSchema
+      - StudioExtSchema
       - Plan (inferred type)
       - Step (inferred type)
+      - StudioExt (inferred type)
     wave: 3
+    status: implemented
+
+  - path: src/orchestration/studio-model.ts
+    purpose: "Pure studio core (PLAN-13 standalone) — StudioModel source of truth, serialize/round-trip af-plan.json, design-time validation, deriveView; no TUI imports"
+    exports:
+      - StudioNode (interface)
+      - StudioEdge (interface)
+      - StudioModel (interface)
+      - StudioIssue (interface)
+      - emptyModel
+      - validateStudio
+      - studioToPlan
+      - planToStudio
+      - deriveView
+    wave: 5
+    status: implemented
+
+  - path: src/orchestration/studio-model.test.ts
+    purpose: purity check, round-trips, handoff prompt scaffold, validation table, deriveView
+    wave: 5
     status: implemented
 
   - path: src/orchestration/schema.test.ts
@@ -630,9 +652,73 @@ features:
     status: implemented
 
   - path: src/features/logs/index.ts
-    purpose: Logs tab as a self-contained Feature — panel, AI analysis flow, 2-min heartbeat lifecycle
+    purpose: Logs tab as a self-contained Feature — panel, AI analysis flow, 2-min heartbeat lifecycle, vim keybindings
     exports:
       - "logsFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/session/index.ts
+    purpose: Session feature — panel + clear-session command + SessionBridge service (metas/switch/model/chat/copy)
+    exports:
+      - SessionBridge (interface)
+      - "sessionFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/canvas/index.ts
+    purpose: Canvas feature — plan load/save/run flows, PlanBridge + PlanEventSink services, Ctrl+R/Ctrl+S bindings
+    exports:
+      - PlanBridge (interface)
+      - PlanEventSink (interface)
+      - "canvasFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/canvas/NodeInspector.ts
+    purpose: "Modal node editor (PLAN-13 §6) — id/agent/provider/model/timeout/prompt fields, inline validation"
+    exports:
+      - NodeInspector (class)
+    wave: 5
+    status: implemented
+
+  - path: src/features/canvas/NodeInspector.test.ts
+    purpose: NodeInspector render, save/cancel, validation blocking, provider cycling
+    wave: 5
+    status: implemented
+
+  - path: src/features/agents/index.ts
+    purpose: Agents feature — session-list refresh via beforeRender + plan-events sink for the team dashboard
+    exports:
+      - "agentsFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/agents/panel.test.ts
+    purpose: Team-mode tests — pending/skipped badges + text labels, event log, Esc back to sessions
+    wave: 5
+    status: implemented
+
+  - path: src/features/terminal/index.ts
+    purpose: Terminal feature — lazy PTY spawn (VT-GAP-08), destroy on stop
+    exports:
+      - "terminalFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/config/index.ts
+    purpose: Config feature — panel + login/logout palette commands + auth-user load
+    exports:
+      - "configFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/config/flows.ts
+    purpose: Login/logout/import flows driving the ConfigPanel overlays
+    exports:
+      - runLoginFlow
+      - runLogout
+      - runImport
     wave: 5
     status: implemented
 
