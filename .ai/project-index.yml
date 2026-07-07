@@ -925,6 +925,16 @@ docs:
     purpose: Approved plan — UI consolidation (ddd/09–11) + standalone orchestration studio
     wave: 5
     status: implemented
+
+  - path: docs/features/FEATURE-UI-CONSOLIDATION-2026-07-07.md
+    purpose: Feature doc — ddd/09–11 implementation (widgets, tokens, controller, keymap, a11y, size profiles, registry)
+    wave: 5
+    status: implemented
+
+  - path: docs/features/FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md
+    purpose: Feature doc — standalone studio + team dashboard + NDJSON run
+    wave: 5
+    status: implemented
   # ────────────────────────────────────────────────────────────────────────────
 
   - path: docs/features/FEATURE-WAVE-0-SCAFFOLD-2026-04-26.md

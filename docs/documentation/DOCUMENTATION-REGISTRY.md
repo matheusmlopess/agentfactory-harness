@@ -1,8 +1,8 @@
-<!-- version: 1.2.0 -->
+<!-- version: 1.3.0 -->
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-07-04 -->
+<!-- last-updated: 2026-07-07 -->
 <!-- status: ACTIVE -->
 
 # Documentation Registry
@@ -22,7 +22,7 @@ Complete index of all documentation organized by type, feature, and date.
 
 | Type | Count | Latest | Status |
 |------|-------|--------|--------|
-| **FEATURE** | 4 | 2026-06-09 | ✅ Active |
+| **FEATURE** | 6 | 2026-07-07 | ✅ Active |
 | **TESTING** | 2 | 2026-06-18 | ✅ Active |
 | **DESIGN** | 1 + DDD set (14) | 2026-06-18 | ✅ Active |
 | **GAPS** | 0 | — | — |
@@ -61,6 +61,8 @@ is the centralized term/acronym lookup.
 
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
+| FEATURE-UI-CONSOLIDATION-2026-07-07.md | 2026-07-07 | UI Consolidation | ✅ Active | ddd/09–11 implementation: Overlay/ListBehavior, theme tokens, InputController, keymap, a11y, size profiles, Feature registry |
+| FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md | 2026-07-07 | Orchestration Studio | ✅ Active | Standalone PLAN-13/PLAN-10: StudioModel, typed connectors, inspector, toolbox, team dashboard, NDJSON run |
 | FEATURE-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | Live logging, metrics, auto-analysis operational guide |
 | FEATURE-WAVE-5-REGISTRY-AUTH-2026-06-09.md | 2026-04-XX | Registry Auth | ✅ Active | Registry authentication & key management |
 | FEATURE-WAVE-4-TERMINAL-PANEL-2026-05-18.md | 2026-04-XX | Terminal Panel | ✅ Active | Embedded PTY terminal usage |
@@ -277,6 +279,8 @@ feature-dev approval. Also open in PR #23.
 
 | Date | Type | Doc | Feature | Status |
 |------|------|-----|---------|--------|
+| 2026-07-07 | FEATURE | FEATURE-UI-CONSOLIDATION-2026-07-07.md | UI Consolidation | ✅ Active |
+| 2026-07-07 | FEATURE | FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md | Orchestration Studio | ✅ Active |
 | 2026-07-04 | PLAN | specs/docs/approvedPlans/2026-07-04-ui-consolidation-studio.md | UI Consolidation + Studio | ✅ Active |
 | 2026-06-09 | SUMMARY | IMPLEMENTATION-COMPLETE-LOGS-PANEL-2026-06-09.md | Logs Panel | ✅ Active |
 | 2026-06-09 | REVIEW | INDEX-LOGS-PANEL-DOCUMENTATION-2026-06-09.md | Logs Panel | ✅ Active |
