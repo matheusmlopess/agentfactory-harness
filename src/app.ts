@@ -1,54 +1,46 @@
-import { readFile, appendFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { appendFile } from 'node:fs/promises'
 import { CellBuffer } from './tui/renderer/cell-buffer.js'
-import { computeLayout, drawBorder } from './tui/renderer/layout.js'
+import { computeLayout, drawBorder, type LayoutPrefs } from './tui/renderer/layout.js'
 import { renderStatusBar } from './tui/panels/StatusBar.js'
 import { Colors, setTheme } from './tui/renderer/theme.js'
-import { refreshMotionSetting } from './tui/renderer/motion.js'
 import { activeProfile, sizeCheck, renderTooSmall } from './tui/renderer/size-profiles.js'
-import type { LayoutPrefs } from './tui/renderer/layout.js'
 import * as A from './tui/renderer/ansi.js'
 import { InputRouter } from './tui/input/router.js'
 import { InputController, type ControllerHost } from './tui/input/controller.js'
 import { HitMap } from './tui/input/hit-test.js'
-import { Keymap, type KeyBindingDef } from './tui/input/keymap.js'
+import { Keymap } from './tui/input/keymap.js'
 import { HelpOverlay } from './tui/widgets/HelpOverlay.js'
+import { CommandPalette, type PaletteCommand } from './tui/widgets/CommandPalette.js'
 import { type TabEntry, type TabId, tabIndex, tabIdAt } from './tui/tabs.js'
-import { SessionPanel } from './tui/panels/SessionPanel.js'
-import { AgentsPanel } from './tui/panels/AgentsPanel.js'
-import { OrchestrationCanvas } from './tui/panels/OrchestrationCanvas.js'
-import { TerminalPanel } from './tui/panels/TerminalPanel.js'
+import { tabLabelSpans, EXIT_BTN } from './tui/tab-bar.js'
+import { applySetting } from './tui/settings.js'
 import type { Panel } from './tui/panels/Panel.js'
 import { registerTool } from './core/tools/index.js'
 import { BashTool } from './core/tools/bash.js'
 import { ReadTool } from './core/tools/read.js'
 import { WriteTool } from './core/tools/write.js'
 import { WebFetchTool } from './core/tools/web-fetch.js'
-import { PlanSchema, type Plan } from './orchestration/schema.js'
-import { Executor } from './orchestration/executor.js'
-import { Session } from './core/session.js'
-import { agentLoop } from './core/agent-loop.js'
-import { createAdapter, defaultProvider } from './core/llm/index.js'
-import { ConfigPanel } from './tui/panels/ConfigPanel.js'
 import { store } from './core/config/store.js'
-import { CommandPalette } from './tui/widgets/CommandPalette.js'
-import { getUser, clearToken } from './registry/auth.js'
-import { startDeviceLogin } from './registry/login.js'
-import { importFromTools } from './registry/import-keys.js'
 import { logger, getLogFilePath } from './core/logger.js'
-import { tabLabelSpans, EXIT_BTN } from './tui/tab-bar.js'
 import { getVersion } from './core/version.js'
 import { registerFeature, loadedFeatures, resetFeatures } from './features/registry.js'
 import type { FeatureCtx } from './features/types.js'
+import { sessionFeature, type SessionBridge } from './features/session/index.js'
+import { canvasFeature, type PlanBridge } from './features/canvas/index.js'
+import { agentsFeature } from './features/agents/index.js'
+import { terminalFeature } from './features/terminal/index.js'
+import { configFeature } from './features/config/index.js'
 import { logsFeature } from './features/logs/index.js'
+import type { TerminalPanel } from './tui/panels/TerminalPanel.js'
+import { ConfigPanel } from './tui/panels/ConfigPanel.js'
 
 const log = logger('App')
 
-const TAB_TITLES: Record<TabId, string> = {
-  session: 'Session', orchestration: 'Orchestration', agents: 'Agents',
-  terminal: 'Terminal', config: 'Config', logs: 'Logs',
-}
-
+/**
+ * Thin host (ddd/11): loads features from the registry, builds the tab bar,
+ * palette, and keymap from their contributions, runs the render loop, and
+ * wires the InputController. Feature logic lives in src/features/*.
+ */
 export class App {
   private rows = process.stdout.rows ?? 24
   private cols = process.stdout.columns ?? 80
@@ -57,16 +49,8 @@ export class App {
   private activeTab: TabId = 'session'
   private running = false
   private renderPending = false
-  private currentPlan: Plan | null = null
-  private planRunning = false
   private statusError: string | null = null
   private statusErrorTimer: ReturnType<typeof setTimeout> | null = null
-  private sessionPanel!: SessionPanel
-  private canvasPanel!: OrchestrationCanvas
-  private agentsPanel!: AgentsPanel
-  private terminalPanel: TerminalPanel | null = null
-  private configPanel: ConfigPanel | null = null
-  private logsPanel!: Panel
   private palette!: CommandPalette
   private paletteOpen = false
   private tabs!: TabEntry[]
@@ -103,15 +87,8 @@ export class App {
     if (Number.isFinite(sessionRatio) && sessionRatio > 0) this.layoutPrefs.sessionRatio = sessionRatio
     if (Number.isFinite(canvasRatio) && canvasRatio > 0) this.layoutPrefs.canvasRatio = canvasRatio
     log.debug('config store initialized')
-    this.initPanels()
-    log.debug('panels initialized')
-    await this.tryLoadPlan()
-    log.debug('plan loaded', { currentPlan: this.currentPlan ? 'yes' : 'no' })
-    // Load registry auth user in background — don't block startup
-    void getUser().then(user => {
-      log.debug('auth user loaded', { isLoggedIn: user !== null })
-      this.configPanel?.setAuthUser(user)
-    })
+    this.initFeatures()
+    log.debug('features initialized', { count: loadedFeatures().length })
     this.render()
     log.info('render started')
     this.controller.attach(process.stdin)
@@ -128,96 +105,87 @@ export class App {
     })
   }
 
-  private initPanels(): void {
-    const layout = this.layout()
-    this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender(),
-      () => { this.scheduleRender() },                                  // onStats: records hold state; just repaint
-      (target) => { if (target === 'config') { this.activeTab = 'config'; this.render() } },
-      (text) => { process.stdout.write(A.osc52Copy(text)) },           // onCopy via OSC 52
-    )
-    this.canvasPanel  = new OrchestrationCanvas(layout.canvas, () => this.scheduleRender())
-    this.agentsPanel  = new AgentsPanel(layout.agents, () => this.scheduleRender(),
-      (idx) => { this.sessionPanel.switchTo(idx); this.render() },     // click a session → switch active
-    )
-    this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender(), {
-      onLogin:   () => { void this.runLoginFlow() },
-      onLogout:  () => { void this.runLogout()    },
-      onImport:  () => { void this.runImport()    },
-      onSetting: (key, value) => this.applySetting(key, value),
-    })
-
-    // Feature registry seed: Logs is loaded generically; the other five tabs
-    // stay legacy until Phase 5 migrates them (ddd/11 incremental path).
+  /** Register all features and build tabs / palette / keymap from them. */
+  private initFeatures(): void {
     resetFeatures()
+    registerFeature(sessionFeature())
+    registerFeature(canvasFeature())
+    registerFeature(agentsFeature())
+    registerFeature(terminalFeature())
+    registerFeature(configFeature())
     registerFeature(logsFeature())
+
     const ctx = this.featureCtx()
-    const featureTabs: TabEntry[] = loadedFeatures().flatMap(f => {
+
+    // Tabs — panel construction is lazy (first access), so the Terminal PTY
+    // spawns only when its tab is first shown (VT-GAP-08 preserved)
+    this.tabs = loadedFeatures().flatMap(f => {
       const tab = f.tab
       if (!tab) return []
-      const panel = tab.makePanel(ctx)
-      if (tab.id === 'logs') this.logsPanel = panel
-      return [{
+      let panel: Panel | null = null
+      const entry: TabEntry = {
         id: tab.id,
         title: tab.title,
         captureMouse: tab.captureMouse,
-        panel: () => panel,
+        panel: () => (panel ??= tab.makePanel(ctx)),
         rectFor: tab.rectFor,
         hitVisible: tab.hitVisible,
-      }]
+      }
+      if (tab.beforeRender) entry.beforeRender = tab.beforeRender
+      return [entry]
     })
 
-    // The unified tab list — all six tabs are first-class routing targets.
-    // hitVisible reproduces the historical panelTabAt click-to-focus branches.
-    this.tabs = [
-      { id: 'session',       title: TAB_TITLES.session,       captureMouse: false, panel: () => this.sessionPanel,        rectFor: l => l.session,  hitVisible: () => true },
-      { id: 'orchestration', title: TAB_TITLES.orchestration, captureMouse: false, panel: () => this.canvasPanel,         rectFor: l => l.canvas,   hitVisible: a => a !== 'config' && a !== 'terminal' },
-      { id: 'agents',        title: TAB_TITLES.agents,        captureMouse: false, panel: () => this.agentsPanel,         rectFor: l => l.agents,   hitVisible: a => a !== 'config' && a !== 'terminal' },
-      { id: 'terminal',      title: TAB_TITLES.terminal,      captureMouse: false, panel: () => this.ensureTerminalPanel(), rectFor: l => l.terminal, hitVisible: a => a === 'terminal' },
-      { id: 'config',        title: TAB_TITLES.config,        captureMouse: true,  panel: () => this.configPanel!,        rectFor: l => l.config,   hitVisible: a => a === 'config' },
-      ...featureTabs,
-    ]
-
+    // Palette — host chrome commands + every feature's contributions
     const switchTab = (id: TabId) => () => { this.activeTab = id; this.render() }
-    this.palette = new CommandPalette([
-      { id: 'switch-session',       label: 'Switch to Session',       hint: 'F1',     action: switchTab('session') },
-      { id: 'switch-orchestration', label: 'Switch to Orchestration', hint: 'F2',     action: switchTab('orchestration') },
-      { id: 'switch-agents',        label: 'Switch to Agents',        hint: 'F3',     action: switchTab('agents') },
-      { id: 'switch-terminal',      label: 'Switch to Terminal',      hint: 'F4',     action: switchTab('terminal') },
-      { id: 'switch-config',        label: 'Switch to Config',        hint: 'F5',     action: switchTab('config') },
-      { id: 'switch-logs',          label: 'Switch to Logs',          hint: 'F6',     action: switchTab('logs') },
-      { id: 'login',                label: 'Login to AgentFactory',   hint: '',       action: () => { this.activeTab = 'config'; void this.runLoginFlow() } },
-      { id: 'logout',               label: 'Logout from AgentFactory',hint: '',       action: () => { void this.runLogout() } },
-      { id: 'run-plan',             label: 'Run Plan',                hint: 'Ctrl+R', action: () => { void this.runPlan() } },
-      { id: 'clear-session',        label: 'Clear Session',           hint: '',       action: () => { this.sessionPanel.clearSession(); this.render() } },
-      { id: 'help',                 label: 'Help: keyboard shortcuts',hint: '?',      action: () => { this.help.open(this.activeTab); this.render() } },
-      { id: 'theme-default',        label: 'Theme: default',          hint: '',       action: () => { this.applySetting('theme', 'default') } },
-      { id: 'theme-high-contrast',  label: 'Theme: high contrast',    hint: '',       action: () => { this.applySetting('theme', 'high-contrast') } },
-      { id: 'toggle-motion',        label: 'Toggle reduced motion',   hint: '',       action: () => { this.applySetting('reducedMotion', store.getSetting('reducedMotion') === 'true' ? 'false' : 'true') } },
-      { id: 'size-compact',         label: 'Size profile: Compact (80×24)',   hint: '', action: () => { this.applySetting('sizeProfile', 'compact') } },
-      { id: 'size-standard',        label: 'Size profile: Standard (110×30)', hint: '', action: () => { this.applySetting('sizeProfile', 'standard') } },
-      { id: 'size-wide',            label: 'Size profile: Wide (140×40)',     hint: '', action: () => { this.applySetting('sizeProfile', 'wide') } },
-      { id: 'quit',                 label: 'Quit',                    hint: 'Ctrl+Q', action: () => { this.stop() } },
-    ])
+    const commands: PaletteCommand[] = [
+      { id: 'switch-session',       label: 'Switch to Session',       hint: 'F1', action: switchTab('session') },
+      { id: 'switch-orchestration', label: 'Switch to Orchestration', hint: 'F2', action: switchTab('orchestration') },
+      { id: 'switch-agents',        label: 'Switch to Agents',        hint: 'F3', action: switchTab('agents') },
+      { id: 'switch-terminal',      label: 'Switch to Terminal',      hint: 'F4', action: switchTab('terminal') },
+      { id: 'switch-config',        label: 'Switch to Config',        hint: 'F5', action: switchTab('config') },
+      { id: 'switch-logs',          label: 'Switch to Logs',          hint: 'F6', action: switchTab('logs') },
+      { id: 'help',                 label: 'Help: keyboard shortcuts', hint: '?', action: () => { this.help.open(this.activeTab); this.render() } },
+      { id: 'theme-default',        label: 'Theme: default',          hint: '', action: () => this.applyAndRender('theme', 'default') },
+      { id: 'theme-high-contrast',  label: 'Theme: high contrast',    hint: '', action: () => this.applyAndRender('theme', 'high-contrast') },
+      { id: 'toggle-motion',        label: 'Toggle reduced motion',   hint: '', action: () => this.applyAndRender('reducedMotion', store.getSetting('reducedMotion') === 'true' ? 'false' : 'true') },
+      { id: 'size-compact',         label: 'Size profile: Compact (80×24)',   hint: '', action: () => this.applyAndRender('sizeProfile', 'compact') },
+      { id: 'size-standard',        label: 'Size profile: Standard (110×30)', hint: '', action: () => this.applyAndRender('sizeProfile', 'standard') },
+      { id: 'size-wide',            label: 'Size profile: Wide (140×40)',     hint: '', action: () => this.applyAndRender('sizeProfile', 'wide') },
+      { id: 'quit',                 label: 'Quit', hint: 'Ctrl+Q', action: () => { this.stop() } },
+    ]
+    for (const f of loadedFeatures()) {
+      if (f.commands) commands.push(...f.commands(ctx))
+    }
+    this.palette = new CommandPalette(commands)
 
     this.help = new HelpOverlay(this.keymap, () => this.render())
-    this.buildKeymap()
+    this.buildKeymap(ctx)
     this.controller = new InputController(this.controllerHost(), this.router, this.keymap)
   }
 
-  /** Apply + persist a UI setting, refreshing dependent subsystems. */
-  private applySetting(key: string, value: string): void {
-    store.setSetting(key, value)
-    if (key === 'theme') setTheme(value === 'high-contrast' ? 'high-contrast' : 'default')
-    if (key === 'reducedMotion') refreshMotionSetting()
+  private applyAndRender(key: string, value: string): void {
+    applySetting(store, key, value)
     this.render()
   }
 
-  /** Declarative bindings — the old listenInput if-chain as data (gap 3-doc). */
-  private buildKeymap(): void {
-    const switchTo = (id: TabId, desc: string, key: string): KeyBindingDef => ({
+  private sessionBridge(): SessionBridge | undefined {
+    return this.services.get('session') as SessionBridge | undefined
+  }
+
+  private planBridge(): PlanBridge | undefined {
+    return this.services.get('plan') as PlanBridge | undefined
+  }
+
+  private tabEntry(id: TabId): TabEntry | undefined {
+    return this.tabs.find(t => t.id === id)
+  }
+
+  /** Declarative host bindings — the old listenInput if-chain as data. */
+  private buildKeymap(ctx: FeatureCtx): void {
+    const switchTo = (id: TabId, desc: string, key: string) => ({
       id: `tab.${id}`, keys: [key], description: desc,
       run: () => {
-        if (id === 'session' && this.activeTab === 'session') this.sessionPanel.openNewSessionMenu()
+        if (id === 'session' && this.activeTab === 'session') this.sessionBridge()?.openNewSessionMenu()
         this.activeTab = id
         this.render()
       },
@@ -227,9 +195,10 @@ export class App {
       {
         id: 'app.copyOrQuit', keys: ['ctrl+c'], description: 'Copy selection (Session) / quit',
         run: () => {
-          if (this.activeTab === 'session' && this.sessionPanel.hasSelection()) {
-            this.sessionPanel.copySelection()
-            this.sessionPanel.clearSelection()
+          const session = this.sessionBridge()
+          if (this.activeTab === 'session' && session?.hasSelection()) {
+            session.copySelection()
+            session.clearSelection()
             this.render()
             return
           }
@@ -248,16 +217,12 @@ export class App {
       switchTo('config', 'Config tab', 'f5'),
       switchTo('logs', 'Logs tab', 'f6'),
       {
-        id: 'plan.run', keys: ['ctrl+r'], description: 'Run the loaded plan', panelFirst: true,
-        run: () => { void this.runPlan() },
-      },
-      {
         id: 'help.show', keys: ['?'], description: 'This help',
         run: () => { this.help.open(this.activeTab); this.render() },
       },
     ])
     for (const f of loadedFeatures()) {
-      if (f.keybindings) this.keymap.add(f.keybindings(this.featureCtx()))
+      if (f.keybindings) this.keymap.add(f.keybindings(ctx))
     }
   }
 
@@ -295,21 +260,26 @@ export class App {
         onKey: (e) => this.help.onKey(e),
         onMouse: (e) => this.help.onMouse(e, { row: 0, col: 0, height: this.rows, width: this.cols }),
       },
-      textInputActive: () =>
-        this.activeTab === 'session' ||
-        (this.activeTab === 'config' && (this.configPanel?.isEditing ?? false)),
+      textInputActive: () => {
+        if (this.activeTab === 'session') return true
+        if (this.activeTab === 'config') {
+          const panel = this.tabEntry('config')?.panel()
+          return panel instanceof ConfigPanel && panel.isEditing
+        }
+        return false
+      },
       layoutOf: (id) => {
-        const tab = this.tabs.find(t => t.id === id)
+        const tab = this.tabEntry(id)
         return tab ? tab.rectFor(this.layout()) : this.layout().session
       },
-      terminal: () => this.ensureTerminalPanel(),
+      terminal: () => this.tabEntry('terminal')!.panel() as TerminalPanel,
       session: {
-        openNewSessionMenu: () => this.sessionPanel.openNewSessionMenu(),
-        openModelPicker:    () => this.sessionPanel.openModelPicker(),
-        toggleChatMode:     () => this.sessionPanel.toggleChatMode(),
-        hasSelection:       () => this.sessionPanel.hasSelection(),
-        copySelection:      () => this.sessionPanel.copySelection(),
-        clearSelection:     () => this.sessionPanel.clearSelection(),
+        openNewSessionMenu: () => this.sessionBridge()?.openNewSessionMenu(),
+        openModelPicker:    () => this.sessionBridge()?.openModelPicker(),
+        toggleChatMode:     () => this.sessionBridge()?.toggleChatMode(),
+        hasSelection:       () => this.sessionBridge()?.hasSelection() ?? false,
+        copySelection:      () => this.sessionBridge()?.copySelection(),
+        clearSelection:     () => this.sessionBridge()?.clearSelection(),
       },
       dragDivider: (id, row, col, commit) => this.dragDivider(id, row, col, commit),
       stop: () => this.stop(),
@@ -335,29 +305,6 @@ export class App {
     }
   }
 
-  // VT-GAP-08: lazy PTY spawn — only on first switch to Terminal tab
-  private ensureTerminalPanel(): TerminalPanel {
-    if (!this.terminalPanel) {
-      const layout = this.layout()
-      this.terminalPanel = new TerminalPanel(layout.terminal, () => this.scheduleRender())
-    }
-    return this.terminalPanel
-  }
-
-  private async tryLoadPlan(): Promise<void> {
-    try {
-      const raw = JSON.parse(await readFile(resolve(process.cwd(), 'af-plan.json'), 'utf8'))
-      const plan = PlanSchema.parse(raw)
-      this.currentPlan = plan
-      this.canvasPanel.syncFromPlan(plan)
-    } catch (err) {
-      const isNoFile = err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT'
-      if (!isNoFile) {
-        this.showError(err instanceof Error ? err.message : String(err))
-      }
-    }
-  }
-
   private showError(msg: string): void {
     this.statusError = msg.substring(0, 120)
     if (this.statusErrorTimer) clearTimeout(this.statusErrorTimer)
@@ -367,63 +314,6 @@ export class App {
       this.scheduleRender()
     }, 5000)
     this.scheduleRender()
-  }
-
-  private async runLoginFlow(): Promise<void> {
-    if (!this.configPanel) return
-    this.activeTab = 'config'
-    this.render()
-    for await (const ev of startDeviceLogin()) {
-      this.configPanel.updateLoginEvent(ev)
-      this.render()
-      if (ev.kind === 'success' || ev.kind === 'error') break
-    }
-  }
-
-  private async runLogout(): Promise<void> {
-    await clearToken()
-    this.configPanel?.setAuthUser(null)
-    this.render()
-  }
-
-  private async runImport(): Promise<void> {
-    if (!this.configPanel) return
-    const candidates = await importFromTools()
-    this.configPanel.showImportCandidates(candidates)
-    this.render()
-  }
-
-  private async runPlan(): Promise<void> {
-    if (!this.currentPlan || this.planRunning) return
-    this.planRunning = true
-
-    try {
-      const plan = this.currentPlan
-      this.canvasPanel.syncFromPlan(plan)
-
-      const executor = new Executor(plan, {
-        agentRunner: async (step) => {
-          const provider = step.provider ?? defaultProvider()
-          const adapter = createAdapter(provider)
-          const session = new Session()
-          session.addMessage({ role: 'user', content: step.prompt })
-          let out = ''
-          for await (const e of agentLoop(session, {
-            adapter,
-            ...(step.model !== undefined ? { model: step.model } : {}),
-          })) {
-            if (e.type === 'text_delta') out += e.delta
-          }
-          return out.trim()
-        },
-      })
-
-      for await (const event of executor.run()) {
-        this.canvasPanel.applyStepEvent(event)
-      }
-    } finally {
-      this.planRunning = false
-    }
   }
 
   private setup(): void {
@@ -441,15 +331,15 @@ export class App {
       this.buf  = new CellBuffer(this.rows, this.cols)
       this.prev = new CellBuffer(this.rows, this.cols)
       const layout = this.layout()
-      this.sessionPanel.rect  = layout.session
-      this.canvasPanel.rect   = layout.canvas
-      this.agentsPanel.rect   = layout.agents
-      if (this.terminalPanel) {
-        this.terminalPanel.rect = layout.terminal
-        const inner = this.terminalPanel.inner
-        this.terminalPanel.resize(inner.height, inner.width)
+      for (const tab of this.tabs) {
+        const panel = tab.panel()
+        panel.rect = tab.rectFor(layout)
+        if (tab.id === 'terminal') {
+          const tp = panel as TerminalPanel
+          const inner = tp.inner
+          tp.resize(inner.height, inner.width)
+        }
       }
-      if (this.configPanel) this.configPanel.rect = layout.config
       this.render()
     })
 
@@ -472,25 +362,6 @@ export class App {
     })
   }
 
-  /** Push the SessionPanel's session list into the Agents panel (switcher + stats). */
-  private refreshAgents(): void {
-    const metas = this.sessionPanel.sessionMetas()
-    this.agentsPanel.setAgents(metas.map(m => ({
-      name:         m.name,
-      status:       m.status,
-      active:       m.active,
-      ...(m.stats ? {
-        model:        m.stats.model,
-        inputTokens:  m.stats.inputTokens,
-        outputTokens: m.stats.outputTokens,
-        toolCalls:    m.stats.toolCalls,
-        turns:        m.stats.turns,
-        startTime:    m.stats.startTime,
-        ...(m.status !== 'running' ? { endTime: Date.now() } : {}),
-      } : {}),
-    })))
-  }
-
   /** Toggle mouse reporting. When off, the terminal handles native text
    *  selection so the user can copy output; when on, the TUI gets clicks. */
   private toggleMouseCapture(): void {
@@ -503,7 +374,6 @@ export class App {
     if (!this.running) return
     this.running = false
     for (const f of loadedFeatures()) f.stop?.()
-    this.terminalPanel?.destroy()
     // Drain stdin before exit so buffered mouse events don't leak into the shell
     process.stdin.removeAllListeners('data')
     process.stdin.setRawMode(false)
@@ -513,6 +383,18 @@ export class App {
       A.disableMouse() + A.disableBracketedPaste() + A.showCursor() + A.exitAltScreen(),
       () => process.exit(0),
     )
+  }
+
+  /** Render one tab's bordered panel. */
+  private renderTab(id: TabId, rect: ReturnType<typeof computeLayout>['session'], title: string, focused: boolean): void {
+    const tab = this.tabEntry(id)
+    if (!tab) return
+    drawBorder(this.buf, rect, title, focused)
+    const panel = tab.panel()
+    panel.rect = rect
+    panel.focused = focused
+    tab.beforeRender?.()
+    panel.render(this.buf)
   }
 
   private render(): void {
@@ -537,50 +419,30 @@ export class App {
     this.renderTabBar(layout.tabBar.row)
 
     // Left column — always visible
-    drawBorder(this.buf, layout.session, 'Session', this.activeTab === 'session')
-    this.sessionPanel.rect    = layout.session
-    this.sessionPanel.focused = this.activeTab === 'session'
-    this.sessionPanel.render(this.buf)
+    this.renderTab('session', layout.session, 'Session', this.activeTab === 'session')
 
     if (this.activeTab === 'config') {
-      drawBorder(this.buf, layout.config, 'Config', true)
-      this.configPanel!.rect    = layout.config
-      this.configPanel!.focused = true
-      this.configPanel!.render(this.buf)
+      this.renderTab('config', layout.config, 'Config', true)
     } else if (this.activeTab === 'logs') {
-      drawBorder(this.buf, layout.logs, 'Logs', true)
-      this.logsPanel.rect    = layout.logs
-      this.logsPanel.focused = true
-      this.logsPanel.render(this.buf)
+      this.renderTab('logs', layout.logs, 'Logs', true)
     } else if (this.activeTab === 'terminal') {
-      const tp = this.ensureTerminalPanel()
-      drawBorder(this.buf, layout.terminal, 'Terminal', true)
-      tp.rect    = layout.terminal
-      tp.focused = true
-      tp.render(this.buf)
+      this.renderTab('terminal', layout.terminal, 'Terminal', true)
     } else {
-      drawBorder(this.buf, layout.canvas, 'Orchestration', this.activeTab === 'orchestration')
-      drawBorder(this.buf, layout.agents, 'Agents',        this.activeTab === 'agents')
-
-      this.canvasPanel.rect    = layout.canvas
-      this.canvasPanel.focused = this.activeTab === 'orchestration'
-      this.canvasPanel.render(this.buf)
-
-      this.refreshAgents()
-      this.agentsPanel.rect    = layout.agents
-      this.agentsPanel.focused = this.activeTab === 'agents'
-      this.agentsPanel.render(this.buf)
+      this.renderTab('orchestration', layout.canvas, 'Orchestration', this.activeTab === 'orchestration')
+      this.renderTab('agents', layout.agents, 'Agents', this.activeTab === 'agents')
     }
 
     // Always show a model tag — selected ID or "select model" as a click prompt
-    const modelLabel = this.sessionPanel.getSelectedModel()?.id ?? 'select model'
-    const mode = this.planRunning ? 'running' : this.mouseEnabled ? 'NORMAL' : 'SELECT'
+    const session = this.sessionBridge()
+    const modelLabel = session?.getSelectedModel()?.id ?? 'select model'
+    const planRunning = this.planBridge()?.isRunning() ?? false
+    const mode = planRunning ? 'running' : this.mouseEnabled ? 'NORMAL' : 'SELECT'
     const sbLayout = renderStatusBar(
       this.buf, layout.statusBar,
       mode,
       this.statusError ?? undefined,
       modelLabel,
-      this.sessionPanel.getChatMode(),
+      session?.getChatMode(),
     )
     const sbRow = layout.statusBar.row
     if (sbLayout.modelTagCol >= 0) {

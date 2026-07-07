@@ -2,6 +2,7 @@ import type { Panel } from '../tui/panels/Panel.js'
 import type { PanelLayout, Rect } from '../tui/renderer/layout.js'
 import type { TabId } from '../tui/tabs.js'
 import type { PaletteCommand } from '../tui/widgets/CommandPalette.js'
+import type { KeyBindingDef } from '../tui/input/keymap.js'
 import type { ConfigStore } from '../core/config/store.js'
 import type { Tool } from '../core/tools/index.js'
 
@@ -21,13 +22,8 @@ export interface FeatureCtx {
   services: Map<string, unknown>
 }
 
-export interface KeyBindingContribution {
-  id: string
-  keys: string[]
-  when?: TabId | 'global'
-  description: string
-  run(): void
-}
+/** Feature keybindings share the keymap's binding shape. */
+export type KeyBindingContribution = KeyBindingDef
 
 /**
  * One feature = panel + commands + tools + keybindings, registered in one
@@ -43,7 +39,10 @@ export interface Feature {
     captureMouse: boolean
     rectFor(layout: PanelLayout): Rect
     hitVisible(activeId: TabId): boolean
+    /** Called lazily on first access — a PTY-backed panel spawns only then. */
     makePanel(ctx: FeatureCtx): Panel
+    /** Called by the host just before rendering this tab's panel each frame. */
+    beforeRender?(): void
   }
   commands?(ctx: FeatureCtx): PaletteCommand[]
   tools?: Tool[]

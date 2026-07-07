@@ -26,6 +26,8 @@ export interface TabEntry {
    * instead of participating in the rect scan.
    */
   captureMouse: boolean
+  /** Called by the host just before rendering this tab's panel each frame. */
+  beforeRender?: () => void
 }
 
 export function tabIndex(id: TabId): number {
