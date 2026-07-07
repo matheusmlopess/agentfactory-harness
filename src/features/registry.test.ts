@@ -47,8 +47,9 @@ describe('logs feature (the registry proving case)', () => {
     expect(f.tab?.captureMouse).toBe(true)
     const panel = f.tab!.makePanel(makeCtx())
     expect(panel.rect).toEqual(computeLayout(24, 80).logs)
-    // Keys route like any panel — 'j' (vim down) is Logs-specific and consumed
-    expect(panel.onKey({ key: 'j', raw: Buffer.from('j') })).toBe(true)
+    // Arrows route like any panel; vim aliases are keymap contributions
+    expect(panel.onKey({ key: 'arrow_down', raw: Buffer.from('') })).toBe(true)
+    expect(f.keybindings?.(makeCtx()).map(b => b.keys[0])).toEqual(['k', 'j', 'h', 'l', 'c', 'a'])
   })
 
   it('start/stop lifecycle manages its own heartbeat without throwing', () => {

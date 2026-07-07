@@ -4,11 +4,16 @@ import { CellBuffer } from './tui/renderer/cell-buffer.js'
 import { computeLayout, drawBorder } from './tui/renderer/layout.js'
 import { renderStatusBar } from './tui/panels/StatusBar.js'
 import { Colors, setTheme } from './tui/renderer/theme.js'
+import { refreshMotionSetting } from './tui/renderer/motion.js'
+import { activeProfile, sizeCheck, renderTooSmall } from './tui/renderer/size-profiles.js'
+import type { LayoutPrefs } from './tui/renderer/layout.js'
 import * as A from './tui/renderer/ansi.js'
 import { InputRouter } from './tui/input/router.js'
 import { InputController, type ControllerHost } from './tui/input/controller.js'
 import { HitMap } from './tui/input/hit-test.js'
-import { type TabEntry, type TabId, TAB_ORDER, tabIndex } from './tui/tabs.js'
+import { Keymap, type KeyBindingDef } from './tui/input/keymap.js'
+import { HelpOverlay } from './tui/widgets/HelpOverlay.js'
+import { type TabEntry, type TabId, tabIndex, tabIdAt } from './tui/tabs.js'
 import { SessionPanel } from './tui/panels/SessionPanel.js'
 import { AgentsPanel } from './tui/panels/AgentsPanel.js'
 import { OrchestrationCanvas } from './tui/panels/OrchestrationCanvas.js'
@@ -67,6 +72,9 @@ export class App {
   private tabs!: TabEntry[]
   private readonly services = new Map<string, unknown>()
   private readonly hitMap = new HitMap()
+  private readonly keymap = new Keymap()
+  private help!: HelpOverlay
+  private layoutPrefs: LayoutPrefs = {}
   private router = new InputRouter()
   private controller!: InputController
   private mouseEnabled = true   // toggled off (Ctrl+E) to allow native text selection/copy
@@ -90,6 +98,10 @@ export class App {
     this.setup()
     await store.init()
     setTheme(store.getSetting('theme') === 'high-contrast' ? 'high-contrast' : 'default')
+    const sessionRatio = Number(store.getSetting('layout.sessionRatio'))
+    const canvasRatio = Number(store.getSetting('layout.canvasRatio'))
+    if (Number.isFinite(sessionRatio) && sessionRatio > 0) this.layoutPrefs.sessionRatio = sessionRatio
+    if (Number.isFinite(canvasRatio) && canvasRatio > 0) this.layoutPrefs.canvasRatio = canvasRatio
     log.debug('config store initialized')
     this.initPanels()
     log.debug('panels initialized')
@@ -117,7 +129,7 @@ export class App {
   }
 
   private initPanels(): void {
-    const layout = computeLayout(this.rows, this.cols)
+    const layout = this.layout()
     this.sessionPanel = new SessionPanel(layout.session, () => this.scheduleRender(),
       () => { this.scheduleRender() },                                  // onStats: records hold state; just repaint
       (target) => { if (target === 'config') { this.activeTab = 'config'; this.render() } },
@@ -128,9 +140,10 @@ export class App {
       (idx) => { this.sessionPanel.switchTo(idx); this.render() },     // click a session → switch active
     )
     this.configPanel = new ConfigPanel(layout.config, () => this.scheduleRender(), {
-      onLogin:  () => { void this.runLoginFlow() },
-      onLogout: () => { void this.runLogout()    },
-      onImport: () => { void this.runImport()    },
+      onLogin:   () => { void this.runLoginFlow() },
+      onLogout:  () => { void this.runLogout()    },
+      onImport:  () => { void this.runImport()    },
+      onSetting: (key, value) => this.applySetting(key, value),
     })
 
     // Feature registry seed: Logs is loaded generically; the other five tabs
@@ -176,10 +189,76 @@ export class App {
       { id: 'logout',               label: 'Logout from AgentFactory',hint: '',       action: () => { void this.runLogout() } },
       { id: 'run-plan',             label: 'Run Plan',                hint: 'Ctrl+R', action: () => { void this.runPlan() } },
       { id: 'clear-session',        label: 'Clear Session',           hint: '',       action: () => { this.sessionPanel.clearSession(); this.render() } },
+      { id: 'help',                 label: 'Help: keyboard shortcuts',hint: '?',      action: () => { this.help.open(this.activeTab); this.render() } },
+      { id: 'theme-default',        label: 'Theme: default',          hint: '',       action: () => { this.applySetting('theme', 'default') } },
+      { id: 'theme-high-contrast',  label: 'Theme: high contrast',    hint: '',       action: () => { this.applySetting('theme', 'high-contrast') } },
+      { id: 'toggle-motion',        label: 'Toggle reduced motion',   hint: '',       action: () => { this.applySetting('reducedMotion', store.getSetting('reducedMotion') === 'true' ? 'false' : 'true') } },
+      { id: 'size-compact',         label: 'Size profile: Compact (80×24)',   hint: '', action: () => { this.applySetting('sizeProfile', 'compact') } },
+      { id: 'size-standard',        label: 'Size profile: Standard (110×30)', hint: '', action: () => { this.applySetting('sizeProfile', 'standard') } },
+      { id: 'size-wide',            label: 'Size profile: Wide (140×40)',     hint: '', action: () => { this.applySetting('sizeProfile', 'wide') } },
       { id: 'quit',                 label: 'Quit',                    hint: 'Ctrl+Q', action: () => { this.stop() } },
     ])
 
-    this.controller = new InputController(this.controllerHost(), this.router)
+    this.help = new HelpOverlay(this.keymap, () => this.render())
+    this.buildKeymap()
+    this.controller = new InputController(this.controllerHost(), this.router, this.keymap)
+  }
+
+  /** Apply + persist a UI setting, refreshing dependent subsystems. */
+  private applySetting(key: string, value: string): void {
+    store.setSetting(key, value)
+    if (key === 'theme') setTheme(value === 'high-contrast' ? 'high-contrast' : 'default')
+    if (key === 'reducedMotion') refreshMotionSetting()
+    this.render()
+  }
+
+  /** Declarative bindings — the old listenInput if-chain as data (gap 3-doc). */
+  private buildKeymap(): void {
+    const switchTo = (id: TabId, desc: string, key: string): KeyBindingDef => ({
+      id: `tab.${id}`, keys: [key], description: desc,
+      run: () => {
+        if (id === 'session' && this.activeTab === 'session') this.sessionPanel.openNewSessionMenu()
+        this.activeTab = id
+        this.render()
+      },
+    })
+    this.keymap.add([
+      { id: 'app.quit', keys: ['ctrl+q'], description: 'Quit', run: () => this.stop() },
+      {
+        id: 'app.copyOrQuit', keys: ['ctrl+c'], description: 'Copy selection (Session) / quit',
+        run: () => {
+          if (this.activeTab === 'session' && this.sessionPanel.hasSelection()) {
+            this.sessionPanel.copySelection()
+            this.sessionPanel.clearSelection()
+            this.render()
+            return
+          }
+          this.stop()
+        },
+      },
+      { id: 'app.selectCopy', keys: ['ctrl+e'], description: 'Toggle native text selection', run: () => this.toggleMouseCapture() },
+      {
+        id: 'app.nextTab', keys: ['tab'], description: 'Next tab',
+        run: () => { this.activeTab = tabIdAt(tabIndex(this.activeTab) + 1); this.render() },
+      },
+      switchTo('session', 'Session tab (again: new session)', 'f1'),
+      switchTo('orchestration', 'Orchestration tab', 'f2'),
+      switchTo('agents', 'Agents tab', 'f3'),
+      switchTo('terminal', 'Terminal tab', 'f4'),
+      switchTo('config', 'Config tab', 'f5'),
+      switchTo('logs', 'Logs tab', 'f6'),
+      {
+        id: 'plan.run', keys: ['ctrl+r'], description: 'Run the loaded plan', panelFirst: true,
+        run: () => { void this.runPlan() },
+      },
+      {
+        id: 'help.show', keys: ['?'], description: 'This help',
+        run: () => { this.help.open(this.activeTab); this.render() },
+      },
+    ])
+    for (const f of loadedFeatures()) {
+      if (f.keybindings) this.keymap.add(f.keybindings(this.featureCtx()))
+    }
   }
 
   /** Services + host operations injected into features (ddd/11). */
@@ -188,11 +267,16 @@ export class App {
       scheduleRender: () => this.scheduleRender(),
       render: () => this.render(),
       store,
-      layout: () => computeLayout(this.rows, this.cols),
+      layout: () => this.layout(),
       showError: (msg) => this.showError(msg),
       switchTab: (id) => { this.activeTab = id; this.render() },
       services: this.services,
     }
+  }
+
+  /** Current layout with the user's divider preferences applied. */
+  private layout(): ReturnType<typeof computeLayout> {
+    return computeLayout(this.rows, this.cols, this.layoutPrefs)
   }
 
   /** The narrow surface InputController drives (gap 9 extraction). */
@@ -206,6 +290,18 @@ export class App {
       palette: this.palette,
       isPaletteOpen: () => this.paletteOpen,
       setPaletteOpen: (open) => { this.paletteOpen = open },
+      help: {
+        isOpen: () => this.help.isOpen,
+        onKey: (e) => this.help.onKey(e),
+        onMouse: (e) => this.help.onMouse(e, { row: 0, col: 0, height: this.rows, width: this.cols }),
+      },
+      textInputActive: () =>
+        this.activeTab === 'session' ||
+        (this.activeTab === 'config' && (this.configPanel?.isEditing ?? false)),
+      layoutOf: (id) => {
+        const tab = this.tabs.find(t => t.id === id)
+        return tab ? tab.rectFor(this.layout()) : this.layout().session
+      },
       terminal: () => this.ensureTerminalPanel(),
       session: {
         openNewSessionMenu: () => this.sessionPanel.openNewSessionMenu(),
@@ -215,17 +311,34 @@ export class App {
         copySelection:      () => this.sessionPanel.copySelection(),
         clearSelection:     () => this.sessionPanel.clearSelection(),
       },
-      runPlan: () => { void this.runPlan() },
-      toggleMouseCapture: () => this.toggleMouseCapture(),
+      dragDivider: (id, row, col, commit) => this.dragDivider(id, row, col, commit),
       stop: () => this.stop(),
       render: () => this.render(),
+    }
+  }
+
+  /** Divider drag (gap 20): live ratio update, persisted on release. */
+  private dragDivider(id: 'divider:v' | 'divider:h', row: number, col: number, commit: boolean): void {
+    if (id === 'divider:v') {
+      this.layoutPrefs.sessionRatio = col / this.cols
+    } else {
+      const mainHeight = this.rows - 2
+      this.layoutPrefs.canvasRatio = (row - 1) / Math.max(1, mainHeight)
+    }
+    if (commit) {
+      if (this.layoutPrefs.sessionRatio !== undefined) {
+        store.setSetting('layout.sessionRatio', this.layoutPrefs.sessionRatio.toFixed(3))
+      }
+      if (this.layoutPrefs.canvasRatio !== undefined) {
+        store.setSetting('layout.canvasRatio', this.layoutPrefs.canvasRatio.toFixed(3))
+      }
     }
   }
 
   // VT-GAP-08: lazy PTY spawn — only on first switch to Terminal tab
   private ensureTerminalPanel(): TerminalPanel {
     if (!this.terminalPanel) {
-      const layout = computeLayout(this.rows, this.cols)
+      const layout = this.layout()
       this.terminalPanel = new TerminalPanel(layout.terminal, () => this.scheduleRender())
     }
     return this.terminalPanel
@@ -327,7 +440,7 @@ export class App {
       this.cols = process.stdout.columns ?? 80
       this.buf  = new CellBuffer(this.rows, this.cols)
       this.prev = new CellBuffer(this.rows, this.cols)
-      const layout = computeLayout(this.rows, this.cols)
+      const layout = this.layout()
       this.sessionPanel.rect  = layout.session
       this.canvasPanel.rect   = layout.canvas
       this.agentsPanel.rect   = layout.agents
@@ -405,7 +518,19 @@ export class App {
   private render(): void {
     if (!this.running) return
 
-    const layout = computeLayout(this.rows, this.cols)
+    // Size-profile guard (gaps 21/22): below the selected minimum, show the
+    // guard screen instead of a broken layout. Input still works behind it.
+    const profile = activeProfile(store)
+    if (!sizeCheck(this.rows, this.cols, profile).ok) {
+      renderTooSmall(this.buf, this.rows, this.cols, profile)
+      if (this.paletteOpen) this.palette.render(this.buf, this.rows, this.cols)
+      const guardDiff = this.buf.diff(this.prev)
+      if (guardDiff) process.stdout.write(guardDiff)
+      this.prev = this.buf.clone()
+      return
+    }
+
+    const layout = this.layout()
     this.hitMap.clear()
 
     this.buf.fill(0, 0, this.rows, this.cols, ' ', { bg: Colors.surface })
@@ -465,7 +590,14 @@ export class App {
       this.hitMap.set('statusbar:tools', { row: sbRow, col: sbLayout.toolToggleCol, height: 1, width: sbLayout.toolToggleLen })
     }
 
+    // Adjustable split dividers (gap 20) — the shared border columns/rows
+    this.hitMap.set('divider:v', { row: 1, col: layout.canvas.col, height: this.rows - 2, width: 1 })
+    if (this.activeTab !== 'terminal' && this.activeTab !== 'config' && this.activeTab !== 'logs') {
+      this.hitMap.set('divider:h', { row: layout.agents.row, col: layout.agents.col, height: 1, width: layout.agents.width })
+    }
+
     if (this.paletteOpen) this.palette.render(this.buf, this.rows, this.cols)
+    this.help.render(this.buf, { row: 0, col: 0, height: this.rows, width: this.cols })
 
     const diff = this.buf.diff(this.prev)
     if (diff) process.stdout.write(diff)

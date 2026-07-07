@@ -19,22 +19,38 @@ export interface PanelLayout {
   statusBar: Rect
 }
 
+export interface LayoutPrefs {
+  /** Session column share of total width; clamped to [0.25, 0.6]. Default 0.4. */
+  sessionRatio?: number
+  /** Canvas share of the right column height; clamped to [0.4, 0.85]. Default 0.7. */
+  canvasRatio?: number
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v))
+}
+
 /**
  * Compute panel rects from terminal dimensions.
  *
  * Layout:
  *   row 0         : tab bar (1 row)
- *   rows 1..H-2   : main area (split: session left 40%, right column 60%)
+ *   rows 1..H-2   : main area (split: session left, right column)
  *   row H-1       : status bar (1 row)
  *
- * Right column (tabs 1-2): canvas top 70%, agents bottom 30%
+ * Right column (tabs 1-2): canvas top / agents bottom
  * Right column (tab 3):    terminal fills full right column
+ *
+ * Split ratios default to the historical 40% / 70-30 and are adjustable via
+ * prefs (draggable dividers, gap 20).
  */
-export function computeLayout(rows: number, cols: number): PanelLayout {
-  const sessionWidth = Math.floor(cols * 0.4)
+export function computeLayout(rows: number, cols: number, prefs: LayoutPrefs = {}): PanelLayout {
+  const sessionRatio = clamp(prefs.sessionRatio ?? 0.4, 0.25, 0.6)
+  const canvasRatio = clamp(prefs.canvasRatio ?? 0.7, 0.4, 0.85)
+  const sessionWidth = Math.floor(cols * sessionRatio)
   const rightWidth = cols - sessionWidth
   const mainHeight = rows - 2   // minus tabBar + statusBar
-  const canvasHeight = Math.floor(mainHeight * 0.7)
+  const canvasHeight = Math.floor(mainHeight * canvasRatio)
   const agentsHeight = mainHeight - canvasHeight
 
   return {

@@ -351,66 +351,65 @@ export class LogsPanel extends Panel {
     return lines.length > 0 ? lines : ['']
   }
 
-  override onKey(e: KeyEvent): boolean {
+  // ── Public actions (arrows in onKey; vim aliases contributed as keymap
+  //    bindings by the logs feature — one execution path for both) ──────────
+
+  /** Move entry selection up (wraps to the last entry from the -1 metrics view). */
+  selectPrev(): void {
     const entries = getRecentLogs(this.selectedSource ?? undefined)
-    const allSources = getLogSources()
-
-    if (e.key === 'arrow_up' || e.key === 'k') {
-      if (this.selectedIdx >= 0) {
-        this.selectedIdx = Math.max(-1, this.selectedIdx - 1)
-      } else if (entries.length > 0) {
-        this.selectedIdx = entries.length - 1
-      }
-      this.onUpdate()
-      return true
+    if (this.selectedIdx >= 0) {
+      this.selectedIdx = Math.max(-1, this.selectedIdx - 1)
+    } else if (entries.length > 0) {
+      this.selectedIdx = entries.length - 1
     }
+    this.onUpdate()
+  }
 
-    if (e.key === 'arrow_down' || e.key === 'j') {
-      if (this.selectedIdx < entries.length - 1) {
-        this.selectedIdx++
-      } else {
-        this.selectedIdx = -1
-      }
-      this.onUpdate()
-      return true
+  /** Move entry selection down (wraps back to the -1 metrics view). */
+  selectNext(): void {
+    const entries = getRecentLogs(this.selectedSource ?? undefined)
+    if (this.selectedIdx < entries.length - 1) {
+      this.selectedIdx++
+    } else {
+      this.selectedIdx = -1
     }
+    this.onUpdate()
+  }
 
-    const sources = [null, ...allSources]
+  /** Move the source-filter chip selection. */
+  cycleSource(dir: -1 | 1): void {
+    const sources = [null, ...getLogSources()]
     const idx = sources.indexOf(this.selectedSource)
+    const next = dir < 0 ? Math.max(0, idx - 1) : Math.min(sources.length - 1, idx + 1)
+    this.selectedSource = sources[next] ?? null
+    this.scrollOffset = 0
+    this.selectedIdx = -1
+    this.onUpdate()
+  }
 
-    if (e.key === 'arrow_left' || e.key === 'h') {
-      this.selectedSource = sources[Math.max(0, idx - 1)] ?? null
-      this.scrollOffset = 0
-      this.selectedIdx = -1
-      this.onUpdate()
-      return true
-    }
+  /** Clear the in-memory log buffer and insights. */
+  clearLogs(): void {
+    clearLogBuffer()
+    this.selectedSource = null
+    this.scrollOffset = 0
+    this.selectedIdx = -1
+    this.lastLogCount = 0
+    this.insightsText = ''
+    this.insightsScroll = 0
+    this.onUpdate()
+  }
 
-    if (e.key === 'arrow_right' || e.key === 'l') {
-      this.selectedSource = sources[Math.min(sources.length - 1, idx + 1)] ?? null
-      this.scrollOffset = 0
-      this.selectedIdx = -1
-      this.onUpdate()
-      return true
-    }
+  /** Trigger an AI analysis run (no-op while one is streaming). */
+  analyze(): void {
+    if (this.insightsStreaming) return
+    this.onAnalyze?.(getRecentLogs(this.selectedSource ?? undefined))
+  }
 
-    if (e.key === 'c') {
-      clearLogBuffer()
-      this.selectedSource = null
-      this.scrollOffset = 0
-      this.selectedIdx = -1
-      this.lastLogCount = 0
-      this.insightsText = ''
-      this.insightsScroll = 0
-      this.onUpdate()
-      return true
-    }
-
-    if (e.key === 'a' && !this.insightsStreaming) {
-      this.onAnalyze?.(entries)
-      return true
-    }
-
+  override onKey(e: KeyEvent): boolean {
+    if (e.key === 'arrow_up')    { this.selectPrev(); return true }
+    if (e.key === 'arrow_down')  { this.selectNext(); return true }
+    if (e.key === 'arrow_left')  { this.cycleSource(-1); return true }
+    if (e.key === 'arrow_right') { this.cycleSource(1); return true }
     return false
   }
 

@@ -83,6 +83,16 @@ export function logsFeature(): Feature {
         return panel
       },
     },
+    keybindings() {
+      return [
+        { id: 'logs.prev',      keys: ['k'], when: 'logs' as const, description: 'Select previous log entry', run: () => panel?.selectPrev() },
+        { id: 'logs.next',      keys: ['j'], when: 'logs' as const, description: 'Select next log entry',     run: () => panel?.selectNext() },
+        { id: 'logs.srcPrev',   keys: ['h'], when: 'logs' as const, description: 'Previous source filter',    run: () => panel?.cycleSource(-1) },
+        { id: 'logs.srcNext',   keys: ['l'], when: 'logs' as const, description: 'Next source filter',        run: () => panel?.cycleSource(1) },
+        { id: 'logs.clear',     keys: ['c'], when: 'logs' as const, description: 'Clear log buffer',          run: () => panel?.clearLogs() },
+        { id: 'logs.analyze',   keys: ['a'], when: 'logs' as const, description: 'Analyze logs with AI',      run: () => panel?.analyze() },
+      ]
+    },
     start(c: FeatureCtx) {
       ctx = c
       // 2-minute analysis heartbeat

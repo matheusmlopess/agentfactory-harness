@@ -1,10 +1,10 @@
 import { parseKey } from './keyboard.js'
 import { parseMouse } from './mouse.js'
 import type { InputRouter } from './router.js'
+import type { Keymap } from './keymap.js'
 import type { TabEntry, TabId } from '../tabs.js'
-import { tabIdAt, tabIndex, TAB_ORDER } from '../tabs.js'
+import { tabIdAt, TAB_ORDER } from '../tabs.js'
 import type { CommandPalette } from '../widgets/CommandPalette.js'
-import { computeLayout } from '../renderer/layout.js'
 
 /** PTY-backed terminal surface (raw byte forwarding + scrollback). */
 export interface TerminalTarget {
@@ -22,11 +22,21 @@ export interface ControllerHost {
   tabs(): readonly TabEntry[]
   activeTab(): TabId
   setActiveTab(id: TabId): void
-  /** HitMap lookup: 'exit-btn' | 'tab:<i>' | 'statusbar:model' | 'statusbar:tools' | null. */
+  /** HitMap lookup: 'exit-btn' | 'tab:<i>' | 'statusbar:*' | 'divider:*' | null. */
   hitAt(row: number, col: number): string | null
   palette: CommandPalette
   isPaletteOpen(): boolean
   setPaletteOpen(open: boolean): void
+  /** Modal help overlay — intercepts input while open (like the palette). */
+  help: {
+    isOpen(): boolean
+    onKey(e: import('./keyboard.js').KeyEvent): boolean
+    onMouse(e: import('./mouse.js').MouseEvent): boolean
+  }
+  /** True while a text input has focus — printable-char bindings are suppressed. */
+  textInputActive(): boolean
+  /** Current panel layout for capture-tab rect updates. */
+  layoutOf(id: TabId): import('../renderer/layout.js').Rect
   terminal(): TerminalTarget
   /** Session-tab specific operations (Ctrl+C copy, F1/new-session, status bar). */
   session: {
@@ -37,8 +47,8 @@ export interface ControllerHost {
     copySelection(): void
     clearSelection(): void
   }
-  runPlan(): void
-  toggleMouseCapture(): void
+  /** Divider drag: update a split ratio from an absolute cell position. */
+  dragDivider(id: 'divider:v' | 'divider:h', row: number, col: number, commit: boolean): void
   stop(): void
   render(): void
 }
@@ -48,9 +58,16 @@ export interface ControllerHost {
  * (gap 9). Exported handleData() lets tests feed byte buffers without a TTY.
  */
 export class InputController {
+  /** Pending coalesced motion event (mode-1003 flood cap). */
+  private pendingMove: import('./mouse.js').MouseEvent | null = null
+  private moveScheduled = false
+  /** Active divider drag, if any. */
+  private divider: 'divider:v' | 'divider:h' | null = null
+
   constructor(
     private readonly host: ControllerHost,
     private readonly router: InputRouter,
+    private readonly keymap: Keymap,
   ) {}
 
   attach(stdin: NodeJS.ReadStream): void {
@@ -146,16 +163,49 @@ export class InputController {
   // ── Mouse (non-terminal tabs) ──────────────────────────────────────────────
 
   private handleMouse(mouse: import('./mouse.js').MouseEvent): void {
+    // Motion-event coalescing: keep only the newest move per tick so a
+    // mode-1003 flood dispatches at most once per event-loop turn.
+    if (mouse.action === 'move' && this.divider === null) {
+      this.pendingMove = mouse
+      if (!this.moveScheduled) {
+        this.moveScheduled = true
+        setImmediate(() => {
+          this.moveScheduled = false
+          const ev = this.pendingMove
+          this.pendingMove = null
+          if (ev) this.dispatchMouseNow(ev)
+        })
+      }
+      return
+    }
+    this.dispatchMouseNow(mouse)
+  }
+
+  private dispatchMouseNow(mouse: import('./mouse.js').MouseEvent): void {
     const host = this.host
 
     // Shift+click: pass through to terminal for native text selection
     if (mouse.shift) return
 
-    // Palette overlay intercepts ALL mouse when open — nothing behind it is clickable
+    // Modal overlays intercept ALL mouse when open
     if (host.isPaletteOpen()) {
       const { rows, cols } = host.dims()
       host.palette.onMouse(mouse, rows, cols)
       if (!host.palette.isOpen) host.setPaletteOpen(false)
+      host.render()
+      return
+    }
+    if (host.help.isOpen()) {
+      host.help.onMouse(mouse)
+      host.render()
+      return
+    }
+
+    // Divider drag in progress — route everything to it until release
+    if (this.divider !== null) {
+      const commit = mouse.action === 'release'
+      host.dragDivider(this.divider, mouse.row, mouse.col, commit)
+      if (commit) this.divider = null
       host.render()
       return
     }
@@ -185,6 +235,11 @@ export class InputController {
         host.render()
         return
       }
+      // Adjustable split dividers (gap 20)
+      if (hit === 'divider:v' || hit === 'divider:h') {
+        this.divider = hit
+        return
+      }
       // Panel body click — focus the panel under the cursor
       const clickedTab = this.router.tabAt(mouse.row, mouse.col, host.tabs(), host.activeTab())
       if (clickedTab !== null && clickedTab !== host.activeTab()) {
@@ -196,9 +251,8 @@ export class InputController {
     // always render after: scroll/click both mutate state needing repaint.
     const active = host.tabs().find(t => t.id === host.activeTab())
     if (active?.captureMouse) {
-      const { rows, cols } = host.dims()
       const panel = active.panel()
-      panel.rect = active.rectFor(computeLayout(rows, cols))  // set rect BEFORE dispatch
+      panel.rect = host.layoutOf(active.id)  // set rect BEFORE dispatch
       panel.onMouse(mouse)
       host.render()
       return
@@ -236,30 +290,7 @@ export class InputController {
   private handleKey(key: import('./keyboard.js').KeyEvent): void {
     const host = this.host
 
-    if (key.key === 'ctrl+q') {
-      host.stop()
-      return
-    }
-
-    // Ctrl+C — copy session selection if one exists; otherwise quit
-    if (key.key === 'ctrl+c') {
-      if (host.activeTab() === 'session' && host.session.hasSelection()) {
-        host.session.copySelection()
-        host.session.clearSelection()
-        host.render()
-        return
-      }
-      host.stop()
-      return
-    }
-
-    // Ctrl+E — toggle mouse capture so native terminal text selection/copy works
-    if (key.key === 'ctrl+e') {
-      host.toggleMouseCapture()
-      return
-    }
-
-    // Ctrl+P — toggle palette (works from any non-terminal tab)
+    // Ctrl+P — toggle palette (chrome-level, works from any non-terminal tab)
     if (key.key === 'ctrl+p') {
       host.setPaletteOpen(!host.isPaletteOpen())
       if (host.isPaletteOpen()) host.palette.openPalette()
@@ -267,43 +298,32 @@ export class InputController {
       return
     }
 
-    // Route all keys to palette when open
+    // Modal overlays route all keys to themselves when open
     if (host.isPaletteOpen()) {
       host.palette.onKey(key)
       if (!host.palette.isOpen) host.setPaletteOpen(false)
       host.render()
       return
     }
-
-    if (key.key === 'tab') {
-      host.setActiveTab(tabIdAt(tabIndex(host.activeTab()) + 1))
+    if (host.help.isOpen()) {
+      host.help.onKey(key)
       host.render()
       return
     }
 
-    // F1–F6 switch panels without stealing printable characters
-    const fkeyTargets: Record<string, TabId> = {
-      f1: 'session', f2: 'orchestration', f3: 'agents',
-      f4: 'terminal', f5: 'config', f6: 'logs',
-    }
-    const fkeyTarget = fkeyTargets[key.key]
-    if (fkeyTarget !== undefined) {
-      if (fkeyTarget === 'session' && host.activeTab() === 'session') host.session.openNewSessionMenu()
-      host.setActiveTab(fkeyTarget)
-      host.render()
-      return
-    }
-
-    // Ctrl+R — run the loaded plan (no-op if no plan or already running).
-    // Config's browse mode consumes ctrl+r first (clear key) — preserved by
-    // dispatching to the active panel and only falling back when unconsumed.
-    if (key.key === 'ctrl+r') {
-      const consumedByPanel = this.router.dispatchKey(key, host.tabs(), host.activeTab())
-      if (!consumedByPanel) host.runPlan()
+    // Declarative keymap (gap 3-doc): quit/copy/tab-switching/run/help are
+    // data-defined bindings; panelFirst bindings give the panel first refusal
+    const binding = this.keymap.match(key, host.activeTab(), host.textInputActive())
+    if (binding && !binding.panelFirst) {
+      binding.run()
       return
     }
 
     const consumed = this.router.dispatchKey(key, host.tabs(), host.activeTab())
+    if (!consumed && binding) {
+      binding.run()
+      return
+    }
     if (!consumed) host.render()
   }
 }

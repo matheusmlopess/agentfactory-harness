@@ -6,8 +6,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { InputController, type ControllerHost } from './controller.js'
 import { InputRouter } from './router.js'
+import { Keymap } from './keymap.js'
 import { Panel } from '../panels/Panel.js'
-import type { TabEntry, TabId } from '../tabs.js'
+import { computeLayout } from '../renderer/layout.js'
+import { tabIdAt, tabIndex, type TabEntry, type TabId } from '../tabs.js'
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import type { KeyEvent } from './keyboard.js'
 import type { MouseEvent } from './mouse.js'
@@ -87,6 +89,12 @@ function makeStub(activeId: TabId = 'session'): Stub {
     palette: palette as unknown as ControllerHost['palette'],
     isPaletteOpen: () => paletteOpen.value,
     setPaletteOpen: (open) => { paletteOpen.value = open },
+    help: { isOpen: () => false, onKey: () => false, onMouse: () => false },
+    textInputActive: () => active.id === 'session',
+    layoutOf: (id) => {
+      const tab = tabs.find(t => t.id === id)!
+      return tab.rectFor(computeLayout(24, 80))
+    },
     terminal: () => ({ write: calls.ptyWrite, scrollBack: calls.scrollBack, scrollForward: calls.scrollForward }),
     session: {
       openNewSessionMenu: calls.openNewSessionMenu,
@@ -96,13 +104,32 @@ function makeStub(activeId: TabId = 'session'): Stub {
       copySelection: vi.fn(),
       clearSelection: vi.fn(),
     },
-    runPlan: calls.runPlan,
-    toggleMouseCapture: calls.toggleMouse,
+    dragDivider: vi.fn(),
     stop: calls.stop,
     render: calls.render,
   }
 
-  return { controller: new InputController(host, new InputRouter()), host, panels, active, calls, paletteOpen, hits }
+  // Mirror the app's global bindings so global-key behavior stays covered
+  const keymap = new Keymap()
+  const switchTo = (id: TabId, key: string) => ({
+    id: `tab.${id}`, keys: [key], description: id,
+    run: () => {
+      if (id === 'session' && active.id === 'session') calls.openNewSessionMenu()
+      active.id = id
+      calls.render()
+    },
+  })
+  keymap.add([
+    { id: 'app.quit', keys: ['ctrl+q'], description: 'Quit', run: calls.stop },
+    { id: 'app.copyOrQuit', keys: ['ctrl+c'], description: 'Copy/quit', run: calls.stop },
+    { id: 'app.selectCopy', keys: ['ctrl+e'], description: 'Select', run: calls.toggleMouse },
+    { id: 'app.nextTab', keys: ['tab'], description: 'Next tab', run: () => { active.id = tabIdAt(tabIndex(active.id) + 1); calls.render() } },
+    switchTo('session', 'f1'), switchTo('orchestration', 'f2'), switchTo('agents', 'f3'),
+    switchTo('terminal', 'f4'), switchTo('config', 'f5'), switchTo('logs', 'f6'),
+    { id: 'plan.run', keys: ['ctrl+r'], description: 'Run plan', panelFirst: true, run: calls.runPlan },
+  ])
+
+  return { controller: new InputController(host, new InputRouter(), keymap), host, panels, active, calls, paletteOpen, hits }
 }
 
 const raw = (s: string): Buffer => Buffer.from(s, 'binary')

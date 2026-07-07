@@ -21,10 +21,30 @@ export interface ConfigPanelCallbacks {
   onLogin?:  () => void
   onLogout?: () => void
   onImport?: () => void
+  /** Apply + persist a UI setting (Interface section). */
+  onSetting?: (key: string, value: string) => void
 }
 
-// A rendered row is either a category header or a provider entry
-type RowItem = { kind: 'header'; category: Category } | { kind: 'entry'; def: ProviderDef; entryIdx: number }
+/** A cycling UI setting rendered in the Interface section (a11y, gaps 17–22). */
+export interface SettingRowDef {
+  key: string
+  label: string
+  values: readonly string[]
+}
+
+const INTERFACE_SETTINGS: readonly SettingRowDef[] = [
+  { key: 'theme',         label: 'Theme',                       values: ['default', 'high-contrast'] },
+  { key: 'reducedMotion', label: 'Reduced motion',              values: ['false', 'true'] },
+  { key: 'sizeProfile',   label: 'Size profile (min terminal)', values: ['compact', 'standard', 'wide'] },
+]
+
+// Navigable entries are providers or Interface settings
+type ConfigEntry =
+  | { kind: 'provider'; def: ProviderDef }
+  | { kind: 'setting'; def: SettingRowDef }
+
+// A rendered row is either a section header or a navigable entry
+type RowItem = { kind: 'header'; label: string } | { kind: 'entry'; entry: ConfigEntry; entryIdx: number }
 
 const CATEGORY_LABELS: Record<Category, string> = {
   api:       'API Providers',
@@ -39,8 +59,8 @@ const HEADER_ROWS = 3   // auth-status row + action row + divider
 const SPINNER = ['⣾','⣽','⣻','⢿','⡿','⣟','⣯','⣷']
 
 export class ConfigPanel extends Panel {
-  // entries[]: only non-alias entries, in category order — the navigation targets
-  private readonly entries: ProviderDef[]
+  // entries[]: the navigation targets (Interface settings + providers)
+  private readonly entries: ConfigEntry[]
   // rows[]: all rendered rows including headers
   private readonly rows: RowItem[]
 
@@ -90,25 +110,39 @@ export class ConfigPanel extends Panel {
     // Build the flat row list and the navigable entries list
     const byCategory = providersByCategory()
     const rowList: RowItem[] = []
-    const entryList: ProviderDef[] = []
+    const entryList: ConfigEntry[] = []
+
+    // Interface section first — theme / reduced motion / size profile
+    rowList.push({ kind: 'header', label: 'Interface' })
+    for (const def of INTERFACE_SETTINGS) {
+      const entry: ConfigEntry = { kind: 'setting', def }
+      rowList.push({ kind: 'entry', entry, entryIdx: entryList.length })
+      entryList.push(entry)
+    }
 
     for (const [cat, defs] of byCategory) {
       if (defs.length === 0) continue
-      rowList.push({ kind: 'header', category: cat })
+      rowList.push({ kind: 'header', label: CATEGORY_LABELS[cat] })
       for (const def of defs) {
-        rowList.push({ kind: 'entry', def, entryIdx: entryList.length })
-        entryList.push(def)
+        const entry: ConfigEntry = { kind: 'provider', def }
+        rowList.push({ kind: 'entry', entry, entryIdx: entryList.length })
+        entryList.push(entry)
       }
     }
 
     this.rows  = rowList
     this.entries = entryList
-    // Start on first non-alias entry
-    this.selectedIdx = entryList.findIndex(e => e.aliasOf === undefined)
+    // Start on the first selectable entry
+    this.selectedIdx = entryList.findIndex(e => !isSkippable(e))
     if (this.selectedIdx < 0) this.selectedIdx = 0
   }
 
   // ── Public API for App ────────────────────────────────────────────────────
+
+  /** True while the key-edit modal has a text input focused. */
+  get isEditing(): boolean {
+    return this.mode === 'edit'
+  }
 
   setAuthUser(user: AuthUser | null): void {
     this.authUser = user
@@ -171,7 +205,7 @@ export class ConfigPanel extends Panel {
       if (!item) { rowIdx++; continue }
 
       if (item.kind === 'header') {
-        const label = `▸ ${CATEGORY_LABELS[item.category]}`
+        const label = `▸ ${item.label}`
         buf.write(screenRow, r.col, label.substring(0, r.width), { fg: Colors.primary, bg: Colors.surfacePanel, bold: true })
         if (rowsRendered + 1 < listHeight) {
           buf.write(screenRow + 1, r.col, '─'.repeat(r.width), { fg: Colors.border, bg: Colors.surfacePanel })
@@ -179,9 +213,22 @@ export class ConfigPanel extends Panel {
         } else {
           screenRow++; rowsRendered++
         }
+      } else if (item.entry.kind === 'setting') {
+        const def = item.entry.def
+        const isSelected = item.entryIdx === this.selectedIdx
+        const namePrefix = isSelected ? '► ' : '  '
+        const nameBg = isSelected ? Colors.surfaceActive : Colors.surfacePanel
+        const nameCol = Math.floor(r.width * 0.55)
+        buf.write(screenRow, r.col, (namePrefix + def.label).substring(0, nameCol).padEnd(nameCol),
+          { fg: isSelected ? Colors.textBright : Colors.text, bg: nameBg })
+        const value = store.getSetting(def.key) ?? def.values[0]!
+        const valStr = `[${value} ▸]`
+        buf.write(screenRow, r.col + nameCol, valStr.substring(0, r.width - nameCol - 1).padStart(r.width - nameCol - 1),
+          { fg: Colors.info, bg: nameBg, bold: isSelected })
+        screenRow++; rowsRendered++
       } else {
-        const def = item.def
-        const isSelected = this.entries[this.selectedIdx] === def
+        const def = item.entry.def
+        const isSelected = item.entryIdx === this.selectedIdx
         const isAlias = def.aliasOf !== undefined
 
         const namePrefix = isSelected ? '► ' : '  '
@@ -232,9 +279,9 @@ export class ConfigPanel extends Panel {
 
     // ── Edit modal overlay ────────────────────────────────────────────────
     if (this.mode === 'edit') {
-      const def = this.entries[this.selectedIdx]
-      if (!def) return
-      this.renderEditModal(buf, r, def)
+      const entry = this.entries[this.selectedIdx]
+      if (entry?.kind !== 'provider') return
+      this.renderEditModal(buf, r, entry.def)
     }
 
     // ── Login overlay ─────────────────────────────────────────────────────
@@ -405,12 +452,12 @@ export class ConfigPanel extends Panel {
       return true
     }
     if (e.key === 'ctrl+r') {
-      // Clear the selected entry's key (Ctrl+R = remove)
-      const def = this.entries[this.selectedIdx]
-      if (def && def.aliasOf === undefined) {
-        const val = store.getKey(def.configKey)
+      // Clear the selected provider's key (Ctrl+R = remove)
+      const entry = this.entries[this.selectedIdx]
+      if (entry?.kind === 'provider' && entry.def.aliasOf === undefined) {
+        const val = store.getKey(entry.def.configKey)
         if (val !== undefined && val !== '') {
-          store.clearKey(def.configKey)
+          store.clearKey(entry.def.configKey)
           this.onUpdate()
           return true  // consumed — don't bubble to run-plan
         }
@@ -427,9 +474,9 @@ export class ConfigPanel extends Panel {
       this.onUpdate(); return true
     }
     if (e.key === 'enter') {
-      const def = this.entries[this.selectedIdx]
-      if (def && this.editBuf.length > 0) {
-        store.setKey(def.configKey, this.editBuf, def.fieldType)
+      const entry = this.entries[this.selectedIdx]
+      if (entry?.kind === 'provider' && this.editBuf.length > 0) {
+        store.setKey(entry.def.configKey, this.editBuf, entry.def.fieldType)
       }
       this.mode = 'browse'
       this.editBuf = ''
@@ -492,9 +539,9 @@ export class ConfigPanel extends Panel {
         const midCol = f.col + Math.floor(f.width / 2)
         if (e.col < midCol) {
           // Save — same as Enter
-          const def = this.entries[this.selectedIdx]
-          if (def && this.editBuf.length > 0) {
-            store.setKey(def.configKey, this.editBuf, def.fieldType)
+          const entry = this.entries[this.selectedIdx]
+          if (entry?.kind === 'provider' && this.editBuf.length > 0) {
+            store.setKey(entry.def.configKey, this.editBuf, entry.def.fieldType)
           }
         }
         this.mode = 'browse'
@@ -523,7 +570,20 @@ export class ConfigPanel extends Panel {
         continue
       }
       if (rendered === clickRow) {
-        const def = item.def
+        // Interface setting row: click selects, double-click cycles the value
+        if (item.entry.kind === 'setting') {
+          const now = Date.now()
+          const isDouble = item.entryIdx === this.lastClickEntryIdx &&
+                           (now - this.lastClickTime) < DOUBLE_CLICK_MS
+          this.lastClickEntryIdx = item.entryIdx
+          this.lastClickTime = now
+          this.selectedIdx = item.entryIdx
+          if (isDouble) this.cycleSetting(item.entry.def)
+          this.onUpdate()
+          return true
+        }
+
+        const def = item.entry.def
         // Click on [✕] delete button (last 3 cols) — clear key immediately
         if (def.aliasOf === undefined && e.col >= r.col + r.width - 3) {
           const val = store.getKey(def.configKey)
@@ -535,7 +595,8 @@ export class ConfigPanel extends Panel {
         }
         // Alias row: jump to canonical provider
         if (def.aliasOf !== undefined) {
-          const canonIdx = this.entries.findIndex(e => e.configKey === def.configKey && e.aliasOf === undefined)
+          const canonIdx = this.entries.findIndex(en =>
+            en.kind === 'provider' && en.def.configKey === def.configKey && en.def.aliasOf === undefined)
           if (canonIdx >= 0) {
             this.selectedIdx = canonIdx
             this.syncScrollToSelected()
@@ -561,11 +622,25 @@ export class ConfigPanel extends Panel {
   }
 
   private openEdit(): void {
-    const def = this.entries[this.selectedIdx]
-    if (!def || def.aliasOf !== undefined) return
-    this.editPrev = store.getKey(def.configKey, def.envVar) ?? ''
+    const entry = this.entries[this.selectedIdx]
+    if (!entry) return
+    if (entry.kind === 'setting') {
+      this.cycleSetting(entry.def)
+      return
+    }
+    if (entry.def.aliasOf !== undefined) return
+    this.editPrev = store.getKey(entry.def.configKey, entry.def.envVar) ?? ''
     this.editBuf  = ''
     this.mode = 'edit'
+  }
+
+  /** Advance an Interface setting to its next value and apply it. */
+  private cycleSetting(def: SettingRowDef): void {
+    const current = store.getSetting(def.key) ?? def.values[0]!
+    const idx = def.values.indexOf(current)
+    const next = def.values[(idx + 1) % def.values.length]!
+    this.callbacks.onSetting?.(def.key, next)
+    this.onUpdate()
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
@@ -577,7 +652,7 @@ export class ConfigPanel extends Panel {
     next = Math.max(0, Math.min(len - 1, next))
     // Skip alias entries in the direction of movement
     const step = delta > 0 ? 1 : -1
-    while (next > 0 && next < len - 1 && this.entries[next]?.aliasOf !== undefined) {
+    while (next > 0 && next < len - 1 && isSkippable(this.entries[next])) {
       next += step
     }
     this.selectedIdx = next
@@ -613,6 +688,10 @@ export class ConfigPanel extends Panel {
   private visibleListHeight(): number {
     return this.inner.height - 2 - HEADER_ROWS
   }
+}
+
+function isSkippable(entry: ConfigEntry | undefined): boolean {
+  return entry?.kind === 'provider' && entry.def.aliasOf !== undefined
 }
 
 // Re-export for tests

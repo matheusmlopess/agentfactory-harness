@@ -75,6 +75,35 @@ tui_renderer:
     wave: 5
     status: implemented
 
+  - path: src/tui/renderer/theme.test.ts
+    purpose: Semantic token values, live setTheme swap, contrast pairs, render diff under both themes
+    wave: 5
+    status: implemented
+
+  - path: src/tui/renderer/motion.ts
+    purpose: Reduced-motion preference (gap 19) — motionEnabled() + refresh hook
+    exports:
+      - "motionEnabled(): boolean"
+      - "refreshMotionSetting(): void"
+    wave: 5
+    status: implemented
+
+  - path: src/tui/renderer/size-profiles.ts
+    purpose: Settings-based min terminal sizes (compact/standard/wide) + sizeCheck + too-small guard screen
+    exports:
+      - SizeProfile (interface)
+      - SIZE_PROFILES
+      - "activeProfile(store)"
+      - "sizeCheck(rows, cols, profile)"
+      - "renderTooSmall(buf, rows, cols, profile)"
+    wave: 5
+    status: implemented
+
+  - path: src/tui/renderer/size-profiles.test.ts
+    purpose: sizeCheck boundaries + guard-screen render
+    wave: 5
+    status: implemented
+
 tui_input:
   - path: src/tui/input/keyboard.ts
     purpose: Raw stdin buffer to KeyEvent; drops mouse escape bytes
@@ -151,6 +180,19 @@ tui_input:
 
   - path: src/tui/tab-bar.test.ts
     purpose: tab-bar geometry tests — spans, hits, gaps, exit-button precedence
+    wave: 5
+    status: implemented
+
+  - path: src/tui/input/keymap.ts
+    purpose: Declarative key bindings — context filtering (when), text-input suppression, panelFirst, help listing
+    exports:
+      - KeyBindingDef (interface)
+      - Keymap (class)
+    wave: 5
+    status: implemented
+
+  - path: src/tui/input/keymap.test.ts
+    purpose: Keymap tests — context filter, printable suppression, aliases, panelFirst, list()
     wave: 5
     status: implemented
 
@@ -318,6 +360,13 @@ tui_widgets:
     wave: 5
     status: implemented
 
+  - path: src/tui/widgets/HelpOverlay.ts
+    purpose: "`?` keyboard-shortcut reference — keymap listing grouped Global/tab, scrollable, Esc/click dismiss"
+    exports:
+      - HelpOverlay (class)
+    wave: 5
+    status: implemented
+
   # layout.ts extended in Wave 4 to add terminal: Rect
 
 core:
@@ -363,6 +412,14 @@ core:
 
   - path: src/core/llm/limits.test.ts
     purpose: maxOutputTokens prefix table tests
+    wave: 5
+    status: implemented
+
+  - path: src/core/llm/model-cache.ts
+    purpose: TTL cache in front of listModels — instant model-picker reopen
+    exports:
+      - "cachedListModels(provider, apiKey?, ttlMs?)"
+      - clearModelCache
     wave: 5
     status: implemented
 

@@ -7,7 +7,8 @@ import { Colors } from '../renderer/theme.js'
 import { Session } from '../../core/session.js'
 import { agentLoop } from '../../core/agent-loop.js'
 import { runHook } from '../../core/hooks.js'
-import { createAdapter, defaultProvider, listModels } from '../../core/llm/index.js'
+import { createAdapter, defaultProvider } from '../../core/llm/index.js'
+import { cachedListModels } from '../../core/llm/model-cache.js'
 import type { Provider, ModelEntry } from '../../core/llm/index.js'
 import { store } from '../../core/config/store.js'
 import { ScrollableList } from '../widgets/ScrollableList.js'
@@ -1043,7 +1044,7 @@ export class SessionPanel extends Panel {
   private async fetchPickerModels(provider: Provider): Promise<void> {
     let models: ModelEntry[] = []
     try {
-      models = await listModels(provider)
+      models = await cachedListModels(provider)
     } catch { /* network or auth error */ }
 
     // Fall back to hardcoded list for this provider

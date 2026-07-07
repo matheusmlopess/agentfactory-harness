@@ -51,9 +51,38 @@ send F6
 check "F6 opens Logs tab (panel content, not tab label)" "Metrics"
 send F1
 
+echo "== Phase 4: help overlay + interface settings =="
+send F6
+send '?'
+check "? opens the help overlay"          "Keyboard Shortcuts"
+for _ in $(seq 1 16); do tmux send-keys -t "$SESSION" Down; sleep 0.15; done
+sleep 0.7
+check "help lists logs vim bindings (after scroll)" "Clear log buffer"
+send Escape
+send F5
+check "Config shows the Interface section" "Interface"
+check "Interface shows the theme setting"  "Theme"
+
 # Quit cleanly
 tmux send-keys -t "$SESSION" C-q
 sleep 1
+
+echo "== Phase 4: size-profile guard (60x20 terminal) =="
+SESSION2="factory-smoke-guard-$$"
+tmux new-session -d -s "$SESSION2" -x 60 -y 20 'npx tsx src/index.ts'
+for _ in $(seq 1 60); do
+  if tmux capture-pane -pt "$SESSION2" | grep -qF "Terminal too small"; then break; fi
+  sleep 1
+done
+if tmux capture-pane -pt "$SESSION2" | grep -qF "Terminal too small"; then
+  echo "  ok: guard screen shown below 80x24"
+else
+  echo "  FAIL: guard screen not shown at 60x20"
+  FAILURES=$((FAILURES + 1))
+fi
+tmux send-keys -t "$SESSION2" C-q
+sleep 1
+tmux kill-session -t "$SESSION2" 2>/dev/null || true
 
 if [ "$FAILURES" -gt 0 ]; then
   echo "smoke-tui: $FAILURES check(s) failed"
