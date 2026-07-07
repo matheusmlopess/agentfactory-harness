@@ -4,7 +4,6 @@ import { CellBuffer } from './tui/renderer/cell-buffer.js'
 import { computeLayout, drawBorder } from './tui/renderer/layout.js'
 import { renderStatusBar } from './tui/panels/StatusBar.js'
 import { Colors, setTheme } from './tui/renderer/theme.js'
-import { motionEnabled } from './tui/renderer/motion.js'
 import * as A from './tui/renderer/ansi.js'
 import { InputRouter } from './tui/input/router.js'
 import { InputController, type ControllerHost } from './tui/input/controller.js'
@@ -26,15 +25,17 @@ import { Session } from './core/session.js'
 import { agentLoop } from './core/agent-loop.js'
 import { createAdapter, defaultProvider } from './core/llm/index.js'
 import { ConfigPanel } from './tui/panels/ConfigPanel.js'
-import { LogsPanel } from './tui/panels/LogsPanel.js'
 import { store } from './core/config/store.js'
 import { CommandPalette } from './tui/widgets/CommandPalette.js'
 import { getUser, clearToken } from './registry/auth.js'
 import { startDeviceLogin } from './registry/login.js'
 import { importFromTools } from './registry/import-keys.js'
-import { logger, getLogFilePath, getRecentLogs, type LogEntry } from './core/logger.js'
-import { tabBarHit, tabLabelSpans, EXIT_BTN } from './tui/tab-bar.js'
+import { logger, getLogFilePath } from './core/logger.js'
+import { tabLabelSpans, EXIT_BTN } from './tui/tab-bar.js'
 import { getVersion } from './core/version.js'
+import { registerFeature, loadedFeatures, resetFeatures } from './features/registry.js'
+import type { FeatureCtx } from './features/types.js'
+import { logsFeature } from './features/logs/index.js'
 
 const log = logger('App')
 
@@ -55,18 +56,16 @@ export class App {
   private planRunning = false
   private statusError: string | null = null
   private statusErrorTimer: ReturnType<typeof setTimeout> | null = null
-  private logsLastAnalyzedAt = 0
-  private logsHeartbeatInterval: ReturnType<typeof setInterval> | null = null
-  private logsCountdownInterval: ReturnType<typeof setInterval> | null = null
   private sessionPanel!: SessionPanel
   private canvasPanel!: OrchestrationCanvas
   private agentsPanel!: AgentsPanel
   private terminalPanel: TerminalPanel | null = null
   private configPanel: ConfigPanel | null = null
-  private logsPanel!: LogsPanel
+  private logsPanel!: Panel
   private palette!: CommandPalette
   private paletteOpen = false
   private tabs!: TabEntry[]
+  private readonly services = new Map<string, unknown>()
   private readonly hitMap = new HitMap()
   private router = new InputRouter()
   private controller!: InputController
@@ -105,7 +104,7 @@ export class App {
     log.info('render started')
     this.controller.attach(process.stdin)
     log.info('input listener started', { logFile: getLogFilePath() })
-    this.startLogsHeartbeat()
+    for (const f of loadedFeatures()) f.start?.(this.featureCtx())
   }
 
   private scheduleRender(): void {
@@ -133,11 +132,26 @@ export class App {
       onLogout: () => { void this.runLogout()    },
       onImport: () => { void this.runImport()    },
     })
-    this.logsPanel = new LogsPanel(
-      layout.logs,
-      () => this.scheduleRender(),
-      () => { void this.runLogsAnalysis(false) },  // onAnalyze callback
-    )
+
+    // Feature registry seed: Logs is loaded generically; the other five tabs
+    // stay legacy until Phase 5 migrates them (ddd/11 incremental path).
+    resetFeatures()
+    registerFeature(logsFeature())
+    const ctx = this.featureCtx()
+    const featureTabs: TabEntry[] = loadedFeatures().flatMap(f => {
+      const tab = f.tab
+      if (!tab) return []
+      const panel = tab.makePanel(ctx)
+      if (tab.id === 'logs') this.logsPanel = panel
+      return [{
+        id: tab.id,
+        title: tab.title,
+        captureMouse: tab.captureMouse,
+        panel: () => panel,
+        rectFor: tab.rectFor,
+        hitVisible: tab.hitVisible,
+      }]
+    })
 
     // The unified tab list — all six tabs are first-class routing targets.
     // hitVisible reproduces the historical panelTabAt click-to-focus branches.
@@ -147,7 +161,7 @@ export class App {
       { id: 'agents',        title: TAB_TITLES.agents,        captureMouse: false, panel: () => this.agentsPanel,         rectFor: l => l.agents,   hitVisible: a => a !== 'config' && a !== 'terminal' },
       { id: 'terminal',      title: TAB_TITLES.terminal,      captureMouse: false, panel: () => this.ensureTerminalPanel(), rectFor: l => l.terminal, hitVisible: a => a === 'terminal' },
       { id: 'config',        title: TAB_TITLES.config,        captureMouse: true,  panel: () => this.configPanel!,        rectFor: l => l.config,   hitVisible: a => a === 'config' },
-      { id: 'logs',          title: TAB_TITLES.logs,          captureMouse: true,  panel: () => this.logsPanel,           rectFor: l => l.logs,     hitVisible: () => false },
+      ...featureTabs,
     ]
 
     const switchTab = (id: TabId) => () => { this.activeTab = id; this.render() }
@@ -166,6 +180,19 @@ export class App {
     ])
 
     this.controller = new InputController(this.controllerHost(), this.router)
+  }
+
+  /** Services + host operations injected into features (ddd/11). */
+  private featureCtx(): FeatureCtx {
+    return {
+      scheduleRender: () => this.scheduleRender(),
+      render: () => this.render(),
+      store,
+      layout: () => computeLayout(this.rows, this.cols),
+      showError: (msg) => this.showError(msg),
+      switchTab: (id) => { this.activeTab = id; this.render() },
+      services: this.services,
+    }
   }
 
   /** The narrow surface InputController drives (gap 9 extraction). */
@@ -229,36 +256,6 @@ export class App {
     this.scheduleRender()
   }
 
-  private startLogsHeartbeat(): void {
-    // Start 2-minute heartbeat
-    this.logsHeartbeatInterval = setInterval(() => {
-      void this.runLogsAnalysis(true)  // true = auto
-    }, 2 * 60 * 1000)
-
-    // Start countdown ticker (updates every second) — skipped entirely under
-    // reduced motion; the heartbeat itself still runs
-    if (motionEnabled()) {
-      let countdown = 120
-      this.logsCountdownInterval = setInterval(() => {
-        countdown = Math.max(0, countdown - 1)
-        this.logsPanel.setCountdown(countdown)
-        if (countdown === 0) countdown = 120
-        this.scheduleRender()
-      }, 1000)
-    }
-  }
-
-  private stopLogsHeartbeat(): void {
-    if (this.logsHeartbeatInterval) {
-      clearInterval(this.logsHeartbeatInterval)
-      this.logsHeartbeatInterval = null
-    }
-    if (this.logsCountdownInterval) {
-      clearInterval(this.logsCountdownInterval)
-      this.logsCountdownInterval = null
-    }
-  }
-
   private async runLoginFlow(): Promise<void> {
     if (!this.configPanel) return
     this.activeTab = 'config'
@@ -313,51 +310,6 @@ export class App {
       }
     } finally {
       this.planRunning = false
-    }
-  }
-
-  private async runLogsAnalysis(auto = false): Promise<void> {
-    if (this.logsPanel.isInsightsStreaming) return
-
-    const allEntries = getRecentLogs()
-    const since = auto ? this.logsLastAnalyzedAt : 0
-    const entries = since > 0 ? allEntries.filter((e: LogEntry) => new Date(e.timestamp).getTime() > since) : allEntries
-
-    if (auto && entries.length < 3) return
-
-    const startedAt = Date.now()
-    this.logsPanel.startInsights(auto)
-    this.scheduleRender()
-
-    const sample = entries.slice(-50)
-    const lines = sample
-      .map(
-        (e: LogEntry) =>
-          `[${e.timestamp.slice(11, 19)}] ${e.level.padEnd(5)} ${e.source.padEnd(15)} ${e.message}` +
-          (e.meta ? ' ' + JSON.stringify(e.meta) : ''),
-      )
-      .join('\n')
-
-    const prompt =
-      `You are analyzing application logs from agentfactory-harness, an AI agent terminal. ` +
-      `Summarize what happened, highlight any warnings or errors, and suggest anything unusual.\n\n` +
-      `Log entries (most recent last):\n${lines}`
-
-    const session = new Session()
-    session.addMessage({ role: 'user', content: prompt })
-    const adapter = createAdapter(defaultProvider())
-
-    try {
-      for await (const e of agentLoop(session, { adapter })) {
-        if (e.type === 'text_delta') {
-          this.logsPanel.appendInsights(e.delta)
-          this.scheduleRender()
-        }
-      }
-    } finally {
-      this.logsLastAnalyzedAt = startedAt
-      this.logsPanel.finishInsights()
-      this.scheduleRender()
     }
   }
 
@@ -437,7 +389,7 @@ export class App {
   stop(): void {
     if (!this.running) return
     this.running = false
-    this.stopLogsHeartbeat()
+    for (const f of loadedFeatures()) f.stop?.()
     this.terminalPanel?.destroy()
     // Drain stdin before exit so buffered mouse events don't leak into the shell
     process.stdin.removeAllListeners('data')

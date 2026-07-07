@@ -101,7 +101,40 @@ tui_input:
     status: implemented
 
   - path: src/tui/input/router.test.ts
-    purpose: Characterization tests freezing InputRouter dispatch contract (ui-consolidation P0)
+    purpose: InputRouter tests over the TabEntry contract (updated in P3 — all six tabs first-class)
+    wave: 5
+    status: implemented
+
+  - path: src/tui/input/hit-test.ts
+    purpose: HitMap named clickable zones (tab bar, exit, status-bar) + rectContains
+    exports:
+      - "rectContains(rect, row, col)"
+      - HitMap (class)
+    wave: 5
+    status: implemented
+
+  - path: src/tui/input/controller.ts
+    purpose: The stdin input state machine extracted from app.ts — terminal raw-bypass verbatim; handleData() testable without a TTY
+    exports:
+      - TerminalTarget (interface)
+      - ControllerHost (interface)
+      - InputController (class)
+    wave: 5
+    status: implemented
+
+  - path: src/tui/input/controller.test.ts
+    purpose: Byte-buffer tests against the real input state machine (terminal bypass table, global keys, mouse routing)
+    wave: 5
+    status: implemented
+
+  - path: src/tui/tabs.ts
+    purpose: TabId/TabEntry — unified tab model (title, panel accessor, rect, hit visibility, capture-mouse)
+    exports:
+      - TabId (type)
+      - TAB_ORDER
+      - TabEntry (interface)
+      - "tabIndex(id)"
+      - "tabIdAt(index)"
     wave: 5
     status: implemented
 
@@ -513,6 +546,37 @@ orchestration:
   - path: src/orchestration/graph.test.ts
     purpose: Graph tests — linear chain, diamond, self-cycle, 3-node cycle, readySet scenarios
     wave: 3
+    status: implemented
+
+features:
+  - path: src/features/types.ts
+    purpose: Feature contract (ddd/11) — tab + commands + tools + keybindings + lifecycle, FeatureCtx services
+    exports:
+      - FeatureCtx (interface)
+      - KeyBindingContribution (interface)
+      - Feature (interface)
+    wave: 5
+    status: implemented
+
+  - path: src/features/registry.ts
+    purpose: Feature registry — registerFeature/loadedFeatures/resetFeatures
+    exports:
+      - registerFeature
+      - loadedFeatures
+      - resetFeatures
+    wave: 5
+    status: implemented
+
+  - path: src/features/registry.test.ts
+    purpose: Registry semantics + logs-feature proving case
+    wave: 5
+    status: implemented
+
+  - path: src/features/logs/index.ts
+    purpose: Logs tab as a self-contained Feature — panel, AI analysis flow, 2-min heartbeat lifecycle
+    exports:
+      - "logsFeature(): Feature"
+    wave: 5
     status: implemented
 
 harness:
