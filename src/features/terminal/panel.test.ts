@@ -40,7 +40,7 @@ vi.mock('node-pty', () => ({
 }))
 
 // Now import after mock is in place
-const { TerminalPanel } = await import('./TerminalPanel.js')
+const { TerminalPanel } = await import('./panel.js')
 
 // Minimal CellBuffer stub
 class StubBuf {

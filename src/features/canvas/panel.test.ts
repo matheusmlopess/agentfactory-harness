@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { OrchestrationCanvas } from './OrchestrationCanvas.js'
-import type { Block } from '../widgets/Block.js'
+import { OrchestrationCanvas } from './panel.js'
+import type { Block } from './Block.js'
 
 const noop = () => {}
 

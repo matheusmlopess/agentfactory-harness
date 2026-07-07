@@ -1,4 +1,4 @@
-import { AgentsPanel } from '../../tui/panels/AgentsPanel.js'
+import { AgentsPanel } from './panel.js'
 import type { Feature, FeatureCtx } from '../types.js'
 import type { SessionBridge } from '../session/index.js'
 

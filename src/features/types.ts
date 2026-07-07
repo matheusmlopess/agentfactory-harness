@@ -1,8 +1,8 @@
-import type { Panel } from '../tui/panels/Panel.js'
-import type { PanelLayout, Rect } from '../tui/renderer/layout.js'
-import type { TabId } from '../tui/tabs.js'
-import type { PaletteCommand } from '../tui/widgets/CommandPalette.js'
-import type { KeyBindingDef } from '../tui/input/keymap.js'
+import type { Panel } from '../shared/panel.js'
+import type { PanelLayout, Rect } from '../shared/renderer/layout.js'
+import type { TabId } from '../shared/tabs.js'
+import type { PaletteCommand } from '../shared/widgets/CommandPalette.js'
+import type { KeyBindingDef } from '../shared/input/keymap.js'
 import type { ConfigStore } from '../core/config/store.js'
 import type { Tool } from '../core/tools/index.js'
 

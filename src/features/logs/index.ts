@@ -1,9 +1,9 @@
-import { LogsPanel } from '../../tui/panels/LogsPanel.js'
+import { LogsPanel } from './panel.js'
 import { Session } from '../../core/session.js'
 import { agentLoop } from '../../core/agent-loop.js'
 import { createAdapter, defaultProvider } from '../../core/llm/index.js'
 import { getRecentLogs, type LogEntry } from '../../core/logger.js'
-import { motionEnabled } from '../../tui/renderer/motion.js'
+import { motionEnabled } from '../../shared/renderer/motion.js'
 import type { Feature, FeatureCtx } from '../types.js'
 
 /**

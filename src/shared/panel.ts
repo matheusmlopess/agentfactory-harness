@@ -1,7 +1,7 @@
-import type { CellBuffer } from '../renderer/cell-buffer.js'
-import type { KeyEvent } from '../input/keyboard.js'
-import type { MouseEvent } from '../input/mouse.js'
-import type { Rect } from '../renderer/layout.js'
+import type { CellBuffer } from './renderer/cell-buffer.js'
+import type { KeyEvent } from './input/keyboard.js'
+import type { MouseEvent } from './input/mouse.js'
+import type { Rect } from './renderer/layout.js'
 
 export abstract class Panel {
   rect: Rect

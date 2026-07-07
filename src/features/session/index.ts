@@ -1,5 +1,5 @@
-import { SessionPanel, type SessionStats } from '../../tui/panels/SessionPanel.js'
-import * as A from '../../tui/renderer/ansi.js'
+import { SessionPanel, type SessionStats } from './panel.js'
+import * as A from '../../shared/renderer/ansi.js'
 import type { ModelEntry } from '../../core/llm/index.js'
 import type { Feature, FeatureCtx } from '../types.js'
 

@@ -8,7 +8,7 @@ meta:
   status_values: [implemented, planned, stub]
 
 tui_renderer:
-  - path: src/tui/renderer/ansi.ts
+  - path: src/shared/renderer/ansi.ts
     purpose: Raw ANSI escape sequence builders — no dependencies
     exports:
       - ESC
@@ -36,7 +36,7 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/tui/renderer/cell-buffer.ts
+  - path: src/shared/renderer/cell-buffer.ts
     purpose: "Core renderer: Cell[][] grid, minimal-diff output, full repaint"
     exports:
       - Cell (interface)
@@ -49,7 +49,7 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/tui/renderer/layout.ts
+  - path: src/shared/renderer/layout.ts
     purpose: Computes Rect panel regions from terminal dimensions; draws borders
     exports:
       - Rect (interface)
@@ -59,7 +59,7 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/tui/renderer/theme.ts
+  - path: src/shared/renderer/theme.ts
     purpose: 256-color palette constants + box-drawing char sets
     exports:
       - Colors
@@ -70,17 +70,17 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/tui/renderer/layout.test.ts
+  - path: src/shared/renderer/layout.test.ts
     purpose: Characterization tests — exact computeLayout rects + drawBorder chrome (ui-consolidation P0)
     wave: 5
     status: implemented
 
-  - path: src/tui/renderer/theme.test.ts
+  - path: src/shared/renderer/theme.test.ts
     purpose: Semantic token values, live setTheme swap, contrast pairs, render diff under both themes
     wave: 5
     status: implemented
 
-  - path: src/tui/renderer/motion.ts
+  - path: src/shared/renderer/motion.ts
     purpose: Reduced-motion preference (gap 19) — motionEnabled() + refresh hook
     exports:
       - "motionEnabled(): boolean"
@@ -88,7 +88,7 @@ tui_renderer:
     wave: 5
     status: implemented
 
-  - path: src/tui/renderer/size-profiles.ts
+  - path: src/shared/renderer/size-profiles.ts
     purpose: Settings-based min terminal sizes (compact/standard/wide) + sizeCheck + too-small guard screen
     exports:
       - SizeProfile (interface)
@@ -99,13 +99,13 @@ tui_renderer:
     wave: 5
     status: implemented
 
-  - path: src/tui/renderer/size-profiles.test.ts
+  - path: src/shared/renderer/size-profiles.test.ts
     purpose: sizeCheck boundaries + guard-screen render
     wave: 5
     status: implemented
 
 tui_input:
-  - path: src/tui/input/keyboard.ts
+  - path: src/shared/input/keyboard.ts
     purpose: Raw stdin buffer to KeyEvent; drops mouse escape bytes
     exports:
       - KeyEvent (interface)
@@ -113,7 +113,7 @@ tui_input:
     wave: 0
     status: implemented
 
-  - path: src/tui/input/mouse.ts
+  - path: src/shared/input/mouse.ts
     purpose: "xterm SGR mouse event parser (\\033[<Pb;Px;PyM/m)"
     exports:
       - MouseEvent (interface)
@@ -121,7 +121,7 @@ tui_input:
     wave: 2
     status: implemented
 
-  - path: src/tui/input/router.ts
+  - path: src/shared/input/router.ts
     purpose: Dispatches keyboard/mouse events to the currently focused panel
     exports:
       - InputRouter (class)
@@ -129,12 +129,12 @@ tui_input:
     wave: 2
     status: implemented
 
-  - path: src/tui/input/router.test.ts
+  - path: src/shared/input/router.test.ts
     purpose: InputRouter tests over the TabEntry contract (updated in P3 — all six tabs first-class)
     wave: 5
     status: implemented
 
-  - path: src/tui/input/hit-test.ts
+  - path: src/shared/input/hit-test.ts
     purpose: HitMap named clickable zones (tab bar, exit, status-bar) + rectContains
     exports:
       - "rectContains(rect, row, col)"
@@ -142,7 +142,7 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/tui/input/controller.ts
+  - path: src/shared/input/controller.ts
     purpose: The stdin input state machine extracted from app.ts — terminal raw-bypass verbatim; handleData() testable without a TTY
     exports:
       - TerminalTarget (interface)
@@ -151,12 +151,12 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/tui/input/controller.test.ts
+  - path: src/shared/input/controller.test.ts
     purpose: Byte-buffer tests against the real input state machine (terminal bypass table, global keys, mouse routing)
     wave: 5
     status: implemented
 
-  - path: src/tui/tabs.ts
+  - path: src/shared/tabs.ts
     purpose: TabId/TabEntry — unified tab model (title, panel accessor, rect, hit visibility, capture-mouse)
     exports:
       - TabId (type)
@@ -167,7 +167,7 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/tui/tab-bar.ts
+  - path: src/shared/tab-bar.ts
     purpose: Pure tab-bar geometry — label spans + tab/exit hit-testing (extracted from app.ts)
     exports:
       - EXIT_BTN
@@ -178,12 +178,12 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/tui/tab-bar.test.ts
+  - path: src/shared/tab-bar.test.ts
     purpose: tab-bar geometry tests — spans, hits, gaps, exit-button precedence
     wave: 5
     status: implemented
 
-  - path: src/tui/input/keymap.ts
+  - path: src/shared/input/keymap.ts
     purpose: Declarative key bindings — context filtering (when), text-input suppression, panelFirst, help listing
     exports:
       - KeyBindingDef (interface)
@@ -191,13 +191,13 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/tui/input/keymap.test.ts
+  - path: src/shared/input/keymap.test.ts
     purpose: Keymap tests — context filter, printable suppression, aliases, panelFirst, list()
     wave: 5
     status: implemented
 
 tui_panels:
-  - path: src/tui/panels/Panel.ts
+  - path: src/shared/panel.ts
     purpose: Abstract base class for all panels
     exports:
       - Panel (abstract class)
@@ -210,21 +210,21 @@ tui_panels:
     wave: 0
     status: implemented
 
-  - path: src/tui/panels/StatusBar.ts
+  - path: src/shared/widgets/StatusBar.ts
     purpose: Bottom status line — version, mode label, keybind hints
     exports:
       - "renderStatusBar(buf: CellBuffer, rect: Rect, mode?: string): void"
     wave: 0
     status: implemented
 
-  - path: src/tui/panels/SessionPanel.ts
+  - path: src/features/session/panel.ts
     purpose: Chat panel — streaming Claude output, user input bar
     exports:
       - SessionPanel (class extends Panel)
     wave: 1
     status: implemented
 
-  - path: src/tui/panels/OrchestrationCanvas.ts
+  - path: src/features/canvas/panel.ts
     purpose: ITUI drag-drop canvas — block layout, wire draw, mouse interactions
     exports:
       - OrchestrationCanvas (class extends Panel)
@@ -235,21 +235,21 @@ tui_panels:
     wave: 2
     status: implemented
 
-  - path: src/tui/panels/AgentsPanel.ts
+  - path: src/features/agents/panel.ts
     purpose: Agent list sidebar — live status badges
     exports:
       - AgentsPanel (class extends Panel)
     wave: 1
     status: implemented
 
-  - path: src/tui/panels/TerminalPanel.ts
+  - path: src/features/terminal/panel.ts
     purpose: node-pty embed — real shell inside a panel region
     exports:
       - TerminalPanel (class extends Panel)
     wave: 4
     status: implemented
 
-  - path: src/tui/input/vt.ts
+  - path: src/features/terminal/vt.ts
     purpose: VTScreen — streaming ANSI parser + virtual cell grid for PTY output
     exports:
       - VTStyle (interface)
@@ -261,35 +261,35 @@ tui_panels:
     wave: 4
     status: implemented
 
-  - path: src/tui/input/vt.test.ts
+  - path: src/features/terminal/vt.test.ts
     purpose: VTScreen unit tests — text, cursor, SGR, erase, scroll, resize
     wave: 4
     status: implemented
 
-  - path: src/tui/panels/TerminalPanel.test.ts
+  - path: src/features/terminal/panel.test.ts
     purpose: TerminalPanel lifecycle tests with mocked IPty
     wave: 4
     status: implemented
 
-  - path: src/tui/input/terminal-bypass.test.ts
+  - path: src/shared/input/terminal-bypass.test.ts
     purpose: Unit tests for Terminal tab raw-byte bypass — F1–F5, Ctrl+Q, Shift+PgUp/Dn, mouse intercept
     wave: 4
     status: implemented
 
-  - path: src/tui/panels/ConfigPanel.ts
+  - path: src/features/config/panel.ts
     purpose: Config tab — persistent API key manager for 35+ AI providers; double-click to edit overlay
     exports:
       - ConfigPanel (class extends Panel)
     wave: 4
     status: implemented
 
-  - path: src/tui/panels/ConfigPanel.test.ts
+  - path: src/features/config/panel.test.ts
     purpose: ConfigPanel render, scroll, key nav, and edit-overlay tests
     wave: 4
     status: implemented
 
 tui_widgets:
-  - path: src/tui/widgets/Block.ts
+  - path: src/features/canvas/Block.ts
     purpose: ASCII box for one agent node — title, version, status, ports
     exports:
       - Block (class)
@@ -297,7 +297,7 @@ tui_widgets:
     wave: 2
     status: implemented
 
-  - path: src/tui/widgets/Wire.ts
+  - path: src/features/canvas/Wire.ts
     purpose: L-shaped wire router between output/input ports
     exports:
       - Wire (class)
@@ -305,14 +305,14 @@ tui_widgets:
     wave: 2
     status: implemented
 
-  - path: src/tui/widgets/ContextMenu.ts
+  - path: src/shared/widgets/ContextMenu.ts
     purpose: Right-click popup — action list, keyboard nav
     exports:
       - ContextMenu (class)
     wave: 2
     status: implemented
 
-  - path: src/tui/widgets/CommandPalette.ts
+  - path: src/shared/widgets/CommandPalette.ts
     purpose: Ctrl+P fuzzy-search command overlay — fuzzyScore + centered modal + 8 registered commands
     exports:
       - PaletteCommand (interface)
@@ -321,12 +321,12 @@ tui_widgets:
     wave: 1
     status: implemented
 
-  - path: src/tui/widgets/CommandPalette.test.ts
+  - path: src/shared/widgets/CommandPalette.test.ts
     purpose: CommandPalette unit tests — fuzzyScore (4 cases) + palette render/nav/action (10 cases)
     wave: 1
     status: implemented
 
-  - path: src/tui/widgets/Overlay.ts
+  - path: src/shared/widgets/Overlay.ts
     purpose: Shared modal frame — sm/md/lg tiers (46/56/64), centered geometry, title, footer hint, Esc + click-outside dismissal
     exports:
       - OverlayTier (type)
@@ -336,12 +336,12 @@ tui_widgets:
     wave: 5
     status: implemented
 
-  - path: src/tui/widgets/Overlay.test.ts
+  - path: src/shared/widgets/Overlay.test.ts
     purpose: Overlay geometry/clamping/frame/dismissal tests
     wave: 5
     status: implemented
 
-  - path: src/tui/widgets/ScrollableList.ts
+  - path: src/shared/widgets/ScrollableList.ts
     purpose: The shared list behaviour — selection + viewport, ListOptions (wrap, wheel viewport|selection, wheelStep), headless-capable
     exports:
       - ListRow (interface)
@@ -350,17 +350,17 @@ tui_widgets:
     wave: 5
     status: implemented
 
-  - path: src/tui/widgets/ScrollableList.test.ts
+  - path: src/shared/widgets/ScrollableList.test.ts
     purpose: clamp/wrap nav, header skip, wheel semantics, click mapping
     wave: 5
     status: implemented
 
-  - path: src/tui/widgets/ContextMenu.test.ts
+  - path: src/shared/widgets/ContextMenu.test.ts
     purpose: ContextMenu keyboard/mouse/dismissal tests (first coverage)
     wave: 5
     status: implemented
 
-  - path: src/tui/widgets/HelpOverlay.ts
+  - path: src/shared/widgets/HelpOverlay.ts
     purpose: "`?` keyboard-shortcut reference — keymap listing grouped Global/tab, scrollable, Esc/click dismiss"
     exports:
       - HelpOverlay (class)

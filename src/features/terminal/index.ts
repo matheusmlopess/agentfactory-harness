@@ -1,4 +1,4 @@
-import { TerminalPanel } from '../../tui/panels/TerminalPanel.js'
+import { TerminalPanel } from './panel.js'
 import type { Feature, FeatureCtx } from '../types.js'
 
 /**

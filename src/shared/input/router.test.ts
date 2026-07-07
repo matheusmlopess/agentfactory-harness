@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { InputRouter } from './router.js'
-import { Panel } from '../panels/Panel.js'
+import { Panel } from '../panel.js'
 import type { TabEntry, TabId } from '../tabs.js'
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import type { KeyEvent } from './keyboard.js'

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { OrchestrationCanvas } from '../../tui/panels/OrchestrationCanvas.js'
+import { OrchestrationCanvas } from './panel.js'
 import { PlanSchema, type Plan } from '../../orchestration/schema.js'
 import { Executor } from '../../orchestration/executor.js'
 import { Session } from '../../core/session.js'

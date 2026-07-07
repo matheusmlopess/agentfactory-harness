@@ -1,8 +1,8 @@
-import { Panel } from './Panel.js'
-import type { CellBuffer } from '../renderer/cell-buffer.js'
-import type { Rect } from '../renderer/layout.js'
-import type { MouseEvent } from '../input/mouse.js'
-import { Colors } from '../renderer/theme.js'
+import { Panel } from '../../shared/panel.js'
+import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
+import type { Rect } from '../../shared/renderer/layout.js'
+import type { MouseEvent } from '../../shared/input/mouse.js'
+import { Colors } from '../../shared/renderer/theme.js'
 import { findLaureate } from '../../core/nobel.js'
 import { logger } from '../../core/logger.js'
 

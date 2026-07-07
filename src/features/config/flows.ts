@@ -1,4 +1,4 @@
-import type { ConfigPanel } from '../../tui/panels/ConfigPanel.js'
+import type { ConfigPanel } from './panel.js'
 import { startDeviceLogin } from '../../registry/login.js'
 import { clearToken } from '../../registry/auth.js'
 import { importFromTools } from '../../registry/import-keys.js'

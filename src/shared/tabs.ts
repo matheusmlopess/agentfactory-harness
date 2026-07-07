@@ -1,4 +1,4 @@
-import type { Panel } from './panels/Panel.js'
+import type { Panel } from './panel.js'
 import type { PanelLayout, Rect } from './renderer/layout.js'
 
 /** Stable tab identifiers — replaces the TAB_* index constants (gap 10). */

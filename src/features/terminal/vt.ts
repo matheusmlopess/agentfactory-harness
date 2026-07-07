@@ -1,6 +1,6 @@
-import type { CellBuffer } from '../renderer/cell-buffer.js'
-import type { Color } from '../renderer/cell-buffer.js'
-import type { Rect } from '../renderer/layout.js'
+import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
+import type { Color } from '../../shared/renderer/cell-buffer.js'
+import type { Rect } from '../../shared/renderer/layout.js'
 
 export interface VTStyle {
   fg: Color | undefined
