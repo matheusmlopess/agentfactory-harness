@@ -261,9 +261,13 @@ v1 risks R1–R9 were **resolved** by `feature/ui-consolidation` (see
 **Process note (docs/PR):** every doc carries the four header markers; new/renamed files
 update `.ai/project-index.yml` in the same commit; feature docs register in
 `DOCUMENTATION-REGISTRY.md` and their folder README (via `scripts/docs-append.sh`);
-gates per commit = `tsc --noEmit` + `npm test` + `scripts/smoke-tui.sh`. There is no
-CI config in this repo — these gates are enforced by convention (Rule 3), so adding a
-minimal CI workflow that runs the three gates is the highest-leverage process safeguard.
+gates per commit = `tsc --noEmit` + `npm test` + `scripts/smoke-tui.sh`.
+*(Corrected 2026-07-10 — v2's "no CI" claim was stale:)* `.github/workflows/ci.yml`
+runs **lint (`tsc --noEmit`) + test (`npm test`) + build** on PRs, plus a tag-based
+release job — verified green on PR #25. Still enforced by convention only:
+`scripts/smoke-tui.sh` (needs a TTY/tmux runner AND the isolated-HOME fix from R19
+first) and the doc-tracking checks (markers, registry/README/index registration —
+the completeness one-liner in §6 of the TESTING doc set would make a cheap CI step).
 
 ---
 
@@ -278,7 +282,8 @@ regression net). The remaining risks are **robustness and hardening** (network r
 capability probing, timeout enforcement, secret storage, config locking) plus the typed-
 services seam — none structural. The highest-leverage next investments are the multi-agent
 kernel (PLAN-00–08), which turns the studio's recorded handoff semantics real, and a minimal
-CI workflow to enforce the existing gates.
+CI workflow to enforce the existing gates *(v2.1 correction: `ci.yml` exists and runs
+lint/test/build — what remains un-automated is the smoke test and the doc-tracking checks)*.
 
 **v2.1 (2026-07-09).** The binding work closes the biggest conceptual seam left after
 consolidation: the canvas, the Agents list, and sessions now share one identity (the
