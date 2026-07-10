@@ -11,6 +11,12 @@ cd "$(dirname "$0")/.."
 SESSION="factory-smoke-$$"
 FAILURES=0
 
+# Hermetic config: the app reads ~/.config/agentfactory/config.json, so a
+# developer's personal settings (e.g. sizeProfile=wide) would otherwise flip
+# the 120×40 session onto the guard screen and fail every check.
+SMOKE_HOME="$(mktemp -d)"
+APP_CMD="env HOME=$SMOKE_HOME npx tsx src/index.ts"
+
 capture() { tmux capture-pane -pt "$SESSION"; }
 
 send() { tmux send-keys -t "$SESSION" "$@"; sleep 0.7; }
@@ -25,11 +31,14 @@ check() {
   fi
 }
 
-cleanup() { tmux kill-session -t "$SESSION" 2>/dev/null || true; }
+cleanup() {
+  tmux kill-session -t "$SESSION" 2>/dev/null || true
+  rm -rf "$SMOKE_HOME"
+}
 trap cleanup EXIT
 
 echo "== Phase 0: startup chrome =="
-tmux new-session -d -s "$SESSION" -x 120 -y 40 'npx tsx src/index.ts'
+tmux new-session -d -s "$SESSION" -x 120 -y 40 "$APP_CMD"
 
 # Poll for the first render (tsx cold-start can take a while)
 for _ in $(seq 1 60); do
@@ -69,7 +78,7 @@ sleep 1
 
 echo "== Phase 4: size-profile guard (60x20 terminal) =="
 SESSION2="factory-smoke-guard-$$"
-tmux new-session -d -s "$SESSION2" -x 60 -y 20 'npx tsx src/index.ts'
+tmux new-session -d -s "$SESSION2" -x 60 -y 20 "$APP_CMD"
 for _ in $(seq 1 60); do
   if tmux capture-pane -pt "$SESSION2" | grep -qF "Terminal too small"; then break; fi
   sleep 1

@@ -1,9 +1,9 @@
 # TESTING — UI Consolidation + Studio: End-to-End Guide
 
-<!-- version: 1.0.0 -->
+<!-- version: 1.0.1 -->
 <!-- classification: TESTING -->
 <!-- date: 2026-07-07 -->
-<!-- last-updated: 2026-07-07 -->
+<!-- last-updated: 2026-07-10 -->
 
 How to verify `feature/ui-consolidation` end-to-end. Complements
 `TESTING-FACTORY-E2E-2026-06-18.md` (Waves 0–5 surfaces); this guide covers the surfaces
@@ -34,7 +34,7 @@ the team dashboard, and NDJSON automation.
 |---|---|---|
 | 1 | `npx tsc --noEmit` | no output (strict, no `any`) |
 | 2 | `npm test` | **413 passed**, 0 failed |
-| 3 | `./scripts/smoke-tui.sh` | `smoke-tui: all checks passed` (13 checks incl. a real 60×20 guard-screen session) |
+| 3 | `./scripts/smoke-tui.sh` | `smoke-tui: all checks passed` (13 checks incl. a real 60×20 guard-screen session). The script runs with an isolated `$HOME`, so your personal settings (e.g. `sizeProfile: wide`, which correctly guards a 120×40 pane) cannot fail it |
 | 4 | `npx tsx src/index.ts --version` | matches `package.json` `"version"` exactly |
 
 Failure indicators: any tsc output; any red test; smoke `FAIL:` lines (each names the
