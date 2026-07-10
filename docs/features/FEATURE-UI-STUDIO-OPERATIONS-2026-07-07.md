@@ -1,14 +1,15 @@
 # FEATURE — UI Consolidation + Studio: Operational Guide
 
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 <!-- classification: FEATURE -->
 <!-- date: 2026-07-07 -->
-<!-- last-updated: 2026-07-07 -->
+<!-- last-updated: 2026-07-10 -->
 
 Operator-facing guide for everything shipped on `feature/ui-consolidation`: workflows,
 edge cases, failure modes, validation, and recovery. Companions:
 `FEATURE-UI-CONSOLIDATION-2026-07-07.md` (gap map), `FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md`
-(studio internals), `docs/testing/TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md` (test guide).
+(studio internals), `FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md` (node↔session binding),
+`docs/testing/TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md` (test guide).
 
 ---
 
@@ -139,7 +140,16 @@ Ctrl+R  ─▶ validate ▶ serialize ▶ run: blocks go ◎ ▶ ● ▶ ✓
 Other canvas interactions: click a block body to **select** (focus border; `Enter`/`e`
 opens the inspector; Esc deselects); drag a block **header** to move (grid-snapped,
 position persists into the model); right-click for context menus (`Configure…`,
-`Delete block`, `Delete wire`, `Add agent block`, `Toggle toolbox`).
+`Open session`, `Bind session…`, `Unbind`, `Delete block`, `Delete wire`,
+`Add agent block`, `Toggle toolbox`).
+
+**Node ↔ session binding** (see `FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md` for depth):
+every node created on the canvas is backed by a real chat session that appears in the
+Agents list immediately; plan runs stream into those sessions. Right-click →
+`Open session` jumps to the bound conversation in the Session tab (creating/rebinding
+one if the binding is missing or dangling); `Bind session…` lists loaded sessions
+(`★` = active, `(bound)` = this node's current binding); `Unbind` detaches. Bindings
+serialize via `x-studio.sessions` and survive renames and round-trips.
 
 **Edge cases & validation (design-time — you cannot save/run an invalid plan)**
 ```
