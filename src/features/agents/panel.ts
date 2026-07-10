@@ -10,6 +10,8 @@ import type { Plan } from '../../orchestration/schema.js'
 import type { StepEvent, StepStatus } from '../../orchestration/executor.js'
 
 export interface AgentEntry {
+  /** Stable session id (rollout id) — pass-through for click-to-open. */
+  id?:          string
   name:         string
   status:       'idle' | 'running' | 'done' | 'error'
   active?:      boolean   // the currently-focused session

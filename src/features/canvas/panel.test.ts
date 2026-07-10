@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { OrchestrationCanvas } from './panel.js'
+import { OrchestrationCanvas, type CanvasSessionActions } from './panel.js'
 import type { Block } from './Block.js'
 
 const noop = () => {}
@@ -256,5 +256,142 @@ describe('OrchestrationCanvas — build mode (ownership inversion)', () => {
     expect(c.getState().blocks.find(b => b.id === 'b2')!.status).toBe('skipped')
     c.applyStepEvent({ type: 'step:start', stepId: 'b1', status: 'running' })
     expect(c.getState().blocks.find(b => b.id === 'b1')!.status).toBe('running')
+  })
+})
+
+// ── Session binding (canvas ↔ agents ↔ sessions integration) ────────────────
+
+interface FakeActions extends CanvasSessionActions {
+  created: string[]
+  opened: string[]
+  /** Scripted openSession result per call; default echoes the id back. */
+  openResult?: (id: string) => string | null
+}
+
+function makeActions(sessions: { id: string; name: string; active: boolean }[] = []): FakeActions {
+  const fake: FakeActions = {
+    created: [],
+    opened: [],
+    listSessions: () => sessions,
+    createSessionFor: (name) => {
+      fake.created.push(name)
+      return `sid-${name}`
+    },
+    openSession: (id) => {
+      fake.opened.push(id)
+      return fake.openResult ? fake.openResult(id) : id
+    },
+  }
+  return fake
+}
+
+function makeBoundCanvas(actions: CanvasSessionActions | undefined): OrchestrationCanvas {
+  const c = new OrchestrationCanvas({ row: 1, col: 40, height: 30, width: 100 }, noop, actions)
+  c.loadState({
+    blocks: [
+      { id: 'b1', row: 2, col: 2,  height: 5, width: 16, title: 'agent-1', status: 'idle', outputs: ['out'], inputs: ['in'] },
+    ],
+    wires: [],
+    drag: { kind: 'idle' },
+  })
+  return c
+}
+
+describe('OrchestrationCanvas — session binding', () => {
+  it('addNode auto-creates and binds a session named after the node', () => {
+    const actions = makeActions()
+    const c = makeBoundCanvas(actions)
+    c.onMouse(M(10, 60, 'right'))                       // empty canvas → menu
+    c.onKey({ key: 'enter', raw: Buffer.from('\r') })   // "Add agent block"
+    c.onKey({ key: 'escape', raw: Buffer.from('\x1b') }) // close inspector
+    const added = c.getModel().nodes.find(n => n.id !== 'b1')!
+    expect(actions.created).toEqual([added.id])
+    expect(added.sessionId).toBe(`sid-${added.id}`)
+  })
+
+  it('addNode skips binding when no session actions are injected', () => {
+    const c = makeBoundCanvas(undefined)
+    c.onMouse(M(10, 60, 'right'))
+    c.onKey({ key: 'enter', raw: Buffer.from('\r') })
+    c.onKey({ key: 'escape', raw: Buffer.from('\x1b') })
+    const added = c.getModel().nodes.find(n => n.id !== 'b1')!
+    expect(added.sessionId).toBeUndefined()
+  })
+
+  it('bindSession writes to and unbind clears the model', () => {
+    const c = makeBoundCanvas(makeActions())
+    c.bindSession('b1', 'sid-x')
+    expect(c.getModel().nodes[0]!.sessionId).toBe('sid-x')
+    c.bindSession('b1', undefined)
+    expect(c.getModel().nodes[0]!.sessionId).toBeUndefined()
+  })
+
+  it("'o' on a selected node opens its bound session", () => {
+    const actions = makeActions()
+    const c = makeBoundCanvas(actions)
+    c.bindSession('b1', 'sid-live')
+    c.onMouse(M(6, 45))                                  // select b1 body
+    c.onKey({ key: 'o', raw: Buffer.from('o') })
+    expect(actions.opened).toEqual(['sid-live'])
+  })
+
+  it('opening an unbound node creates a session and binds it', () => {
+    const actions = makeActions()
+    const c = makeBoundCanvas(actions)
+    c.openNodeSession('b1')
+    expect(actions.created).toEqual(['b1'])
+    expect(actions.opened).toEqual(['sid-b1'])
+    expect(c.getModel().nodes[0]!.sessionId).toBe('sid-b1')
+  })
+
+  it('a dangling binding is replaced by a fresh session on open', () => {
+    const actions = makeActions()
+    actions.openResult = (id) => (id === 'sid-dead' ? null : id)
+    const c = makeBoundCanvas(actions)
+    c.bindSession('b1', 'sid-dead')
+    c.openNodeSession('b1')
+    expect(actions.opened).toEqual(['sid-dead', 'sid-b1'])
+    expect(c.getModel().nodes[0]!.sessionId).toBe('sid-b1')
+  })
+
+  it('a resumed session (new id) rebinds the node to the fresh id', () => {
+    const actions = makeActions()
+    actions.openResult = (id) => (id === 'sid-old' ? 'sid-resumed' : id)
+    const c = makeBoundCanvas(actions)
+    c.bindSession('b1', 'sid-old')
+    c.openNodeSession('b1')
+    expect(c.getModel().nodes[0]!.sessionId).toBe('sid-resumed')
+  })
+
+  it('block context menu offers Open session, and Bind session… binds a listed session', () => {
+    const actions = makeActions([
+      { id: 'sid-einstein', name: 'Einstein', active: true },
+      { id: 'sid-curie',    name: 'Curie',    active: false },
+    ])
+    const c = makeBoundCanvas(actions)
+    // Right-click b1 body → menu: Configure… / Open session / Bind session… / Delete block
+    c.onMouse(M(6, 45, 'right'))
+    c.onKey({ key: 'arrow_down', raw: Buffer.from('\x1b[B') })   // → Open session
+    c.onKey({ key: 'enter', raw: Buffer.from('\r') })
+    expect(actions.created).toEqual(['b1'])                      // unbound → created + opened
+    expect(actions.opened).toEqual(['sid-b1'])
+
+    // Again: Bind session… → pick the second session (Curie)
+    c.onMouse(M(6, 45, 'right'))
+    c.onKey({ key: 'arrow_down', raw: Buffer.from('\x1b[B') })
+    c.onKey({ key: 'arrow_down', raw: Buffer.from('\x1b[B') })   // → Bind session…
+    c.onKey({ key: 'enter', raw: Buffer.from('\r') })
+    c.onKey({ key: 'arrow_down', raw: Buffer.from('\x1b[B') })   // → · Curie
+    c.onKey({ key: 'enter', raw: Buffer.from('\r') })
+    expect(c.getModel().nodes[0]!.sessionId).toBe('sid-curie')
+  })
+
+  it('the menu omits session items when no actions are injected', () => {
+    const c = makeBoundCanvas(undefined)
+    c.onMouse(M(6, 45, 'right'))
+    // Items: Configure… / Delete block → arrow_down once reaches Delete block
+    c.onKey({ key: 'arrow_down', raw: Buffer.from('\x1b[B') })
+    c.onKey({ key: 'enter', raw: Buffer.from('\r') })
+    expect(c.getModel().nodes).toHaveLength(0)                   // b1 deleted
   })
 })

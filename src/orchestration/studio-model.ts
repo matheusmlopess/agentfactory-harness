@@ -20,6 +20,9 @@ export interface StudioNode {
   provider?: 'anthropic' | 'openai'
   model?: string
   timeout?: number
+  /** Bound chat session id (rollout id) — serialized via x-studio.sessions.
+   *  Kept as an opaque string so this file stays session/TUI-agnostic. */
+  sessionId?: string
   /** View-only size hints (not serialized; defaults 20×5). */
   w?: number
   h?: number
@@ -179,6 +182,9 @@ export function studioToPlan(m: StudioModel): Plan {
         kind: e.kind,
         ...(e.payload !== undefined ? { payload: e.payload } : {}),
       })),
+      sessions: Object.fromEntries(
+        m.nodes.filter(n => n.sessionId !== undefined).map(n => [n.id, n.sessionId!]),
+      ),
     },
   }
   return PlanSchema.parse(plan)
@@ -202,6 +208,7 @@ export function planToStudio(plan: Plan): StudioModel {
       ...(step.provider !== undefined ? { provider: step.provider } : {}),
       ...(step.model !== undefined ? { model: step.model } : {}),
       ...(step.timeout !== undefined ? { timeout: step.timeout } : {}),
+      ...(ext?.sessions[step.id] !== undefined ? { sessionId: ext.sessions[step.id]! } : {}),
     }
   })
 

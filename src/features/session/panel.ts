@@ -84,7 +84,17 @@ const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: '/tokens', desc: 'Show approximate token count'             },
 ] as const
 
+/** Public per-session metadata — consumed by the Agents list and the canvas. */
+export interface SessionMeta {
+  id:     string
+  name:   string
+  status: 'idle' | 'running' | 'done' | 'error'
+  active: boolean
+  stats:  SessionStats | null
+}
+
 interface SessionRecord {
+  id:            string                 // stable identity — the rollout id
   name:          string
   session:       Session
   lines:         ChatLine[]
@@ -157,14 +167,16 @@ export class SessionPanel extends Panel {
     if (onNavigate) this.onNavigate = onNavigate
     if (onCopy) this.onCopy = onCopy
     // First session — named after the first laureate
-    this.sessions.push(this.makeRecord(nextLaureate(new Set())))
+    this.sessions.push(this.makeRecord(nextLaureate(new Set()).name))
   }
 
-  private makeRecord(l: Laureate, model: ModelEntry | null = null, chatMode = false): SessionRecord {
+  private makeRecord(name: string, model: ModelEntry | null = null, chatMode = false): SessionRecord {
+    const rollout = rolloutStore.create(name, model?.id ?? 'default')
     return {
-      name:          l.name,
+      id:            rollout.id,
+      name,
       session:       new Session(),
-      lines:         [{ role: 'system', text: `factory v0.4.0 — session "${l.name}" — type a message or /help` }],
+      lines:         [{ role: 'system', text: `factory v0.4.0 — session "${name}" — type a message or /help` }],
       inputBuf:      '',
       scrollOffset:  0,
       hScroll:       0,
@@ -173,7 +185,7 @@ export class SessionPanel extends Panel {
       chatMode,
       status:        'idle',
       lastStats:     null,
-      rollout:       rolloutStore.create(l.name, model?.id ?? 'default'),
+      rollout,
     }
   }
 
@@ -200,8 +212,8 @@ export class SessionPanel extends Panel {
   getSelectedModel(): ModelEntry | null { return this.selectedModel }
 
   /** Metadata for every session — used by the Agents panel as a switcher. */
-  sessionMetas(): { name: string; status: SessionRecord['status']; active: boolean; stats: SessionStats | null }[] {
-    return this.sessions.map((s, i) => ({ name: s.name, status: s.status, active: i === this.activeIdx, stats: s.lastStats }))
+  sessionMetas(): SessionMeta[] {
+    return this.sessions.map((s, i) => ({ id: s.id, name: s.name, status: s.status, active: i === this.activeIdx, stats: s.lastStats }))
   }
 
   switchTo(idx: number): void {
@@ -213,10 +225,51 @@ export class SessionPanel extends Panel {
     }
   }
 
+  /** Activate the session with the given id. Returns false if not loaded. */
+  switchToId(id: string): boolean {
+    const idx = this.sessions.findIndex(s => s.id === id)
+    if (idx < 0) return false
+    this.switchTo(idx)
+    return true
+  }
+
+  /** Create a named session WITHOUT stealing focus from the active one.
+   *  Used by the canvas so nodes appear in the Agents list as real sessions. */
+  createSession(name: string, model: ModelEntry | null = null): SessionMeta {
+    const rec = this.makeRecord(name, model)
+    this.sessions.push(rec)
+    this.log.info('session created', { name, total: this.sessions.length })
+    this.onUpdate()
+    return { id: rec.id, name: rec.name, status: rec.status, active: false, stats: rec.lastStats }
+  }
+
+  /** Reload a saved rollout by id into a new active session.
+   *  Returns the meta of the NEW record (fresh id) or null if unknown. */
+  resumeById(id: string): SessionMeta | null {
+    const meta = rolloutStore.list().find(m => m.id === id)
+    if (!meta) return null
+    this.resumeFrom(meta.id, meta.name)
+    const rec = this.sessions[this.activeIdx]!
+    return { id: rec.id, name: rec.name, status: rec.status, active: true, stats: rec.lastStats }
+  }
+
+  /** Send a user message into the session with the given id and run its agent
+   *  loop to completion. Resolves with the final assistant text. */
+  postMessage(id: string, text: string): Promise<string> {
+    const rec = this.sessions.find(s => s.id === id)
+    if (!rec) return Promise.reject(new Error(`No session with id ${id}`))
+    if (rec.streaming) return Promise.reject(new Error(`Session "${rec.name}" is busy`))
+    rec.lines.push({ role: 'user', text })
+    rec.session.addMessage({ role: 'user', content: text })
+    rec.rollout?.append({ type: 'user', text })
+    this.onUpdate()
+    return this.runAgentLoop(rec)
+  }
+
   /** Reload a saved rollout into a new active session (replays its events). */
   private resumeFrom(id: string, name: string): void {
     const events: RolloutEvent[] = rolloutStore.load(id)
-    const rec = this.makeRecord(nextLaureate(new Set(this.sessions.map(s => s.name))))
+    const rec = this.makeRecord(nextLaureate(new Set(this.sessions.map(s => s.name))).name)
     rec.name = `${name}*`   // resumed marker
     rec.lines = [{ role: 'system', text: `Resumed session "${name}" (${events.length} events).` }]
     for (const ev of events) {
@@ -287,7 +340,7 @@ export class SessionPanel extends Panel {
     // Create a brand-new named session (don't clobber the current one)
     const used = new Set(this.sessions.map(s => s.name))
     const laureate = nextLaureate(used)
-    const rec = this.makeRecord(laureate)
+    const rec = this.makeRecord(laureate.name)
     this.sessions.push(rec)
     this.activeIdx = this.sessions.length - 1
     this.clearSelection()
@@ -1066,7 +1119,9 @@ export class SessionPanel extends Panel {
     this.onUpdate()
   }
 
-  private async runAgentLoop(rec: SessionRecord): Promise<void> {
+  /** Run the agent loop for a record. Resolves with the accumulated
+   *  assistant text so orchestration steps can consume the output. */
+  private async runAgentLoop(rec: SessionRecord): Promise<string> {
     rec.streaming = true
     rec.status = 'running'
     await runHook('SessionStart', {})
@@ -1085,6 +1140,7 @@ export class SessionPanel extends Panel {
 
     let currentLine: ChatLine | undefined
     let hadError = false
+    let finalText = ''
     try {
       for await (const event of agentLoop(rec.session, loopOpts)) {
         if (event.type === 'text_delta') {
@@ -1093,6 +1149,7 @@ export class SessionPanel extends Panel {
             rec.lines.push(currentLine)
           }
           currentLine.text += event.delta
+          finalText += event.delta
           rec.scrollOffset = 0
           this.onUpdate()
         } else if (event.type === 'tool_start') {
@@ -1138,6 +1195,7 @@ export class SessionPanel extends Panel {
       await runHook('SessionStop', {})
       this.onUpdate()
     }
+    return finalText.trim()
   }
 
 }

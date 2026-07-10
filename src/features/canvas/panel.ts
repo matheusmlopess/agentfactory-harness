@@ -32,6 +32,20 @@ interface ToolboxItem {
   promptStub: string
 }
 
+/**
+ * Session actions injected by the feature wiring (canvas/index.ts) so canvas
+ * nodes can bind to real chat sessions without importing the session feature.
+ */
+export interface CanvasSessionActions {
+  /** Loaded sessions, for the "Bind session…" menu. */
+  listSessions(): { id: string; name: string; active: boolean }[]
+  /** Create a session named after a node; returns its id (null if no bridge). */
+  createSessionFor(name: string): string | null
+  /** Activate + navigate to a session. Returns the id actually opened (a
+   *  resumed rollout gets a NEW id) or null when it can't be opened. */
+  openSession(sessionId: string): string | null
+}
+
 const TOOLBOX: readonly ToolboxItem[] = [
   { agent: 'generic',  label: 'generic',  promptStub: '' },
   { agent: 'planner',  label: 'planner',  promptStub: 'Plan the work for: ' },
@@ -73,10 +87,12 @@ export class OrchestrationCanvas extends Panel {
   private menu: ContextMenu | null = null
   private onUpdate: () => void
   private nextNodeSeq = 1
+  private sessionActions: CanvasSessionActions | null
 
-  constructor(rect: Rect, onUpdate: () => void) {
+  constructor(rect: Rect, onUpdate: () => void, sessionActions?: CanvasSessionActions) {
     super(rect)
     this.onUpdate = onUpdate
+    this.sessionActions = sessionActions ?? null
   }
 
   // ── Model access ────────────────────────────────────────────────────────
@@ -283,6 +299,10 @@ export class OrchestrationCanvas extends Panel {
       this.openInspector(this.selectedNodeId)
       return true
     }
+    if (e.key === 'o' && this.selectedNodeId !== null) {
+      this.openNodeSession(this.selectedNodeId)
+      return true
+    }
     return false
   }
 
@@ -463,6 +483,9 @@ export class OrchestrationCanvas extends Panel {
   private addNode(row: number, col: number, template?: ToolboxItem): string {
     let id = `agent-${this.nextNodeSeq++}`
     while (this.model.nodes.some(n => n.id === id)) id = `agent-${this.nextNodeSeq++}`
+    // Canvas agents are real sessions: auto-bind so the node shows up in the
+    // Agents list the moment it is created.
+    const sessionId = this.sessionActions?.createSessionFor(id) ?? null
     this.model.nodes.push({
       id,
       kind: 'agent',
@@ -470,11 +493,42 @@ export class OrchestrationCanvas extends Panel {
       col: Math.max(0, Math.round(col / GRID_COLS) * GRID_COLS),
       agent: template?.agent ?? 'generic',
       prompt: template?.promptStub ?? '',
+      ...(sessionId !== null ? { sessionId } : {}),
       w: 18,
       h: 5,
     })
     this.rebuild()
     return id
+  }
+
+  /** Bind (or unbind, with undefined) a chat session to a node. */
+  bindSession(nodeId: string, sessionId: string | undefined): void {
+    this.mutateNode(nodeId, n => {
+      if (sessionId === undefined) delete n.sessionId
+      else n.sessionId = sessionId
+    })
+    this.onUpdate()
+  }
+
+  /** Open the node's bound session; create + bind one when missing/dangling. */
+  openNodeSession(nodeId: string): void {
+    if (!this.sessionActions) return
+    const node = this.model.nodes.find(n => n.id === nodeId)
+    if (!node) return
+    let opened: string | null = null
+    if (node.sessionId !== undefined) {
+      opened = this.sessionActions.openSession(node.sessionId)
+    }
+    if (opened === null) {
+      const fresh = this.sessionActions.createSessionFor(node.id)
+      if (fresh === null) return
+      opened = this.sessionActions.openSession(fresh) ?? fresh
+    }
+    // A resume (or a fresh create) yields a new id — keep the binding current
+    if (opened !== node.sessionId) {
+      this.mutateNode(nodeId, n => { n.sessionId = opened! })
+    }
+    this.onUpdate()
   }
 
   private addEdge(from: string, to: string, kind: 'dependency' | 'handoff', payload?: string): void {
@@ -526,6 +580,35 @@ export class OrchestrationCanvas extends Panel {
     this.onUpdate()
   }
 
+  /** Chained menu: bind an existing chat session to a node (★ = active). */
+  private openBindMenu(row: number, col: number, nodeId: string): void {
+    if (!this.sessionActions) return
+    const node = this.model.nodes.find(n => n.id === nodeId)
+    if (!node) return
+    const r = this.inner
+    const items = [
+      ...this.sessionActions.listSessions().map(s => ({
+        label: `${s.active ? '★' : '·'} ${s.name}${s.id === node.sessionId ? ' (bound)' : ''}`,
+        action: () => {
+          this.bindSession(nodeId, s.id)
+          this.menu = null
+          this.onUpdate()
+        },
+      })),
+      ...(node.sessionId !== undefined
+        ? [{ label: 'Unbind', danger: true, action: () => {
+            this.bindSession(nodeId, undefined)
+            this.menu = null
+            this.onUpdate()
+          }}]
+        : []),
+    ]
+    if (items.length === 0) { this.onUpdate(); return }
+    this.menu = new ContextMenu(r.row + row, r.col + col, items,
+      () => { this.menu = null; this.onUpdate() })
+    this.onUpdate()
+  }
+
   /** Typed-connector menu on wire completion (PLAN-13 §7). */
   private openConnectorMenu(row: number, col: number, from: string, to: string): void {
     const r = this.inner
@@ -559,6 +642,18 @@ export class OrchestrationCanvas extends Panel {
       : block
       ? [
           { label: 'Configure…', action: () => { this.menu = null; this.openInspector(block.id) } },
+          ...(this.sessionActions !== null
+            ? [
+                { label: 'Open session', action: () => {
+                  this.menu = null
+                  this.openNodeSession(block.id)
+                }},
+                { label: 'Bind session…', action: () => {
+                  this.menu = null
+                  this.openBindMenu(row, col, block.id)
+                }},
+              ]
+            : []),
           { label: 'Delete block', danger: true, action: () => {
             this.deleteNode(block.id)
             this.menu = null

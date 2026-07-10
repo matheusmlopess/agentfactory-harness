@@ -12,6 +12,7 @@ export function agentsFeature(): Feature {
     if (!bridge || !panel || panel.mode === 'team') return
     const metas = bridge.metas()
     panel.setAgents(metas.map(m => ({
+      id:           m.id,
       name:         m.name,
       status:       m.status,
       active:       m.active,
@@ -41,7 +42,9 @@ export function agentsFeature(): Feature {
           (idx) => {
             const bridge = c.services.get('session') as SessionBridge | undefined
             bridge?.switchTo(idx)
-            c.render()
+            // Clicking an agent OPENS its session: move focus to the Session
+            // tab so the conversation is immediately interactive.
+            c.switchTab('session')
           },
         )
         // Live team dashboard: the canvas feature fans run events here

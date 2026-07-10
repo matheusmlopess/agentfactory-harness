@@ -73,6 +73,36 @@ describe('planToStudio', () => {
     expect(twice).toEqual(once)
   })
 
+  it('round-trips node session bindings via x-studio.sessions', () => {
+    const m = threeNodeModel()
+    m.nodes[0]!.sessionId = '/tmp/rollouts/plan.jsonl'
+    m.nodes[2]!.sessionId = '/tmp/rollouts/review.jsonl'
+    const plan = studioToPlan(m)
+    expect(plan['x-studio']!.sessions).toEqual({
+      plan: '/tmp/rollouts/plan.jsonl',
+      review: '/tmp/rollouts/review.jsonl',
+    })
+    const back = planToStudio(plan)
+    expect(back.nodes[0]!.sessionId).toBe('/tmp/rollouts/plan.jsonl')
+    expect(back.nodes[1]!.sessionId).toBeUndefined()   // unbound stays absent
+    expect(back.nodes[2]!.sessionId).toBe('/tmp/rollouts/review.jsonl')
+  })
+
+  it('keeps a session binding when the node is renamed before serializing', () => {
+    const m = threeNodeModel()
+    m.nodes[0]!.sessionId = '/tmp/rollouts/plan.jsonl'
+    // Simulate the inspector rename flow: id changes, edges remap
+    m.nodes[0]!.id = 'architect'
+    for (const e of m.edges) {
+      if (e.from === 'plan') e.from = 'architect'
+      if (e.to === 'plan') e.to = 'architect'
+      e.id = `${e.from}→${e.to}`
+    }
+    const plan = studioToPlan(m)
+    expect(plan['x-studio']!.sessions).toEqual({ architect: '/tmp/rollouts/plan.jsonl' })
+    expect(planToStudio(plan).nodes[0]!.sessionId).toBe('/tmp/rollouts/plan.jsonl')
+  })
+
   it('loads a legacy plan without x-studio: auto-grid layout + dependency edges', () => {
     const legacy = PlanSchema.parse({
       version: '1.0',

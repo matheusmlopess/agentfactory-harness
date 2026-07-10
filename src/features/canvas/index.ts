@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { OrchestrationCanvas } from './panel.js'
-import { PlanSchema, type Plan } from '../../orchestration/schema.js'
+import { OrchestrationCanvas, type CanvasSessionActions } from './panel.js'
+import { PlanSchema, type Plan, type Step } from '../../orchestration/schema.js'
 import { Executor, type StepEvent } from '../../orchestration/executor.js'
 import { studioToPlan, validateStudio } from '../../orchestration/studio-model.js'
 import { Session } from '../../core/session.js'
@@ -9,6 +9,7 @@ import { agentLoop } from '../../core/agent-loop.js'
 import { createAdapter, defaultProvider } from '../../core/llm/index.js'
 import { logger } from '../../core/logger.js'
 import type { Feature, FeatureCtx } from '../types.js'
+import type { SessionBridge } from '../session/index.js'
 
 const log = logger('CanvasFeature')
 
@@ -30,6 +31,42 @@ export function canvasFeature(): Feature {
   let ctx: FeatureCtx | null = null
   let currentPlan: Plan | null = null
   let planRunning = false
+
+  /** Resolved lazily — the session feature registers its bridge on startup. */
+  const sessionBridge = (): SessionBridge | undefined =>
+    ctx?.services.get('session') as SessionBridge | undefined
+
+  /** Legacy fallback: run a step in a throwaway, invisible session (used
+   *  only when no session bridge is registered, e.g. headless tests). */
+  async function throwawayRun(step: Step): Promise<string> {
+    const provider = step.provider ?? defaultProvider()
+    const adapter = createAdapter(provider)
+    const session = new Session()
+    session.addMessage({ role: 'user', content: step.prompt })
+    let out = ''
+    for await (const e of agentLoop(session, {
+      adapter,
+      ...(step.model !== undefined ? { model: step.model } : {}),
+    })) {
+      if (e.type === 'text_delta') out += e.delta
+    }
+    return out.trim()
+  }
+
+  /** Run a step inside a real, visible session bound to its canvas node —
+   *  the step appears in the Agents list and its transcript is inspectable. */
+  async function boundSessionRun(bridge: SessionBridge, step: Step): Promise<string> {
+    const node = panel?.getModel().nodes.find(n => n.id === step.id)
+    let sid = node?.sessionId
+    if (sid === undefined || !bridge.metas().some(m => m.id === sid)) {
+      const model = step.model !== undefined
+        ? { provider: step.provider ?? defaultProvider(), id: step.model, label: step.model }
+        : bridge.getSelectedModel()
+      sid = bridge.createSession(step.id, model).id
+      if (node) panel?.bindSession(node.id, sid)
+    }
+    return bridge.postMessage(sid, step.prompt)
+  }
 
   async function tryLoadPlan(): Promise<void> {
     try {
@@ -86,18 +123,8 @@ export function canvasFeature(): Feature {
 
       const executor = new Executor(plan, {
         agentRunner: async (step) => {
-          const provider = step.provider ?? defaultProvider()
-          const adapter = createAdapter(provider)
-          const session = new Session()
-          session.addMessage({ role: 'user', content: step.prompt })
-          let out = ''
-          for await (const e of agentLoop(session, {
-            adapter,
-            ...(step.model !== undefined ? { model: step.model } : {}),
-          })) {
-            if (e.type === 'text_delta') out += e.delta
-          }
-          return out.trim()
+          const bridge = sessionBridge()
+          return bridge ? boundSessionRun(bridge, step) : throwawayRun(step)
         },
       })
 
@@ -120,7 +147,31 @@ export function canvasFeature(): Feature {
       hitVisible: a => a !== 'config' && a !== 'terminal',
       makePanel(c: FeatureCtx) {
         ctx = c
-        panel = new OrchestrationCanvas(c.layout().canvas, () => c.scheduleRender())
+        const sessionActions: CanvasSessionActions = {
+          listSessions: () => (sessionBridge()?.metas() ?? [])
+            .map(m => ({ id: m.id, name: m.name, active: m.active })),
+          createSessionFor: (name) => {
+            const b = sessionBridge()
+            if (!b) return null
+            return b.createSession(name, b.getSelectedModel()).id
+          },
+          openSession: (sessionId) => {
+            const b = sessionBridge()
+            if (!b) return null
+            let opened: string | null = null
+            if (b.switchToId(sessionId)) {
+              opened = sessionId
+            } else {
+              // Not loaded — try resuming the saved rollout (fresh id)
+              const resumed = b.resumeById(sessionId)
+              if (!resumed) return null
+              opened = resumed.id
+            }
+            c.switchTab('session')
+            return opened
+          },
+        }
+        panel = new OrchestrationCanvas(c.layout().canvas, () => c.scheduleRender(), sessionActions)
         const bridge: PlanBridge = {
           isRunning: () => planRunning,
           hasPlan: () => currentPlan !== null,

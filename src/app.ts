@@ -55,6 +55,8 @@ export class App {
   private paletteOpen = false
   private tabs!: TabEntry[]
   private readonly services = new Map<string, unknown>()
+  /** Last render-failure message per tab, to avoid logging every frame. */
+  private readonly panelRenderErrors = new Map<TabId, string>()
   private readonly hitMap = new HitMap()
   private readonly keymap = new Keymap()
   private help!: HelpOverlay
@@ -385,7 +387,11 @@ export class App {
     )
   }
 
-  /** Render one tab's bordered panel. */
+  /** Render one tab's bordered panel.
+   *  A panel that throws mid-render paints an error state instead of killing
+   *  the whole TUI via uncaughtException. Note this only catches throws — it
+   *  cannot interrupt a panel that never returns (infinite loop); those must
+   *  be fixed at the source. */
   private renderTab(id: TabId, rect: ReturnType<typeof computeLayout>['session'], title: string, focused: boolean): void {
     const tab = this.tabEntry(id)
     if (!tab) return
@@ -393,8 +399,19 @@ export class App {
     const panel = tab.panel()
     panel.rect = rect
     panel.focused = focused
-    tab.beforeRender?.()
-    panel.render(this.buf)
+    try {
+      tab.beforeRender?.()
+      panel.render(this.buf)
+    } catch (err) {
+      const msg = err instanceof Error ? err.stack ?? err.message : String(err)
+      if (this.panelRenderErrors.get(id) !== msg) {
+        this.panelRenderErrors.set(id, msg)
+        log.error('panel render failed', { tab: id, error: msg })
+      }
+      this.buf.fill(rect.row + 1, rect.col + 1, Math.max(0, rect.height - 2), Math.max(0, rect.width - 2), ' ', { bg: Colors.surfacePanel })
+      const warn = ` ⚠ ${title} failed to render — see Logs `.substring(0, Math.max(0, rect.width - 2))
+      this.buf.write(rect.row + Math.floor(rect.height / 2), rect.col + 1, warn, { fg: Colors.danger, bg: Colors.surfacePanel, bold: true })
+    }
   }
 
   private render(): void {

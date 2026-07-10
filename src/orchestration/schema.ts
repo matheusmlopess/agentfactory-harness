@@ -64,6 +64,8 @@ export const StudioExtSchema = z.object({
       }),
     )
     .default([]),
+  /** nodeId → bound chat session id (rollout id). Additive; old files parse. */
+  sessions: z.record(z.string()).default({}),
 })
 
 export type StudioExt = z.infer<typeof StudioExtSchema>
