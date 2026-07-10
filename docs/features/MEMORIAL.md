@@ -1,7 +1,7 @@
 <!-- version: 1.0.0 -->
 <!-- classification: SUMMARY -->
 <!-- date: 2026-06-19 -->
-<!-- last-updated: 2026-06-09 -->
+<!-- last-updated: 2026-07-08 -->
 <!-- status: ACTIVE -->
 <!-- generated-by: scripts/docs-compile.sh -->
 
@@ -9,7 +9,7 @@
 
 > **Auto-generated** by `scripts/docs-compile.sh` — **do not edit by hand**.
 > Edit the source docs in `features/` and re-run the script.
-> Documents: **12** · ordered by creation date · each section links its source.
+> Documents: **16** · ordered by creation date · each section links its source.
 
 <a id="index"></a>
 ## Index
@@ -26,6 +26,10 @@
 10. [Logger Feature — AgentFactory Harness](#d10) — `2026-06-09` — Comprehensive logging system for debugging, monitoring, and auditing app behavior. · [[FEATURE-LOGGER-2026-06-09]]
 11. [Feature: Live Logs Panel with Metrics Dashboard and Auto-Analysis](#d11) — `2026-06-09` — Complete operational and feature documentation for the Logs tab in AgentFactory Harness. · [[FEATURE-LOGS-PANEL-2026-06-09]]
 12. [Feature: Wave 5 — Registry Auth + Prompt Bar Redesign](#d12) — `2026-06-09` — **Registry Authentication**: Log in to agentfactory.dev via device-code flow, authenticate · [[FEATURE-WAVE-5-REGISTRY-AUTH-2026-06-09]]
+13. [FEATURE — Orchestration Studio + Team Dashboard (standalone PLAN-13/PLAN-10)](#d13) — `2026-07-07` — Standalone implementation of `docs/PLANS/PLAN-13-ORCHESTRATION-STUDIO.md` (canvas · [[FEATURE-ORCHESTRATION-STUDIO-2026-07-07]]
+14. [FEATURE — UI Consolidation (ddd/09–11 implementation)](#d14) — `2026-07-07` — Implements `docs/ddd/09-gaps.md` (all sections), `10-optimizations.md` (P0–P4 + bucket B) · [[FEATURE-UI-CONSOLIDATION-2026-07-07]]
+15. [FEATURE — UI Consolidation + Studio: Operational Guide](#d15) — `2026-07-07` — Operator-facing guide for everything shipped on `feature/ui-consolidation`: workflows, · [[FEATURE-UI-STUDIO-OPERATIONS-2026-07-07]]
+16. [Feature: Canvas Session Binding + Wire-Routing Crash Fix](#d16) — `2026-07-08` — Fixes the canvas freeze/crash caused by an infinite loop in `routeWire()` · [[FEATURE-CANVAS-SESSION-BINDING-2026-07-08]]
 
 ## Glossary
 
@@ -6264,6 +6268,770 @@ npm test
 - **Session Persistence**: `src/core/rollout.ts` (JSONL format, listing, resumption)
 - **Cell Buffer API**: `src/tui/renderer/cell-buffer.ts` (write/fill row-indexed rendering)
 - **GH Issue**: #21 (project sessions feature request)
+
+---
+
+<a id="d13"></a>
+
+## 13 · 2026-07-07 · FEATURE — Orchestration Studio + Team Dashboard (standalone PLAN-13/PLAN-10)
+
+Source: [FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md](FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md) · [[FEATURE-ORCHESTRATION-STUDIO-2026-07-07]]  ·  [↑ Index](#index)
+
+
+<!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-07-07 -->
+<!-- last-updated: 2026-07-07 -->
+
+Standalone implementation of `docs/PLANS/PLAN-13-ORCHESTRATION-STUDIO.md` (canvas
+operationalization) and `docs/PLANS/PLAN-10-TUI-MULTI-AGENT.md` (team dashboard) against the
+**existing** `PlanSchema`/`Executor` — the multi-agent kernel (PLAN-00–08) is not required.
+Kernel-dependent pieces (MessageBus feed, SharedMemory strip, AgentAskWidget, logic-port
+nodes, TeamStepEvent) are deferred to the kernel wave.
+
+## 1. Architecture — pure core + thin renderer
+
+```mermaid
+graph LR
+    M[StudioModel<br/>orchestration/studio-model.ts<br/>PURE — no TUI imports] -->|deriveView| V[blocks + typed wires<br/>render cache]
+    V --> CV[OrchestrationCanvas<br/>features/canvas/panel.ts]
+    CV -->|mutations write back| M
+    M -->|studioToPlan| P[af-plan.json<br/>+ x-studio extension]
+    P -->|planToStudio| M
+    P -->|unchanged| EX[existing Executor / CLI]
+    EX -->|StepEvent| CV
+    EX -->|StepEvent| AG[AgentsPanel team mode]
+```
+
+**Legend:** the model is the single source of truth (PLAN-13 §4.5 ownership inversion);
+blocks/wires are throwaway views. `x-studio` is additive — old plans parse, the executor
+ignores it.
+
+## 2. Serialization contract
+
+- Every edge (dependency **and** handoff) becomes `dependsOn` (ordering).
+- Handoff payloads ride the executor's existing `{{depId}}` interpolation: if the target
+  prompt lacks `{{from}}`, `\n\nInput from <from>:\n{{<from>}}` is appended once (stable
+  across round-trips). `payload: summary|full` is recorded in `x-studio` for the future
+  kernel; identical at run time today.
+- `x-studio.layout` (per-node row/col) + `x-studio.edges` (kinds/payloads) make
+  `planToStudio(studioToPlan(m))` lossless — proven by tests and by
+  `factory plan validate` accepting the emitted file.
+
+## 3. Canvas usage (Orchestration tab)
+
+| Interaction | Effect |
+|---|---|
+| `t` | Toggle the toolbox rail (generic/planner/worker/reviewer/critic) |
+| Click toolbox item → click a cell | Drop a real node (agent + prompt stub) and open the inspector |
+| Right-click empty cell → "Add agent block" | Create a node and open the inspector |
+| Click block body | Select (focus border); `Enter`/`e` opens the inspector; Esc deselects |
+| Right-click block → "Configure…" | NodeInspector (id/agent/provider/model/timeout/prompt, inline validation; renames remap edges) |
+| Drag output ○ → input ● | Typed-connector menu: dependency · handoff:summary · handoff:full |
+| Handoff wires | Render `═` + `[H]` midpoint label (glyph, not color-only) |
+| `Ctrl+S` | Validate + write `af-plan.json` (fatal issues shown in the status bar) |
+| `Ctrl+R` | Validate + serialize the canvas model + run it via the existing executor |
+
+Run statuses render on blocks with `◎ pending` and `⊘ skipped` kept distinct (the old
+`skipped→idle` collapse is gone).
+
+## 4. Team dashboard (Agents tab)
+
+Running a plan switches AgentsPanel to team mode (sessions mode untouched; the
+Nobel-laureate tooltip is suppressed): header with `[n running / m total]`, step list with
+glyph+text labels (`◎ id [pending]`, `⊘ id [skipped]`…), selected-step output/error excerpt,
+and a rolling event log fed by the run loop through the `plan-events` service. Two columns
+at ≥70 cols, stacked below. `Esc` returns to the session list.
+
+## 5. Automation
+
+`factory run --json` emits one JSON object per `StepEvent` plus an ISO `ts` on **stdout**
+(human lines stay on stderr) and exits 1 if any step errored:
+
+```
+{"type":"step:start","stepId":"one","status":"running","ts":"…"}
+{"type":"step:done","stepId":"one","status":"done","output":"…","durationMs":4,"ts":"…"}
+```
+
+## 6. Scenarios
+
+1. **Author → run → reopen**: toolbox-drop worker + reviewer, connect `handoff: summary`,
+   set prompts in the inspector, `Ctrl+S`, `Ctrl+R` — blocks go ◎→●→✓ and the Agents tab
+   streams the event log. Reopening loads the same graph via `x-studio` (verified round-trip).
+2. **Invalid design**: a cycle or duplicate id blocks `Ctrl+S`/`Ctrl+R` with the first fatal
+   issue in the status bar; the inspector blocks saves inline (`✗ id "x" already exists`).
+3. **Legacy plan**: an af-plan.json without `x-studio` loads with the historical auto-grid
+   layout and plain dependency edges.
+
+## 7. Testing
+
+- `studio-model.test.ts`: purity (no shared/features imports), round-trips (both directions +
+  stability), handoff scaffold, validation table, deriveView.
+- `panel.test.ts`: wiring with typed connectors, dup/self-loop rejection, model write-back on
+  drag, selection, toolbox placement, pending/skipped statuses.
+- `NodeInspector.test.ts`, `agents/panel.test.ts` (team mode), NDJSON verified end-to-end.
+
+---
+
+<a id="d14"></a>
+
+## 14 · 2026-07-07 · FEATURE — UI Consolidation (ddd/09–11 implementation)
+
+Source: [FEATURE-UI-CONSOLIDATION-2026-07-07.md](FEATURE-UI-CONSOLIDATION-2026-07-07.md) · [[FEATURE-UI-CONSOLIDATION-2026-07-07]]  ·  [↑ Index](#index)
+
+
+<!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-07-07 -->
+<!-- last-updated: 2026-07-07 -->
+
+Implements `docs/ddd/09-gaps.md` (all sections), `10-optimizations.md` (P0–P4 + bucket B)
+and `11-feature-isolation.md` (full Feature registry). Plan:
+`specs/docs/approvedPlans/2026-07-04-ui-consolidation-studio.md`. Branch `feature/ui-consolidation`.
+
+## 1. Architecture
+
+```mermaid
+graph TD
+    subgraph host [app.ts — thin host ~490 lines]
+        LOOP[feature loading loop] --> TABS[tab bar]
+        LOOP --> PAL[CommandPalette]
+        LOOP --> KM[Keymap]
+        IC[InputController] --> KM
+        IC --> RT[InputRouter / TabEntry]
+        RENDER[render loop + size guard] --> HM[HitMap]
+    end
+    subgraph features [src/features/*]
+        SES[session] --- CVS[canvas] --- AGT[agents]
+        TRM[terminal] --- CFG[config] --- LOG[logs]
+    end
+    subgraph shared [src/shared — the platform]
+        RD[renderer: cell-buffer · layout · theme · motion · size-profiles]
+        IN[input: keyboard · mouse · router · controller · keymap · hit-test]
+        WG[widgets: Overlay · ScrollableList · ContextMenu · CommandPalette · HelpOverlay · StatusBar]
+    end
+    LOOP --> features
+    features --> shared
+    SES -. SessionBridge .-> host
+    CVS -. PlanBridge / PlanEventSink .-> AGT
+```
+
+**Legend:** solid = direct dependency · dashed = cross-feature service via `FeatureCtx.services`.
+
+## 2. What changed per gap (docs/ddd/09-gaps.md)
+
+| Gap | Resolution |
+|---|---|
+| 1–3 wheel/wrap/vim inconsistencies | One convention: wheel = viewport (×3 text panes, ×1 lists, never selection); clamp everywhere except Session slash-autocomplete (documented exception); Logs vim keys are keymap contributions (`when:'logs'`), listed in help |
+| 4 ContextMenu lacks Esc + mouse | ContextMenu handles Escape and full mouse (items clickable, elsewhere dismisses) |
+| 7 masking differs | One `maskSecret()` (`src/core/config/mask.ts`) |
+| 8 modal duplication | One `Overlay` widget (sm/md/lg = 46/56/64) — all 5 modals migrated; CommandPalette stays bespoke by decision |
+| 9 app.ts god object | 837 → ~490 lines: InputController + HitMap + Keymap + feature registry; new feature = one `registerFeature()` line |
+| 10 split input pipeline | `TabEntry` routing — all six tabs first-class (capture-mouse semantics preserved for Config/Logs) |
+| 11 version drift | `getVersion()` reads package.json — 4 drifted values removed |
+| 12 no shared list | `ScrollableList` + `ListOptions {wrap, wheel, wheelStep}`; headless-capable |
+| 15 DEFAULT_MAX_TOKENS | Model-aware `maxOutputTokens()` (claude 8192 / big-openai 16384 / 4096) |
+| 17–19 accessibility | Glyph+text status everywhere (◎●✓✗⊘ + `[label]`), inverse-bold focused titles, high-contrast theme, reduced-motion toggle |
+| 20–22 responsiveness | Draggable dividers (persisted ratios), size profiles (compact/standard/wide) with a guard screen below minimum |
+| F6 unmapped (found during P3) | `\x1b[17~` added to keyboard.ts — Logs was unreachable by keyboard |
+
+## 3. Usage
+
+- `?` — help overlay listing every binding for the current tab (Global + tab sections).
+- `Ctrl+P` — palette: theme (default/high-contrast), reduced motion, size profiles, help, features' commands.
+- Config tab → **Interface** section — Enter/double-click cycles Theme / Reduced motion / Size profile.
+- Drag the vertical border between Session and the right column, or the border between Orchestration and Agents — ratios persist to `~/.config/agentfactory/config.json` `settings`.
+- Below the selected size profile's minimum the guard screen shows current vs required size; `Ctrl+Q`/palette still work.
+
+## 4. Scenarios
+
+1. **High-contrast at startup**: `settings.theme = "high-contrast"` → `setTheme` swaps the live `Colors` object; focus (yellow 226) is distinct from primary (cyan 51).
+2. **Small terminal**: 60×20 with the default compact profile → guard screen (verified by `scripts/smoke-tui.sh` in a real tmux session).
+3. **New feature**: implement `Feature` (tab + commands + keybindings + lifecycle), add one `registerFeature()` call — tab bar, palette, keymap and routing pick it up with zero other host edits.
+
+## 5. Testing
+
+413 vitest tests. Highlights: byte-level `InputController.handleData` tests (terminal bypass table, global keys, mouse routing); render-diff tests for Overlay/themes/guard; keymap context/suppression tests; `scripts/smoke-tui.sh` drives the real TUI in tmux (13 checks incl. the 60×20 guard).
+
+## 6. Deliberate deviations / deferrals
+
+- **Dirty-region rendering** (10-optimizations B): deferred — `CellBuffer.diff` already limits terminal writes to changed cells; buffer repaint cost is negligible at TUI scale. Revisit only if profiling shows otherwise.
+- **Model picker list state** stays bespoke (async two-step flow); its frame/dismissal use Overlay.
+- **Keymap remapping UI**: structure supports `settings.keymap.*`, UI not in scope.
+
+---
+
+<a id="d15"></a>
+
+## 15 · 2026-07-07 · FEATURE — UI Consolidation + Studio: Operational Guide
+
+Source: [FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md](FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md) · [[FEATURE-UI-STUDIO-OPERATIONS-2026-07-07]]  ·  [↑ Index](#index)
+
+
+<!-- version: 1.0.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-07-07 -->
+<!-- last-updated: 2026-07-07 -->
+
+Operator-facing guide for everything shipped on `feature/ui-consolidation`: workflows,
+edge cases, failure modes, validation, and recovery. Companions:
+`FEATURE-UI-CONSOLIDATION-2026-07-07.md` (gap map), `FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md`
+(studio internals), `docs/testing/TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md` (test guide).
+
+---
+
+## 1. System at a glance
+
+```
+┌─ factory (single binary, local-first) ──────────────────────────────────────┐
+│                                                                              │
+│  ┌ tab bar ────────────────────────────────────────────────────[ ✕ Quit ]─┐ │
+│  │  Session · Orchestration · Agents · Terminal · Config · Logs           │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│  ┌ Session ────────────┐ ┌ Orchestration (studio) ───────────────────────┐  │
+│  │ chat + streaming    │ │ blocks ═ typed wires ═ toolbox ═ inspector    │  │
+│  │ model picker        │ ├ Agents ───────────────────────────────────────┤  │
+│  │ new-session menu    │ │ session list  OR  team dashboard (during run) │  │
+│  └─────────────────────┘ └───────────────────────────────────────────────┘  │
+│  ┌ status bar: factory vX.Y.Z [NORMAL] [model] [tools]      ^Q ^E Tab ^R ─┐ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  Input path:  stdin ─▶ InputController ─▶ (palette/help modals)             │
+│                          ─▶ Keymap (declarative bindings, `?` lists them)   │
+│                          ─▶ InputRouter ─▶ active/hit panel                 │
+│  Terminal tab: raw bytes ─▶ PTY (only ^Q ^P F1–F5 ⇧PgUp/Dn intercepted)     │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+Ownership boundaries: `src/shared/` = platform (renderer/input/widgets — feature-agnostic);
+`src/features/<id>/` = one folder per tab (panel + flows + commands + keybindings);
+`src/app.ts` = thin host that loads features from the registry.
+
+---
+
+## 2. Global controls (all tabs except Terminal)
+
+| Key / action | Effect | Notes |
+|---|---|---|
+| `Ctrl+Q` | Quit | Also the `✕ Quit` button, top-right |
+| `Ctrl+C` | Copy Session selection; otherwise quit | OSC 52 clipboard |
+| `Ctrl+E` | Toggle native text selection | Status bar shows `[SELECT]` while off |
+| `Tab` | Next tab (cycles all six) | On Terminal, Tab goes to the shell instead |
+| `F1`–`F6` | Jump to tab; `F1` on Session opens the new-session menu | F6 required the keyboard fix shipped here |
+| `Ctrl+P` | Command palette (fuzzy) | Theme, size profile, motion, help, feature commands |
+| `?` | Help overlay: every binding for the current tab | Suppressed while typing (Session input, Config edit) |
+| `Ctrl+R` | Run the canvas plan | Panel gets first refusal (Config uses it to clear a key) |
+| Esc | Closes any transient (modal/menu/palette/help), cancels any mode (wiring/placement/selection) | One consistent convention |
+| Click outside a modal | Dismisses it | Same convention as Esc |
+
+**Mouse conventions:** wheel scrolls the viewport, never the selection — ×3 in text panes
+(Session transcript, Logs), ×1 in lists. Navigation clamps at list ends everywhere except
+the Session slash-autocomplete, which wraps (shell-completion idiom, deliberate).
+
+---
+
+## 3. Workflows
+
+### 3.1 Appearance & accessibility (happy path)
+
+```
+Ctrl+P ▶ "theme" ▶ Enter          ─▶ high-contrast applies on next frame
+Ctrl+P ▶ "motion" ▶ Enter         ─▶ spinners/countdowns freeze to a static ●
+F5 ▶ Interface section ▶ Enter    ─▶ cycles Theme / Reduced motion / Size profile
+```
+
+- Settings persist to `~/.config/agentfactory/config.json` under `"settings"`.
+- Every status is glyph+text, never color-only: `◎ pending · ● running · ✓ done ·
+  ✗ error · ⊘ skipped`; the focused panel title renders inverse-bold.
+
+**Edge cases**
+- Config file missing → defaults (default theme, motion on, compact profile). First
+  setting change creates the file.
+- Config file unwritable → red `⚠ config write: …` banner in the Config panel footer
+  (`store.lastWriteError`); the in-memory value still applies for this session.
+- Unknown `settings.theme` value → falls back to `default`.
+
+### 3.2 Terminal size & layout (failure mode by design)
+
+```
+        resize below profile minimum          resize back
+   ┌────────────────────────┐  ┌──────────────────────────────┐
+   │  ⚠ Terminal too small  │  │  normal UI restored           │
+   │  current 60×20 ·       │  │  (no state lost — the guard   │
+   │  minimum 80×24 (compact)│  │   replaces RENDERING only)   │
+   │  Resize to continue     │  └──────────────────────────────┘
+   │  Ctrl+Q quit · Ctrl+P … │
+   └────────────────────────┘
+```
+
+- Profiles: compact 80×24 (default) · standard 110×30 · wide 140×40.
+- **Input still works behind the guard** — `Ctrl+Q` quits, `Ctrl+P` can switch to a
+  smaller profile to recover without resizing.
+- Recovery: resize the terminal OR pick a smaller profile. The guard re-evaluates on
+  every resize event.
+- Dividers: drag the Session|right-column border or the Orchestration|Agents border.
+  Ratios clamp to sane ranges (0.25–0.6 / 0.4–0.85) and persist on mouse release.
+  Recovery from a bad drag: drag back, or delete `settings["layout.sessionRatio"]` /
+  `["layout.canvasRatio"]` from config.json.
+
+### 3.3 Building a plan on the canvas (studio happy path)
+
+```
+F2 (Orchestration) ▶ t (toolbox)
+   ┌ TOOLBOX [t] ┐
+   │ ▸ generic   │   click "worker"  ─▶ placement mode
+   │ ▸ planner   │   click a cell    ─▶ node dropped, inspector opens
+   │ ▸ worker    │
+   │ ▸ reviewer  │   ┌ Edit: agent-1 ─────────────────────────┐
+   │ ▸ critic    │   │ id        agent-1█                      │
+   └─────────────┘   │ agent     worker                        │
+                     │ provider  anthropic     (←/→ cycles)    │
+                     │ model     claude-sonnet-4-6             │
+                     │ timeout   30                            │
+                     │ prompt    Implement: the parser         │
+                     │ ✓ valid                                 │
+                     │        Tab field · Enter save · Esc ─── │
+                     └─────────────────────────────────────────┘
+
+drag  out ○ ──▶ ● in   of another block  ─▶ connector menu:
+   ┌──────────────────────────┐
+   │ dependency (ordering)    │   dependency wires render ──────▶
+   │ handoff: summary         │   handoff wires render   ══[H]══▶
+   │ handoff: full            │
+   └──────────────────────────┘
+
+Ctrl+S  ─▶ af-plan.json written (with x-studio layout + edge kinds)
+Ctrl+R  ─▶ validate ▶ serialize ▶ run: blocks go ◎ ▶ ● ▶ ✓
+```
+
+Other canvas interactions: click a block body to **select** (focus border; `Enter`/`e`
+opens the inspector; Esc deselects); drag a block **header** to move (grid-snapped,
+position persists into the model); right-click for context menus (`Configure…`,
+`Delete block`, `Delete wire`, `Add agent block`, `Toggle toolbox`).
+
+**Edge cases & validation (design-time — you cannot save/run an invalid plan)**
+```
+┌─ blocked with a status-bar error (first fatal issue shown) ────────────────┐
+│ • empty plan (no nodes)             • duplicate node id                    │
+│ • id not matching a-z0-9_-          • empty agent or prompt                │
+│ • dangling edge (deleted node)      • dependency cycle (a→b→a)             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+- The inspector blocks bad saves inline (`✗ id "x" already exists`) — Esc cancels safely.
+- Renaming a node in the inspector remaps its edges, run status, and selection.
+- Duplicate wires and self-loops are silently rejected at wire completion (no menu).
+- Legacy `af-plan.json` without `x-studio` loads with an auto-grid layout and plain
+  dependency edges — nothing is lost by opening old files.
+
+**Failure modes**
+- `Ctrl+S` write failure (disk/permissions) → status-bar error; model unchanged, retry after fixing.
+- `af-plan.json` malformed on startup → status-bar error (`ZodError` summary); canvas
+  starts empty; fix the file or rebuild and `Ctrl+S` over it.
+- Run with no API key → steps stream `step:error` / cascade `⊘ skipped`; the UI stays
+  responsive; fix the key in Config (F5) and re-run.
+
+### 3.4 Watching a run (team dashboard)
+
+```
+F3 during/after Ctrl+R:
+┌ Agents ──────────────────────────────────────────────────────────┐
+│ Team — my-plan  [1 running / 3 total]  (Esc: sessions)           │
+│ ✓ plan [done] 3.2s     │ build · agent: worker                   │
+│ ● build [running]      │  <output / error excerpt>               │
+│ ◎ review [pending]     │ 14:23:02 step:done plan (3.2s)          │
+│                        │ 14:23:02 step:start build               │
+└──────────────────────────────────────────────────────────────────┘
+```
+- Two columns ≥70 cols; stacked below. ↑/↓ or click selects a step; the right side shows
+  its output (or error, in red) and the rolling event log (last 100 events).
+- A failed step marks all transitive dependents `⊘ skipped` — the executor's cascade,
+  now visible instead of collapsed to idle.
+- Esc returns to the session list (sessions mode is untouched, tooltip included).
+
+### 3.5 Headless / automation
+
+```
+$ factory run --json            # NDJSON on stdout; human lines on stderr
+{"type":"step:start","stepId":"plan","status":"running","ts":"2026-07-07T…"}
+{"type":"step:done","stepId":"plan","status":"done","output":"…","durationMs":4,"ts":"…"}
+{"type":"plan:done","stepId":"","status":"done","ts":"…"}
+$ echo $?                       # 1 if any step errored, else 0
+$ factory plan validate         # schema + cycle check (accepts x-studio files)
+```
+
+### 3.6 Everything else (unchanged surfaces, new plumbing)
+
+Session chat, model picker (now cached 5 min — reopening is instant), Config key
+management (masking unified to `prefix…▓▓▓▓`), Logs (vim keys now listed in `?`),
+Terminal PTY (raw bypass byte-identical) all behave as before; they now live as
+registry features with the shared Overlay/list/keymap machinery underneath.
+
+---
+
+## 4. Error handling & recovery reference
+
+| Symptom | Cause | Recovery |
+|---|---|---|
+| `⚠ Terminal too small` screen | size < selected profile | resize, or Ctrl+P → smaller profile |
+| Red status-bar message (5s) | plan validation/save/load error | fix the reported issue; message auto-clears |
+| `✗ …` line inside the inspector | invalid field value | correct the field; Enter is blocked until `✓ valid` |
+| Steps go `✗` then `⊘` | step failed → dependents cascade-skipped | inspect the step in Agents detail; fix prompt/key; re-run |
+| `⚠ config write: …` in Config | config.json unwritable | fix permissions; settings apply in-memory meanwhile |
+| Copy does nothing | terminal lacks OSC 52 | use `Ctrl+E` native-selection mode and the terminal's copy |
+| `[PTY unavailable]` in Terminal | shell spawn failed | check `$SHELL`; other tabs unaffected |
+
+Every transient state is escapable: Esc closes/cancels; the guard screen never traps
+input; a running plan finishing (or failing) always returns `planRunning=false`, so
+`Ctrl+R` can re-run.
+
+---
+
+## 5. Where things live
+
+```
+~/.config/agentfactory/config.json   keys/urls + settings (theme, reducedMotion,
+                                     sizeProfile, layout.*Ratio)
+~/.config/agentfactory/logs/         structured logs (Logs tab reads these)
+./af-plan.json                       the canvas document (valid Plan + x-studio)
+/tmp/factory-err.log                 uncaught errors (survive the alt-screen)
+```
+
+---
+
+<a id="d16"></a>
+
+## 16 · 2026-07-08 · Feature: Canvas Session Binding + Wire-Routing Crash Fix
+
+Source: [FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md](FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md) · [[FEATURE-CANVAS-SESSION-BINDING-2026-07-08]]  ·  [↑ Index](#index)
+
+<!-- version: 1.1.0 -->
+<!-- classification: FEATURE -->
+<!-- date: 2026-07-08 -->
+<!-- last-updated: 2026-07-09 -->
+
+## What it does
+
+Fixes the canvas freeze/crash caused by an infinite loop in `routeWire()`
+(vertical and near-vertical wires), and ties the three agent surfaces
+together: canvas agent nodes are now backed by **real chat sessions** — they
+appear in the Agents list the moment they are created, plan runs stream into
+those sessions, and clicking an agent (list row or canvas block) opens its
+conversation in the Session tab.
+
+## Architecture
+
+```
+╔═══════════════════ Orchestration Canvas ═══════════════════╗
+║  StudioModel (pure)                                        ║
+║  ┌─────────────────────────────┐                           ║
+║  │ StudioNode                  │   x-studio.sessions        ║
+║  │  id · agent · prompt        │◄──────────────────────────╫── af-plan.json
+║  │  sessionId? ────────────┐   │   (nodeId → sessionId)     ║
+║  └─────────────────────────┼───┘                           ║
+╚════════════════════════════┼═══════════════════════════════╝
+                             │ CanvasSessionActions
+                             │ (injected by canvas/index.ts)
+                             ▼
+╔══════════════════ services map (FeatureCtx) ═══════════════╗
+║  'session' → SessionBridge                                 ║
+║   metas() · switchToId(id) · createSession(name)           ║
+║   resumeById(id) · postMessage(id, text)                   ║
+╚════════════╦═══════════════════════════════╦═══════════════╝
+             │                               │
+             ▼                               ▼
+╔═══════ SessionPanel ════════╗   ╔═══════ AgentsPanel ══════╗
+║ SessionRecord[]             ║   ║ AgentEntry[] = projection ║
+║  id = rollout id ───────────╫──►║ of metas() every frame    ║
+║  session · lines · status   ║   ║ click row → switchTo(idx) ║
+║  rollout (JSONL persist)    ║   ║          + switchTab      ║
+╚═════════════════════════════╝   ╚══════════════════════════╝
+```
+
+| Symbol | Meaning |
+|--------|---------|
+| `╔═╗╚╝║` | Double-line box — top-level component boundary |
+| `┌─┐└┘│` | Single-line box — internal detail or sub-component |
+| `►` / `▼` | Data or control flow direction |
+| `◄──╫──` | Serialization boundary (round-trip through af-plan.json) |
+| `?` | Optional field |
+
+Key files:
+
+- `src/features/canvas/Wire.ts` — direction-safe L-wire router (crash fix)
+- `src/features/canvas/panel.ts` — `CanvasSessionActions`, auto-bind in
+  `addNode`, `openNodeSession`, `bindSession`, context-menu items, `o` key
+- `src/features/canvas/index.ts` — actions wiring, bound-session plan runs
+- `src/features/session/panel.ts` — `SessionMeta`, `switchToId`,
+  `createSession`, `resumeById`, `postMessage`
+- `src/features/session/index.ts` — extended `SessionBridge`
+- `src/orchestration/studio-model.ts` + `schema.ts` — `sessionId` ↔
+  `x-studio.sessions` round-trip
+- `src/features/agents/index.ts` — click-to-open navigation
+- `src/app.ts` — per-panel render guard (`renderTab` try/catch)
+
+## How it works
+
+### Scenario 1 — the wire-routing crash (fixed)
+
+```
+   before (hang)                       after
+   from ○ (row 0, col 10)              from ○ (row 0, col 10)
+        │  midCol == to.col                 │
+        │  final loop:                      │
+        │  c = to.col+1; c ≠ to.col;        │
+        │  c++  → never terminates          ▼  arrow lands vertically
+   to   ● (row 4, col 10)              to   ● (row 4, col 10)
+```
+
+| Symbol | Meaning |
+|--------|---------|
+| `○` | Output port (wire source) |
+| `●` | Input port (wire target) |
+| `│` | Vertical wire segment |
+| `▼` | New vertical arrow head (no trailing horizontal run) |
+
+1. The wire-drag preview routes from the output port to the **live mouse
+   cursor** every frame. Dragging vertically made `midCol === to.col`, so the
+   trailing horizontal loop (`c !== to.col` with a step moving *away*) never
+   terminated — unbounded `points.push` → OOM kill. A fatal V8 OOM never
+   reaches `uncaughtException`, which is why `/tmp/factory-err.log` stayed
+   empty.
+2. Fix: every loop steps by `Math.sign(end − start)` of its own segment; a
+   zero-length segment skips its loop. `to.col === midCol` ends in `▼`/`▲`.
+3. Corner glyphs now orient correctly for right-to-left and upward wires
+   (`╭ ╮ ╰ ╯` chosen from the incoming/outgoing directions).
+4. Defense in depth: `App.renderTab` wraps each panel render in try/catch —
+   a throwing panel paints `⚠ <title> failed to render — see Logs` instead of
+   killing the TUI. This catches *throws* only; non-terminating loops must be
+   fixed at the source, as here.
+
+### Scenario 2 — creating an agent box binds a real session
+
+```
+  toolbox drop / "Add agent block"
+      │
+      ▼
+  addNode(id: agent-1) ──► createSessionFor('agent-1')
+      │                        │  SessionPanel.createSession
+      │                        │  (no focus steal)
+      ▼                        ▼
+  node.sessionId = sid    Agents list row "agent-1" appears
+```
+
+| Symbol | Meaning |
+|--------|---------|
+| `─►` / `▼` | Control flow |
+| `sid` | Session id (rollout id — a JSONL file path) |
+
+1. `addNode` asks the injected `CanvasSessionActions` to create a session
+   named after the node id and stores the returned id on the node.
+2. The session is a real `SessionRecord`, so the Agents list — a per-frame
+   projection of `sessionMetas()` — shows it immediately.
+3. `Ctrl+S` serializes the binding into `af-plan.json` under
+   `x-studio.sessions`; loading the plan restores it.
+
+### Scenario 3 — opening a session from a block or the Agents list
+
+```
+  canvas block                       Agents list row
+  right-click → Open session          click
+  or select + press o                  │
+      │                                │
+      ▼                                ▼
+  openNodeSession(nodeId)          switchTo(idx)
+      │  bound + live? ──► switchToId(sid)
+      │  saved only?   ──► resumeById(sid) → rebind to fresh id
+      │  dangling?     ──► createSessionFor(node) → bind
+      ▼                                ▼
+  switchTab('session')  ◄──────────────┘
+  (conversation focused, ready to type)
+```
+
+| Symbol | Meaning |
+|--------|---------|
+| `─►` / `▼` / `◄──` | Control flow |
+| `sid` | The node's bound session id |
+
+1. **Bound and loaded** → `switchToId` activates it.
+2. **Bound but only on disk** → `resumeById` replays the rollout into a new
+   record (fresh id); the node is rebound to the fresh id.
+3. **Unbound or unresolvable** → a new session is created and bound; opening
+   a node's session never dead-ends.
+4. Both paths finish with `switchTab('session')`, so the conversation is
+   focused and interactive. Deleting a node keeps its session — the canvas
+   does not own conversation history.
+
+### Decision table — how a session id resolves at "open" time
+
+The same resolution ladder backs the `o` key, the `Open session` menu item,
+and the plan-run step launcher. It is deliberately **self-healing**: no state
+of the binding can dead-end the user.
+
+| Node state | What the code finds | Action taken | Binding afterwards |
+|---|---|---|---|
+| Bound, session loaded | `switchToId(sid)` → true | activate + `switchTab('session')` | unchanged |
+| Bound, session only on disk | `switchToId` false, `resumeById(sid)` finds the rollout | replay events into a NEW record, activate it | **rebound to the fresh id** |
+| Bound, rollout file gone | `switchToId` false, `resumeById` null | create session named after node, bind, open | rebound to the new session |
+| Unbound | no `sessionId` on the node | create session named after node, bind, open | bound |
+| No session bridge (headless) | `sessionActions` is null | no-op (`openNodeSession` returns) | unchanged |
+
+### Scenario 4 — plan runs stream into visible sessions
+
+```
+  Ctrl+R ─► Executor.agentRunner(step)
+               │ bridge registered?
+               ├─ yes ─► node bound? ── no ─► createSession(step.id) + bind
+               │            │ yes
+               │            ▼
+               │        postMessage(sid, step.prompt)
+               │            │ streams into the SessionRecord
+               │            ▼
+               │        Agents list + Session tab show live output
+               └─ no  ─► legacy throwaway Session (headless fallback)
+```
+
+| Symbol | Meaning |
+|--------|---------|
+| `─►` / `▼` | Control flow |
+| `├─ / └─` | Branch |
+
+1. Each step resolves its node's bound session (creating + binding one when
+   missing or dangling, honoring the step's `model`/`provider`).
+2. `postMessage` appends the prompt, runs the record's agent loop, and
+   resolves with the assistant text the executor uses for `{{dep}}`
+   interpolation. A busy session rejects → surfaces as a step error.
+3. Without a session bridge (headless tests), the old throwaway path runs.
+
+### Scenario 5 — validation, error handling, and recovery
+
+```
+  action                guard                        outcome on failure
+  ──────                ─────                        ──────────────────
+  Ctrl+S / Ctrl+R ────► validateStudio(model) ─────► status bar: "Plan invalid:
+                        (fatal issues block)          <first fatal issue>"; no
+                                                      write / no run
+  postMessage ────────► rec found? ── no ──────────► rejects "No session with id …"
+                        rec.streaming? ── yes ─────► rejects "Session … is busy"
+                                                      → executor marks step error,
+                                                      dependents cascade-skip
+  open bound session ─► ladder in decision table ──► never dead-ends: resume or
+                                                      create + rebind
+  panel.render throws ► App.renderTab try/catch ───► panel area paints
+                                                      "⚠ <title> failed to render
+                                                      — see Logs"; app keeps
+                                                      running; error logged ONCE
+                                                      per distinct message
+  load af-plan.json ──► PlanSchema (Zod) ──────────► status-bar error; canvas
+                                                      stays empty; ENOENT silent
+  bind menu, none ────► listSessions() empty and ──► menu simply not shown
+  to list               node unbound
+```
+
+| Symbol | Meaning |
+|--------|---------|
+| `────►` | Control flow into the guard / outcome |
+| `── no/yes ──` | Guard branch |
+
+1. **Design-time validation** (`validateStudio`): empty plan name, no nodes,
+   bad node id (must match `a-z0-9_-`), duplicate ids, empty agent/prompt,
+   dangling or self-loop edges, dependency cycles — all fatal, all block
+   save AND run with the first issue in the status bar. Session bindings are
+   deliberately NOT validated here: the model stays session-agnostic and
+   liveness is only decidable at open/run time.
+2. **Run-time step errors**: a rejected `postMessage` (unknown id, busy
+   session) becomes a failed step; the executor's normal cascade marks
+   dependents `skipped`. The Agents team dashboard shows ✗ on the step; the
+   bound session's transcript keeps everything streamed before the error.
+3. **Render resilience**: a throwing panel no longer kills the TUI (the
+   former behavior — `uncaughtException` → teardown). The guard cannot catch
+   a non-terminating render; that class is fixed at the source in
+   `routeWire` (every loop's step is `Math.sign(end − start)` of its own
+   segment, so a zero-length segment never enters its loop).
+4. **Crash forensics**: real throws land in the app log
+   (`~/.config/agentfactory/logs/factory-YYYY-MM-DD.log`, deduped) and fatal
+   ones in `/tmp/factory-err.log`. An empty `/tmp/factory-err.log` with a
+   reported "crash" indicates a hang/OOM kill, not a throw — check for
+   non-terminating loops first.
+
+## Usage
+
+```bash
+# Launch the TUI
+$ npm run dev
+
+# Canvas (F2): press t, click "worker", click an empty cell → agent-1 box
+#   → Agents (F3) now lists an "agent-1" session
+# Right-click the box → Open session   (or select it and press o)
+#   → Session tab focuses agent-1's conversation
+# Right-click the box → Bind session…  → pick an existing session (★ = active)
+# Ctrl+S → af-plan.json gains:
+#   "x-studio": { "sessions": { "agent-1": "~/.config/agentfactory/sessions/…jsonl" } }
+# Ctrl+R → each step runs inside its bound session, visible live in Agents
+
+# Regression-test the wire fix
+$ npx vitest run src/features/canvas/wire.test.ts
+```
+
+Concrete `af-plan.json` after binding (only the relevant extension shown —
+the executor and CLI ignore `x-studio` entirely; old files without a
+`sessions` key parse unchanged because the schema defaults it to `{}`):
+
+```json
+{
+  "version": "1.0",
+  "name": "untitled",
+  "steps": [
+    { "id": "agent-1", "agent": "worker", "prompt": "Implement: the parser", "dependsOn": [] }
+  ],
+  "x-studio": {
+    "layout":   { "agent-1": { "row": 8, "col": 20 } },
+    "edges":    [],
+    "sessions": { "agent-1": "/home/you/.config/agentfactory/sessions/2026-07-08/agent-1-….jsonl" }
+  }
+}
+```
+
+Quick behavior probes from a REPL (no TTY needed):
+
+```bash
+# The two formerly-fatal wire geometries now terminate instantly
+$ npx tsx -e "
+import { routeWire } from './src/features/canvas/Wire.ts';
+console.log(routeWire({row:0,col:10},{row:3,col:10}).map(p=>p.char).join(''));  // ││▼
+console.log(routeWire({row:1,col:5},{row:4,col:4}).map(p=>p.char).join(''));    // ─╭││▼
+"
+```
+
+## Test coverage
+
+- `src/features/canvas/wire.test.ts` (15): both former hang cases, exhaustive
+  small-grid termination/bound/duplicate fuzz, contiguity, corner orientation
+  for all four L directions.
+- `src/features/canvas/panel.test.ts` (+9): auto-bind on add (and skip without
+  actions), `bindSession`/unbind, `o` key, unbound/dangling/resumed open
+  flows, context-menu Open/Bind items, menu without actions.
+- `src/features/session/panel.test.ts` (new, 7): unique stable ids, focus-safe
+  `createSession`, `switchToId`, `resumeById` fresh-id semantics,
+  `postMessage` resolve/unknown/busy — rollout, agent-loop, hooks, and LLM
+  adapters mocked (no disk writes to the home dir, no network).
+- `src/orchestration/studio-model.test.ts` (+2) / `schema.test.ts` (+2):
+  `sessionId` round-trip, rename keeps binding, legacy plans default
+  `sessions: {}`.
+- Run: `npx vitest run` (47 files / 442 tests green).
+- End-to-end procedure (tmux-driven, SGR mouse injection):
+  `docs/testing/TESTING-CANVAS-SESSION-BINDING-2026-07-09.md`.
+- NOT tested yet: the `App.renderTab` error-state paint (needs an app-level
+  harness), live multi-step `Ctrl+R` streaming against a real provider.
+
+## Known limitations
+
+- A resumed session gets a **new** rollout id; the node rebinds on open, so a
+  plan file saved earlier still points at the old id until re-saved.
+- Session names follow the node id at bind time; renaming a node keeps the
+  binding but does not rename the session.
+- `postMessage` rejects when the target session is mid-stream; a plan step
+  bound to a busy session errors rather than queueing.
+- Deleting a node intentionally leaves its session in the Agents list.
 
 ---
 

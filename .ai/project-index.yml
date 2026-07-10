@@ -1,5 +1,5 @@
 meta:
-  version: "1.7.0"
+  version: "1.7.2"
   wave: 5
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
@@ -218,9 +218,10 @@ tui_panels:
     status: implemented
 
   - path: src/features/session/panel.ts
-    purpose: Chat panel — streaming Claude output, user input bar
+    purpose: Chat panel — multi-session records with stable rollout ids, streaming Claude output, user input bar; switchToId/createSession/resumeById/postMessage
     exports:
       - SessionPanel (class extends Panel)
+      - SessionMeta (interface)
     wave: 1
     status: implemented
 
@@ -298,7 +299,7 @@ tui_widgets:
     status: implemented
 
   - path: src/features/canvas/Wire.ts
-    purpose: L-shaped wire router between output/input ports
+    purpose: L-shaped wire router between output/input ports — direction-safe loops (vertical wires end in a v/^ arrow; 2026-07-08 infinite-loop fix)
     exports:
       - Wire (class)
       - "routeWire(from, to): WirePath"
@@ -548,7 +549,7 @@ core:
 
 orchestration:
   - path: src/orchestration/schema.ts
-    purpose: "af-plan.json Zod schema — PlanSchema, StepSchema + additive x-studio extension (layout + typed edges)"
+    purpose: "af-plan.json Zod schema — PlanSchema, StepSchema + additive x-studio extension (layout + typed edges + node→session bindings)"
     exports:
       - PlanSchema
       - StepSchema
@@ -560,7 +561,7 @@ orchestration:
     status: implemented
 
   - path: src/orchestration/studio-model.ts
-    purpose: "Pure studio core (PLAN-13 standalone) — StudioModel source of truth, serialize/round-trip af-plan.json, design-time validation, deriveView; no TUI imports"
+    purpose: "Pure studio core (PLAN-13 standalone) — StudioModel source of truth, serialize/round-trip af-plan.json incl. sessionId bindings, design-time validation, deriveView; no TUI imports"
     exports:
       - StudioNode (interface)
       - StudioEdge (interface)
@@ -659,10 +660,16 @@ features:
     status: implemented
 
   - path: src/features/session/index.ts
-    purpose: Session feature — panel + clear-session command + SessionBridge service (metas/switch/model/chat/copy)
+    purpose: Session feature — panel + clear-session command + SessionBridge service (metas/switch/switchToId/createSession/resumeById/postMessage/model/chat/copy)
     exports:
       - SessionBridge (interface)
+      - SessionMeta (re-export)
       - "sessionFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/session/panel.test.ts
+    purpose: Session identity tests — unique rollout ids, focus-safe createSession, switchToId, resumeById, postMessage (rollout/agent-loop/hooks mocked)
     wave: 5
     status: implemented
 
@@ -923,6 +930,41 @@ docs:
 
   - path: specs/docs/approvedPlans/2026-07-04-ui-consolidation-studio.md
     purpose: Approved plan — UI consolidation (ddd/09–11) + standalone orchestration studio
+    wave: 5
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-07-08-canvas-session-binding-and-wire-fix.md
+    purpose: Approved plan — routeWire infinite-loop fix + canvas↔agents↔sessions binding (session identity, x-studio.sessions)
+    wave: 5
+    status: implemented
+
+  - path: docs/features/FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md
+    purpose: Feature doc — wire crash fix, canvas nodes as real sessions, click-to-open, bound plan runs
+    wave: 5
+    status: implemented
+
+  - path: docs/features/FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md
+    purpose: Operator guide — panes, keys, studio authoring, team dashboard, where things live
+    wave: 5
+    status: implemented
+
+  - path: docs/testing/TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md
+    purpose: E2E test guide — input/keymap, themes/profiles, widgets, studio authoring + run
+    wave: 5
+    status: implemented
+
+  - path: docs/testing/TESTING-CANVAS-SESSION-BINDING-2026-07-09.md
+    purpose: E2E test guide — wire-crash regression, binding states, click-through, bound runs, failure indicators
+    wave: 5
+    status: implemented
+
+  - path: docs/changes/CHANGE-UI-CONSOLIDATION-STUDIO-2026-07-07.md
+    purpose: Change delta — consolidation + studio behavioral table over Waves 0–5
+    wave: 5
+    status: implemented
+
+  - path: docs/changes/CHANGE-CANVAS-SESSION-BINDING-2026-07-09.md
+    purpose: Change delta — wire fix + session binding; before/after trees, Mermaid workflows
     wave: 5
     status: implemented
 

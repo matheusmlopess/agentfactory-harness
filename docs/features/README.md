@@ -1,7 +1,7 @@
 <!-- version: 1.0.0 -->
 <!-- classification: SUMMARY -->
 <!-- date: 2026-06-19 -->
-<!-- last-updated: 2026-07-07 -->
+<!-- last-updated: 2026-07-10 -->
 <!-- status: ACTIVE -->
 
 # features/ — Feature Operational Guides
@@ -38,6 +38,10 @@ lookups see the [Glossary](../documentation/GLOSSARY.md).
 - [FEATURE-UI-CONSOLIDATION-2026-07-07.md](FEATURE-UI-CONSOLIDATION-2026-07-07.md) · [[FEATURE-UI-CONSOLIDATION-2026-07-07]] — Implements `docs/ddd/09-gaps.md` (all sections), `10-optimizations.md` (P0–P4 + bucket B)
 
 - [FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md](FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md) · [[FEATURE-ORCHESTRATION-STUDIO-2026-07-07]] — Standalone implementation of `docs/PLANS/PLAN-13-ORCHESTRATION-STUDIO.md` (canvas
+
+- [FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md](FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md) · [[FEATURE-CANVAS-SESSION-BINDING-2026-07-08]] — routeWire crash fix + canvas↔agents↔sessions binding
+
+- [FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md](FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md) · [[FEATURE-UI-STUDIO-OPERATIONS-2026-07-07]] — Operator guide: panes, keys, studio authoring, team dashboard
 
 ## Reference
 
