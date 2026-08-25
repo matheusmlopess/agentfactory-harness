@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import { buildCli } from './cli.js'
 import { App } from './app.js'
+import { getVersion } from './core/version.js'
 
-const VERSION = '0.3.0'
-
-const program = buildCli(VERSION)
+const program = buildCli(getVersion())
 
 // If a subcommand was given, let commander handle it
 if (process.argv.length > 2 && !process.argv[2]?.startsWith('-')) {

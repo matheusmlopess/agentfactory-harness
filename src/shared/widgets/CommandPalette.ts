@@ -1,0 +1,183 @@
+import type { CellBuffer } from '../renderer/cell-buffer.js'
+import type { KeyEvent } from '../input/keyboard.js'
+import type { MouseEvent } from '../input/mouse.js'
+import { Colors } from '../renderer/theme.js'
+
+export interface PaletteCommand {
+  id:     string
+  label:  string
+  hint:   string
+  action: () => void
+}
+
+/** Score how well `label` matches `query` (case-insensitive).
+ *  3 = show-all (empty query)  2 = substring  1 = subsequence  0 = no match */
+export function fuzzyScore(label: string, query: string): number {
+  if (query === '') return 3
+  const lo = label.toLowerCase()
+  const q  = query.toLowerCase()
+  if (lo.includes(q)) return 2
+  let qi = 0
+  for (let i = 0; i < lo.length && qi < q.length; i++) {
+    if (lo[i] === q[qi]) qi++
+  }
+  return qi === q.length ? 1 : 0
+}
+
+const MAX_VISIBLE = 8
+const PALETTE_WIDTH = 64
+
+export class CommandPalette {
+  private commands: PaletteCommand[]
+  private query   = ''
+  private selIdx  = 0
+  private open    = false
+
+  constructor(commands: PaletteCommand[]) {
+    this.commands = commands
+  }
+
+  get isOpen(): boolean { return this.open }
+
+  openPalette(): void {
+    this.query  = ''
+    this.selIdx = 0
+    this.open   = true
+  }
+
+  private filtered(): PaletteCommand[] {
+    return this.commands.filter(c => fuzzyScore(c.label, this.query) > 0)
+  }
+
+  render(buf: CellBuffer, rows: number, cols: number): void {
+    if (!this.open) return
+
+    const w      = Math.min(PALETTE_WIDTH, cols - 4)
+    const items  = this.filtered()
+    const nItems = Math.min(items.length, MAX_VISIBLE)
+    // border-top + query + separator + items + border-bottom
+    const h      = 3 + Math.max(1, nItems) + 1
+
+    const startRow = Math.max(1, Math.floor(rows * 0.25) - 1)
+    const startCol = Math.floor((cols - w) / 2)
+
+    const inner = w - 2  // inside borders
+
+    // ── top border ──────────────────────────────────────────────────────────
+    const title    = ' Command Palette '
+    const topRight = '─'.repeat(Math.max(0, inner - 2 - title.length))
+    buf.write(startRow, startCol,
+      '┌─' + title + topRight + '┐',
+      { fg: Colors.focus })
+
+    // ── query row ───────────────────────────────────────────────────────────
+    const promptText = ('  > ' + this.query).padEnd(inner).substring(0, inner)
+    buf.write(startRow + 1, startCol, '│', { fg: Colors.focus })
+    buf.write(startRow + 1, startCol + 1, promptText, { fg: Colors.textBright, bg: Colors.surfacePanel })
+    buf.write(startRow + 1, startCol + 1 + inner, '│', { fg: Colors.focus })
+
+    // ── separator ───────────────────────────────────────────────────────────
+    buf.write(startRow + 2, startCol,
+      '├' + '─'.repeat(inner) + '┤',
+      { fg: Colors.focus })
+
+    // ── items ────────────────────────────────────────────────────────────────
+    if (items.length === 0) {
+      const noMatch = '  (no matches)'.padEnd(inner).substring(0, inner)
+      buf.write(startRow + 3, startCol, '│', { fg: Colors.focus })
+      buf.write(startRow + 3, startCol + 1, noMatch, { fg: Colors.textDim, bg: Colors.surfaceActive })
+      buf.write(startRow + 3, startCol + 1 + inner, '│', { fg: Colors.focus })
+    } else {
+      for (let i = 0; i < nItems; i++) {
+        const item     = items[i]!
+        const selected = i === this.selIdx
+        const fg  = selected ? Colors.surface   : Colors.text
+        const bg  = selected ? Colors.primary : Colors.surfaceActive
+        const hfg = selected ? Colors.surface   : Colors.textDim
+
+        const hintPad = item.hint.length > 0 ? '  ' + item.hint : ''
+        const labelMax = inner - hintPad.length
+        const labelText = (' ' + item.label).padEnd(labelMax).substring(0, labelMax)
+
+        buf.write(startRow + 3 + i, startCol, '│', { fg: Colors.focus })
+        buf.write(startRow + 3 + i, startCol + 1, labelText, { fg, bg, bold: selected })
+        if (hintPad.length > 0) {
+          buf.write(startRow + 3 + i, startCol + 1 + labelMax, hintPad, { fg: hfg, bg })
+        }
+        buf.write(startRow + 3 + i, startCol + 1 + inner, '│', { fg: Colors.focus })
+      }
+    }
+
+    // ── bottom border ────────────────────────────────────────────────────────
+    const botRow = startRow + 3 + Math.max(1, nItems)
+    buf.write(botRow, startCol,
+      '└' + '─'.repeat(inner) + '┘',
+      { fg: Colors.focus })
+  }
+
+  onKey(e: KeyEvent): 'consumed' | 'close' | 'passthrough' {
+    if (e.key === 'escape') {
+      this.open = false
+      return 'close'
+    }
+    if (e.key === 'enter') {
+      const items = this.filtered()
+      const item  = items[this.selIdx]
+      if (item) item.action()
+      this.open = false
+      return 'close'
+    }
+    if (e.key === 'arrow_up') {
+      this.selIdx = Math.max(0, this.selIdx - 1)
+      return 'consumed'
+    }
+    if (e.key === 'arrow_down') {
+      const max = Math.min(this.filtered().length, MAX_VISIBLE) - 1
+      this.selIdx = Math.min(Math.max(0, max), this.selIdx + 1)
+      return 'consumed'
+    }
+    if (e.key === 'backspace') {
+      this.query  = this.query.slice(0, -1)
+      this.selIdx = 0
+      return 'consumed'
+    }
+    // Printable single character — key IS the char for printable keys
+    if (e.key.length === 1 && e.key >= ' ') {
+      this.query  += e.key
+      this.selIdx  = 0
+      return 'consumed'
+    }
+    return 'passthrough'
+  }
+
+  /** Handle a mouse event. Returns 'close' if the palette should be dismissed. */
+  onMouse(e: MouseEvent, rows: number, cols: number): 'consumed' | 'close' {
+    if (!this.open) return 'close'
+    // Only act on left press; ignore motion/release/scroll
+    if (e.button !== 'left' || e.action !== 'press') return 'consumed'
+
+    const w        = Math.min(PALETTE_WIDTH, cols - 4)
+    const items    = this.filtered()
+    const nItems   = Math.min(items.length, MAX_VISIBLE)
+    const startRow = Math.max(1, Math.floor(rows * 0.25) - 1)
+    const startCol = Math.floor((cols - w) / 2)
+    const botRow   = startRow + 3 + Math.max(1, nItems)  // matches render()
+
+    // Click outside the overlay → close
+    if (e.row < startRow || e.row > botRow || e.col < startCol || e.col >= startCol + w) {
+      this.open = false
+      return 'close'
+    }
+
+    // Click on an item row → execute and close
+    const itemIdx = e.row - (startRow + 3)
+    if (itemIdx >= 0 && itemIdx < nItems && itemIdx < items.length) {
+      this.selIdx = itemIdx
+      items[itemIdx]!.action()
+      this.open = false
+      return 'close'
+    }
+
+    return 'consumed'
+  }
+}

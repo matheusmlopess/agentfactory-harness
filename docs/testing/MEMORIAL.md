@@ -1,7 +1,7 @@
 <!-- version: 1.0.0 -->
 <!-- classification: SUMMARY -->
 <!-- date: 2026-06-19 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-07-09 -->
 <!-- status: ACTIVE -->
 <!-- generated-by: scripts/docs-compile.sh -->
 
@@ -9,13 +9,15 @@
 
 > **Auto-generated** by `scripts/docs-compile.sh` — **do not edit by hand**.
 > Edit the source docs in `testing/` and re-run the script.
-> Documents: **2** · ordered by creation date · each section links its source.
+> Documents: **4** · ordered by creation date · each section links its source.
 
 <a id="index"></a>
 ## Index
 
 1. [Testing Guide: Logs Panel with Metrics Dashboard and Auto-Analysis](#d1) — `2026-06-09` — Complete end-to-end testing procedures for the Logs panel feature. · [[TESTING-LOGS-PANEL-2026-06-09]]
 2. [End-to-End Test Guide — `factory` (Waves 0–5)](#d2) — `2026-06-18` — How to validate the implemented system end-to-end: preconditions, manual steps, expected · [[TESTING-FACTORY-E2E-2026-06-18]]
+3. [TESTING — UI Consolidation + Studio: End-to-End Guide](#d3) — `2026-07-07` — How to verify `feature/ui-consolidation` end-to-end. Complements · [[TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07]]
+4. [TESTING — Canvas Session Binding + Wire Fix: End-to-End Guide](#d4) — `2026-07-09` — End-to-end test procedure for the 2026-07-08 canvas work: the `routeWire` · [[TESTING-CANVAS-SESSION-BINDING-2026-07-09]]
 
 ## Glossary
 
@@ -1138,6 +1140,331 @@ Verified working (not gaps): bundle-ZIP import = full agent; import into a clean
 `.ai/`** auto-creates the harness; `--allow-scripts` skips the scripts gate.
 
 **`docs-system` kit:** S9 collision guard — **fixed in v1.0.2** (colliding targets → NEEDS-REVIEW).
+
+---
+
+<a id="d3"></a>
+
+## 3 · 2026-07-07 · TESTING — UI Consolidation + Studio: End-to-End Guide
+
+Source: [TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md](TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md) · [[TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07]]  ·  [↑ Index](#index)
+
+
+<!-- version: 1.0.0 -->
+<!-- classification: TESTING -->
+<!-- date: 2026-07-07 -->
+<!-- last-updated: 2026-07-07 -->
+
+How to verify `feature/ui-consolidation` end-to-end. Complements
+`TESTING-FACTORY-E2E-2026-06-18.md` (Waves 0–5 surfaces); this guide covers the surfaces
+that changed: input/keymap, theming/a11y, size profiles, dividers, the studio canvas,
+the team dashboard, and NDJSON automation.
+
+---
+
+## 0. Preconditions
+
+```
+┌─ Required ────────────────────────────────────────────────────────────────┐
+│ • Node ≥ 20, npm install done in the worktree                             │
+│ • A real terminal ≥ 120×40 for manual steps (alt-screen, SGR mouse,       │
+│   256-color); tmux for the scripted smoke                                 │
+│ • Repo: ~/repo/worktrees/ui-consolidation (branch feature/ui-consolidation)│
+├─ Optional ────────────────────────────────────────────────────────────────┤
+│ • ANTHROPIC_API_KEY for a real plan run (§6 works WITHOUT a key too —     │
+│   error/skip paths are part of the test)                                  │
+│ • Start clean: no ./af-plan.json in cwd; optionally move                  │
+│   ~/.config/agentfactory/config.json aside to test first-run defaults     │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+## 1. Automated gates (run first — 5 min)
+
+| # | Command | Expected |
+|---|---|---|
+| 1 | `npx tsc --noEmit` | no output (strict, no `any`) |
+| 2 | `npm test` | **413 passed**, 0 failed |
+| 3 | `./scripts/smoke-tui.sh` | `smoke-tui: all checks passed` (13 checks incl. a real 60×20 guard-screen session) |
+| 4 | `npx tsx src/index.ts --version` | matches `package.json` `"version"` exactly |
+
+Failure indicators: any tsc output; any red test; smoke `FAIL:` lines (each names the
+missing pane content); a version mismatch (means `getVersion()` resolution broke).
+
+## 2. Input, keymap & help
+
+Launch `npx tsx src/index.ts` in a ≥120×40 terminal.
+
+| Step | Expected | Validates |
+|---|---|---|
+| Press `F1`…`F6` in order | each tab activates — **F6 must reach Logs** (panel shows `Metrics`, not just the tab label) | F6 keyboard fix; keymap tab bindings |
+| Press `Tab` repeatedly from Session | cycles orchestration → agents → terminal; on Terminal, Tab types into the shell instead | tab cycle + raw bypass boundary |
+| On Logs press `?` | "Keyboard Shortcuts" overlay: Global section + "Logs tab" section (j/k/h/l/c/a listed); ↑/↓ scrolls; Esc closes | help overlay, keymap `list()` |
+| On Session type `?` in the input | `?` appears in the chat input — **no** help overlay | text-input suppression |
+| On Logs press `j`/`k`, `h`/`l`, `c` | selection moves, source chips cycle, buffer clears | vim keys as keymap contributions |
+| In Terminal: type `ls`, `Ctrl+P`, Esc, `⇧PgUp` | shell works; palette opens/closes without leaking to the PTY; scrollback scrolls | bypass byte table |
+| Wheel over the Session transcript vs the Config list | transcript jumps 3 lines/tick; Config list moves the viewport 1 row/tick, selection unchanged | wheel conventions |
+
+## 3. Theme, motion, size profiles, dividers
+
+| Step | Expected | Validates |
+|---|---|---|
+| `Ctrl+P` → "Theme: high contrast" | white-on-black, yellow focus borders, cyan tabs — applies instantly | live token swap |
+| `F5` → Interface → Enter on "Theme" | value cycles `[default ▸]` ↔ `[high-contrast ▸]`, applies + persists | Config settings UI |
+| Restart the app | theme still high-contrast | settings persistence |
+| Toggle "Reduced motion", open Config → login overlay | spinner is a static `●` (no animation); Logs countdown stops ticking | reduced motion |
+| `Ctrl+P` → "Size profile: Standard (110×30)", then shrink the terminal below 110×30 | guard screen `⚠ Terminal too small · current …× · minimum 110×30 (standard)`; `Ctrl+P` still opens; picking Compact restores the UI without resizing | guard + input-behind-guard recovery |
+| Drag the border between Session and the right column; release; restart | split ratio changed, persists across restart | dividers + persistence |
+| Check `~/.config/agentfactory/config.json` | `"settings"` contains `theme`, `sizeProfile`, `layout.sessionRatio` etc.; `"keys"` untouched | storage shape |
+
+## 4. Consolidated widgets (modals, lists, menus)
+
+| Step | Expected |
+|---|---|
+| Session: click the Session tab while on it → new-session menu; press Esc; reopen; click **outside** the frame | both dismiss it (Esc + click-outside convention) |
+| Session: click `[model]` in the status bar | switches to Session + opens the picker; Esc steps back (model→provider) then closes; reopening within 5 min is instant (cache) |
+| Config: Enter on a provider → edit modal; Esc cancels (no save); type a key + Enter → `sk-…▓▓▓▓ [set]` shown | Overlay migration + unified masking |
+| Orchestration: right-click a block → menu; click a menu **item** | the item executes (items are clickable now); clicking elsewhere or Esc dismisses |
+
+## 5. Studio end-to-end (the core new scenario)
+
+In an **empty directory** (no af-plan.json), run the app, press `F2`:
+
+1. `t` → toolbox appears. Click `worker`, click an empty cell → node drops **and the
+   inspector opens**. Set `id` to `build`, prompt to `Build it`, Enter. Expected: `✓ valid`
+   then the modal closes; block titled `build`.
+2. Repeat for a `reviewer` node `review` (prompt `Review it`).
+3. Drag `build`'s right-edge `○` to `review`'s left-edge `●` → connector menu. Pick
+   **handoff: summary**. Expected: wire renders `══[H]══`, not `────`.
+4. Try wiring `build → review` again → **no menu** (duplicate rejected). Wire `review → build`
+   and pick dependency → now press `Ctrl+S`. Expected: red status-bar error `Plan invalid:
+   Cycle: …`. Right-click that wire → Delete wire.
+5. `Ctrl+S` → then in a shell:
+
+```
+$ cat af-plan.json | head            # valid plan + "x-studio" block
+$ npx tsx src/index.ts plan validate # → Plan "untitled" is valid (2 steps)
+$ grep -A2 '"x-studio"' af-plan.json # layout rows/cols + edges with "kind"
+$ grep 'Input from build' af-plan.json  # handoff scaffold appended to review's prompt
+```
+
+6. Quit, relaunch in the same directory → **the same graph reappears at the same
+   positions** (x-studio round-trip).
+7. `Ctrl+R` → blocks go `◎ → ● → ✓` (with a key) or `✗`/`⊘` (without). `F3` → team
+   dashboard shows `Team — untitled [n running / 2 total]`, glyph+text rows, the event
+   log streaming, and the failed step's error in red when key-less. Esc returns to sessions.
+8. Rename test: select `build` (click body), press `e`, change id to `builder`, Enter →
+   the wire follows (`builder ══▶ review`), no dangling edge on `Ctrl+S`.
+
+## 6. Automation contract
+
+```
+$ npx tsx src/index.ts run --json > events.ndjson; echo "exit=$?"
+$ head -1 events.ndjson | python3 -m json.tool     # parses; has type/stepId/status/ts
+```
+Expected: one JSON object per line on **stdout** only; ISO `ts` on every event;
+`exit=1` iff any `step:error` occurred (verify by running key-less), else `exit=0`.
+
+## 7. Correctness confirmation checklist
+
+```
+┌─ The implementation is correct when ALL of these hold ─────────────────────┐
+│ □ §1 gates green (tsc / 413 tests / 13 smoke checks / version match)       │
+│ □ F6 reaches Logs by keyboard; `?` help lists per-tab bindings             │
+│ □ Esc AND click-outside dismiss every modal/menu/palette/help              │
+│ □ Theme/motion/size/dividers apply live AND survive restart                │
+│ □ Guard screen appears below the profile minimum and never traps input    │
+│ □ Studio: invalid designs (cycle/dup/empty) blocked at save/run with a     │
+│   visible reason; valid designs round-trip through af-plan.json byte-     │
+│   stable and pass `factory plan validate`                                  │
+│ □ Run statuses show ◎/●/✓/✗/⊘ with text labels (glyphs, not color-only)   │
+│ □ run --json: NDJSON stdout, human stderr, exit code reflects failures    │
+│ □ Sessions mode of the Agents tab is unchanged (incl. laureate tooltip)   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## 8. Common failure indicators & first moves
+
+| Indicator | Likely cause | First move |
+|---|---|---|
+| Smoke FAIL on startup checks only | tsx cold-start slower than the poll window | re-run; check `npx tsx src/index.ts` starts at all |
+| Keys "do nothing" after a modal | a transient consumed input | Esc (possibly twice); check `?` works |
+| Wire won't complete | released on a non-port cell | drop exactly on the `●` (left edge, row 2 of the block) |
+| `Ctrl+S` silently "does nothing" | validation failed | read the red status-bar message (5 s); fix, retry |
+| Guard screen at a normal size | `settings.sizeProfile` set to wide | Ctrl+P → Compact |
+| NDJSON mixed with human text | stdout/stderr not separated by the harness | redirect only stdout (`>`), keep stderr on the tty |
+| Tests fail only on `store` mocks | mock missing `getSetting`/`setSetting` | mirror `ConfigPanel.test.ts`'s store mock |
+
+---
+
+<a id="d4"></a>
+
+## 4 · 2026-07-09 · TESTING — Canvas Session Binding + Wire Fix: End-to-End Guide
+
+Source: [TESTING-CANVAS-SESSION-BINDING-2026-07-09.md](TESTING-CANVAS-SESSION-BINDING-2026-07-09.md) · [[TESTING-CANVAS-SESSION-BINDING-2026-07-09]]  ·  [↑ Index](#index)
+
+<!-- version: 1.0.0 -->
+<!-- classification: TESTING -->
+<!-- date: 2026-07-09 -->
+<!-- last-updated: 2026-07-09 -->
+
+End-to-end test procedure for the 2026-07-08 canvas work: the `routeWire`
+infinite-loop fix, the per-panel render guard, and the canvas ↔ Agents ↔
+sessions binding (auto-bind on create, Open/Bind session, click-to-open,
+bound plan runs). Companion docs:
+`docs/features/FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md` (behavior),
+`docs/changes/CHANGE-CANVAS-SESSION-BINDING-2026-07-09.md` (delta).
+
+## 0. Preconditions
+
+- Node ≥ 20, deps installed (`npm install` done), `tmux` available for the
+  scripted variant.
+- A terminal at least as large as the **selected size profile**. ⚠ The
+  profile persists in `~/.config/agentfactory/config.json`
+  (`"sizeProfile": "wide"` needs 140×40 — below it you get the guard screen,
+  NOT a bug). To test hermetically, run with an isolated HOME:
+
+```bash
+$ export TESTHOME=$(mktemp -d)
+$ tmux new-session -d -s bind-test -x 120 -y 40 "HOME=$TESTHOME npx tsx src/index.ts"
+```
+
+- No API key is required for any step below except 6 (bound plan run).
+- Nothing else writing `./af-plan.json` in the working directory.
+
+## 1. Automated gates (run first — ~1 min)
+
+```bash
+$ npx tsc --noEmit          # expect: silence (strict mode clean)
+$ npx vitest run            # expect: 47 files / 442 tests passed
+$ npx vitest run src/features/canvas/wire.test.ts        # 15 tests
+$ npx vitest run src/features/session/panel.test.ts      #  7 tests
+```
+
+**Validation check:** the wire suite finishing AT ALL is itself the crash
+regression test — before the fix, two of its fixtures never returned. A
+hang here (vitest stuck on `RUN`) means the routing loop regressed.
+
+## 2. Wire-routing crash regression (the former freeze)
+
+Manual, in the running TUI (F2 = Orchestration tab):
+
+1. Press `t`, click `worker`, click an empty cell → box `agent-1` appears
+   (Esc closes the inspector).
+2. Repeat and place `agent-2` DIRECTLY BELOW `agent-1` (same column).
+3. Click `agent-1`'s output port `○` (right edge), then move the mouse
+   straight down toward `agent-2`.
+
+**Expected:** a live preview wire renders with `│` segments and a `▼` head;
+the app stays responsive throughout the drag.
+**Failure indicator (old bug):** the UI freezes the instant the cursor
+enters the port's column; CPU pins at 100%; the process eventually dies
+with no entry in `/tmp/factory-err.log` (OOM kill, not a throw).
+
+Headless equivalent (safe — times out instead of hanging your shell):
+
+```bash
+$ timeout 5 npx tsx -e "
+import { routeWire } from './src/features/canvas/Wire.ts';
+console.log(routeWire({row:0,col:10},{row:4,col:10}).length);   // 5
+console.log(routeWire({row:1,col:5},{row:6,col:4}).length);     // 6
+"; echo "exit: $?"     # exit: 0 = fixed; exit: 124 = hang regression
+```
+
+## 3. Create an agent box → appears in Agents list
+
+1. F2 → right-click empty canvas → `Add agent block` → Esc (close inspector).
+2. Look at the Agents panel (bottom-right).
+
+**Expected:** a new row `○ agent-1` appears immediately, alongside the
+default laureate session (e.g. `★ ○ Curie`). The star marks the ACTIVE
+session — creating a canvas agent must NOT steal it.
+**Validation check:** type into the Session panel — input still goes to the
+original session, proving focus was not moved by the background create.
+
+## 4. Open session from a block (all three binding states)
+
+**Bound + live (happy path):**
+1. Right-click the `agent-1` box → menu shows
+   `Configure… / Open session / Bind session… / Delete block`.
+2. Click `Open session`.
+
+**Expected:** Session panel header becomes `session "agent-1"`; the Session
+tab gains focus (typing goes to agent-1's input); in the Agents list the `★`
+moves to `agent-1`. The `o` key on a selected block does the same.
+
+**Bound + on disk only (resume):**
+3. `Ctrl+S`, quit (`Ctrl+Q`), relaunch, wait for `af-plan.json` to load.
+4. Right-click the box → `Open session`.
+
+**Expected:** a session named `agent-1*` (resumed marker) opens with the
+prior transcript replayed. Re-save: the plan's binding now points at the
+NEW rollout id (self-heal — see decision table in the feature doc).
+
+**Dangling (rollout deleted):**
+5. Quit, delete the bound `.jsonl` under
+   `~/.config/agentfactory/sessions/…`, relaunch, `Open session`.
+
+**Expected:** a FRESH `agent-1` session is created, bound, and opened — the
+action never dead-ends or errors at the user.
+
+## 5. Bind an existing session + Agents click-through
+
+1. Right-click the box → `Bind session…`.
+
+**Expected:** a chained menu lists every session — `★ Curie`, `· agent-1
+(bound)` — plus `Unbind` when bound. Picking one rebinds; `Ctrl+S` then
+persists it under `x-studio.sessions` in `af-plan.json` (inspect the file).
+
+2. Click any row in the Agents list.
+
+**Expected:** the active session switches AND the Session tab takes focus
+(before this change it only switched, without navigating).
+
+## 6. Bound plan run (needs an API key)
+
+1. Wire `agent-1 → agent-2` (dependency), give both prompts, `Ctrl+R`.
+
+**Expected:** each step streams into ITS OWN session — watch the Agents
+list statuses (◎ running → ✓/✗) and open either session afterwards to read
+the full transcript. Step 2's prompt interpolates `{{agent-1}}` output.
+**Failure indicator:** a step erroring instantly with `Session … is busy`
+means two steps share one bound session — rebind one of them.
+
+## 7. Render guard (defense-in-depth)
+
+No user-visible path throws today, so this is covered by reading
+`src/app.ts` `renderTab()` + the unit suites. If any panel ever throws
+mid-render you should see `⚠ <title> failed to render — see Logs` inside
+that panel's frame — the app itself must keep running. NOT currently
+automated (needs an app-level harness).
+
+## 8. Correctness confirmation checklist
+
+```
+[ ] tsc --noEmit silent; vitest 442/442 green
+[ ] wire.test.ts completes (no hang) — 15 tests
+[ ] vertical + col−1 wire drags render │/▼ live, app responsive
+[ ] new canvas box → Agents row appears, ★ does not move
+[ ] Open session (menu + o key) focuses the right conversation
+[ ] resume path renames to "name*" and rebinds to the fresh id
+[ ] deleted rollout → fresh session, no error surfaced
+[ ] Bind session… lists all sessions, Unbind appears only when bound
+[ ] af-plan.json contains x-studio.sessions after Ctrl+S
+[ ] Agents list click switches session AND navigates to Session tab
+[ ] Ctrl+R streams each step into a visible, inspectable session
+```
+
+## 9. Common failure indicators & first moves
+
+| Symptom | Likely cause | First move |
+|---|---|---|
+| App freezes during wire drag | routing loop regression | `timeout 5 npx tsx -e …routeWire…` (see §2); check the loop steps use `Math.sign` per segment |
+| "Terminal too small" at launch | persisted `sizeProfile` vs actual terminal | isolated `HOME` or resize — NOT a regression |
+| Canvas box missing from Agents | session bridge not registered before use | check `services.set('session', …)` ran; Agents list is a projection of `metas()` |
+| Open session lands on wrong conversation | stale binding after manual af-plan.json edits | re-save from the TUI; bindings self-heal on next open |
+| Step fails with "busy" | two nodes bound to one session ran concurrently | rebind one node (`Bind session…`) |
+| Crash with EMPTY /tmp/factory-err.log | hang/OOM (not a throw) | look for non-terminating loops, not exception handlers |
+| `x-studio.sessions` missing after save | node was never bound (headless create path) | bind via menu, save again; legacy files default to `{}` |
 
 ---
 

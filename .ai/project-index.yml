@@ -1,5 +1,5 @@
 meta:
-  version: "1.6.0"
+  version: "1.7.2"
   wave: 5
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
@@ -8,7 +8,7 @@ meta:
   status_values: [implemented, planned, stub]
 
 tui_renderer:
-  - path: src/tui/renderer/ansi.ts
+  - path: src/shared/renderer/ansi.ts
     purpose: Raw ANSI escape sequence builders — no dependencies
     exports:
       - ESC
@@ -36,7 +36,7 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/tui/renderer/cell-buffer.ts
+  - path: src/shared/renderer/cell-buffer.ts
     purpose: "Core renderer: Cell[][] grid, minimal-diff output, full repaint"
     exports:
       - Cell (interface)
@@ -49,7 +49,7 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/tui/renderer/layout.ts
+  - path: src/shared/renderer/layout.ts
     purpose: Computes Rect panel regions from terminal dimensions; draws borders
     exports:
       - Rect (interface)
@@ -59,7 +59,7 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/tui/renderer/theme.ts
+  - path: src/shared/renderer/theme.ts
     purpose: 256-color palette constants + box-drawing char sets
     exports:
       - Colors
@@ -70,8 +70,42 @@ tui_renderer:
     wave: 0
     status: implemented
 
+  - path: src/shared/renderer/layout.test.ts
+    purpose: Characterization tests — exact computeLayout rects + drawBorder chrome (ui-consolidation P0)
+    wave: 5
+    status: implemented
+
+  - path: src/shared/renderer/theme.test.ts
+    purpose: Semantic token values, live setTheme swap, contrast pairs, render diff under both themes
+    wave: 5
+    status: implemented
+
+  - path: src/shared/renderer/motion.ts
+    purpose: Reduced-motion preference (gap 19) — motionEnabled() + refresh hook
+    exports:
+      - "motionEnabled(): boolean"
+      - "refreshMotionSetting(): void"
+    wave: 5
+    status: implemented
+
+  - path: src/shared/renderer/size-profiles.ts
+    purpose: Settings-based min terminal sizes (compact/standard/wide) + sizeCheck + too-small guard screen
+    exports:
+      - SizeProfile (interface)
+      - SIZE_PROFILES
+      - "activeProfile(store)"
+      - "sizeCheck(rows, cols, profile)"
+      - "renderTooSmall(buf, rows, cols, profile)"
+    wave: 5
+    status: implemented
+
+  - path: src/shared/renderer/size-profiles.test.ts
+    purpose: sizeCheck boundaries + guard-screen render
+    wave: 5
+    status: implemented
+
 tui_input:
-  - path: src/tui/input/keyboard.ts
+  - path: src/shared/input/keyboard.ts
     purpose: Raw stdin buffer to KeyEvent; drops mouse escape bytes
     exports:
       - KeyEvent (interface)
@@ -79,7 +113,7 @@ tui_input:
     wave: 0
     status: implemented
 
-  - path: src/tui/input/mouse.ts
+  - path: src/shared/input/mouse.ts
     purpose: "xterm SGR mouse event parser (\\033[<Pb;Px;PyM/m)"
     exports:
       - MouseEvent (interface)
@@ -87,7 +121,7 @@ tui_input:
     wave: 2
     status: implemented
 
-  - path: src/tui/input/router.ts
+  - path: src/shared/input/router.ts
     purpose: Dispatches keyboard/mouse events to the currently focused panel
     exports:
       - InputRouter (class)
@@ -95,8 +129,75 @@ tui_input:
     wave: 2
     status: implemented
 
+  - path: src/shared/input/router.test.ts
+    purpose: InputRouter tests over the TabEntry contract (updated in P3 — all six tabs first-class)
+    wave: 5
+    status: implemented
+
+  - path: src/shared/input/hit-test.ts
+    purpose: HitMap named clickable zones (tab bar, exit, status-bar) + rectContains
+    exports:
+      - "rectContains(rect, row, col)"
+      - HitMap (class)
+    wave: 5
+    status: implemented
+
+  - path: src/shared/input/controller.ts
+    purpose: The stdin input state machine extracted from app.ts — terminal raw-bypass verbatim; handleData() testable without a TTY
+    exports:
+      - TerminalTarget (interface)
+      - ControllerHost (interface)
+      - InputController (class)
+    wave: 5
+    status: implemented
+
+  - path: src/shared/input/controller.test.ts
+    purpose: Byte-buffer tests against the real input state machine (terminal bypass table, global keys, mouse routing)
+    wave: 5
+    status: implemented
+
+  - path: src/shared/tabs.ts
+    purpose: TabId/TabEntry — unified tab model (title, panel accessor, rect, hit visibility, capture-mouse)
+    exports:
+      - TabId (type)
+      - TAB_ORDER
+      - TabEntry (interface)
+      - "tabIndex(id)"
+      - "tabIdAt(index)"
+    wave: 5
+    status: implemented
+
+  - path: src/shared/tab-bar.ts
+    purpose: Pure tab-bar geometry — label spans + tab/exit hit-testing (extracted from app.ts)
+    exports:
+      - EXIT_BTN
+      - TabHit (type)
+      - TabSpan (interface)
+      - "tabLabelSpans(tabs)"
+      - "tabBarHit(col, cols, tabs)"
+    wave: 5
+    status: implemented
+
+  - path: src/shared/tab-bar.test.ts
+    purpose: tab-bar geometry tests — spans, hits, gaps, exit-button precedence
+    wave: 5
+    status: implemented
+
+  - path: src/shared/input/keymap.ts
+    purpose: Declarative key bindings — context filtering (when), text-input suppression, panelFirst, help listing
+    exports:
+      - KeyBindingDef (interface)
+      - Keymap (class)
+    wave: 5
+    status: implemented
+
+  - path: src/shared/input/keymap.test.ts
+    purpose: Keymap tests — context filter, printable suppression, aliases, panelFirst, list()
+    wave: 5
+    status: implemented
+
 tui_panels:
-  - path: src/tui/panels/Panel.ts
+  - path: src/shared/panel.ts
     purpose: Abstract base class for all panels
     exports:
       - Panel (abstract class)
@@ -109,21 +210,22 @@ tui_panels:
     wave: 0
     status: implemented
 
-  - path: src/tui/panels/StatusBar.ts
+  - path: src/shared/widgets/StatusBar.ts
     purpose: Bottom status line — version, mode label, keybind hints
     exports:
       - "renderStatusBar(buf: CellBuffer, rect: Rect, mode?: string): void"
     wave: 0
     status: implemented
 
-  - path: src/tui/panels/SessionPanel.ts
-    purpose: Chat panel — streaming Claude output, user input bar
+  - path: src/features/session/panel.ts
+    purpose: Chat panel — multi-session records with stable rollout ids, streaming Claude output, user input bar; switchToId/createSession/resumeById/postMessage
     exports:
       - SessionPanel (class extends Panel)
+      - SessionMeta (interface)
     wave: 1
     status: implemented
 
-  - path: src/tui/panels/OrchestrationCanvas.ts
+  - path: src/features/canvas/panel.ts
     purpose: ITUI drag-drop canvas — block layout, wire draw, mouse interactions
     exports:
       - OrchestrationCanvas (class extends Panel)
@@ -134,21 +236,21 @@ tui_panels:
     wave: 2
     status: implemented
 
-  - path: src/tui/panels/AgentsPanel.ts
+  - path: src/features/agents/panel.ts
     purpose: Agent list sidebar — live status badges
     exports:
       - AgentsPanel (class extends Panel)
     wave: 1
     status: implemented
 
-  - path: src/tui/panels/TerminalPanel.ts
+  - path: src/features/terminal/panel.ts
     purpose: node-pty embed — real shell inside a panel region
     exports:
       - TerminalPanel (class extends Panel)
     wave: 4
     status: implemented
 
-  - path: src/tui/input/vt.ts
+  - path: src/features/terminal/vt.ts
     purpose: VTScreen — streaming ANSI parser + virtual cell grid for PTY output
     exports:
       - VTStyle (interface)
@@ -160,35 +262,35 @@ tui_panels:
     wave: 4
     status: implemented
 
-  - path: src/tui/input/vt.test.ts
+  - path: src/features/terminal/vt.test.ts
     purpose: VTScreen unit tests — text, cursor, SGR, erase, scroll, resize
     wave: 4
     status: implemented
 
-  - path: src/tui/panels/TerminalPanel.test.ts
+  - path: src/features/terminal/panel.test.ts
     purpose: TerminalPanel lifecycle tests with mocked IPty
     wave: 4
     status: implemented
 
-  - path: src/tui/input/terminal-bypass.test.ts
+  - path: src/shared/input/terminal-bypass.test.ts
     purpose: Unit tests for Terminal tab raw-byte bypass — F1–F5, Ctrl+Q, Shift+PgUp/Dn, mouse intercept
     wave: 4
     status: implemented
 
-  - path: src/tui/panels/ConfigPanel.ts
+  - path: src/features/config/panel.ts
     purpose: Config tab — persistent API key manager for 35+ AI providers; double-click to edit overlay
     exports:
       - ConfigPanel (class extends Panel)
     wave: 4
     status: implemented
 
-  - path: src/tui/panels/ConfigPanel.test.ts
+  - path: src/features/config/panel.test.ts
     purpose: ConfigPanel render, scroll, key nav, and edit-overlay tests
     wave: 4
     status: implemented
 
 tui_widgets:
-  - path: src/tui/widgets/Block.ts
+  - path: src/features/canvas/Block.ts
     purpose: ASCII box for one agent node — title, version, status, ports
     exports:
       - Block (class)
@@ -196,22 +298,22 @@ tui_widgets:
     wave: 2
     status: implemented
 
-  - path: src/tui/widgets/Wire.ts
-    purpose: L-shaped wire router between output/input ports
+  - path: src/features/canvas/Wire.ts
+    purpose: L-shaped wire router between output/input ports — direction-safe loops (vertical wires end in a v/^ arrow; 2026-07-08 infinite-loop fix)
     exports:
       - Wire (class)
       - "routeWire(from, to): WirePath"
     wave: 2
     status: implemented
 
-  - path: src/tui/widgets/ContextMenu.ts
+  - path: src/shared/widgets/ContextMenu.ts
     purpose: Right-click popup — action list, keyboard nav
     exports:
       - ContextMenu (class)
     wave: 2
     status: implemented
 
-  - path: src/tui/widgets/CommandPalette.ts
+  - path: src/shared/widgets/CommandPalette.ts
     purpose: Ctrl+P fuzzy-search command overlay — fuzzyScore + centered modal + 8 registered commands
     exports:
       - PaletteCommand (interface)
@@ -220,9 +322,50 @@ tui_widgets:
     wave: 1
     status: implemented
 
-  - path: src/tui/widgets/CommandPalette.test.ts
+  - path: src/shared/widgets/CommandPalette.test.ts
     purpose: CommandPalette unit tests — fuzzyScore (4 cases) + palette render/nav/action (10 cases)
     wave: 1
+    status: implemented
+
+  - path: src/shared/widgets/Overlay.ts
+    purpose: Shared modal frame — sm/md/lg tiers (46/56/64), centered geometry, title, footer hint, Esc + click-outside dismissal
+    exports:
+      - OverlayTier (type)
+      - OverlayOpts (interface)
+      - OverlayFrame (interface)
+      - Overlay (class)
+    wave: 5
+    status: implemented
+
+  - path: src/shared/widgets/Overlay.test.ts
+    purpose: Overlay geometry/clamping/frame/dismissal tests
+    wave: 5
+    status: implemented
+
+  - path: src/shared/widgets/ScrollableList.ts
+    purpose: The shared list behaviour — selection + viewport, ListOptions (wrap, wheel viewport|selection, wheelStep), headless-capable
+    exports:
+      - ListRow (interface)
+      - ListOptions (interface)
+      - ScrollableList (class)
+    wave: 5
+    status: implemented
+
+  - path: src/shared/widgets/ScrollableList.test.ts
+    purpose: clamp/wrap nav, header skip, wheel semantics, click mapping
+    wave: 5
+    status: implemented
+
+  - path: src/shared/widgets/ContextMenu.test.ts
+    purpose: ContextMenu keyboard/mouse/dismissal tests (first coverage)
+    wave: 5
+    status: implemented
+
+  - path: src/shared/widgets/HelpOverlay.ts
+    purpose: "`?` keyboard-shortcut reference — keymap listing grouped Global/tab, scrollable, Esc/click dismiss"
+    exports:
+      - HelpOverlay (class)
+    wave: 5
     status: implemented
 
   # layout.ts extended in Wave 4 to add terminal: Rect
@@ -235,6 +378,50 @@ core:
       - AgentLoopOptions (interface)
       - "agentLoop(session, opts): AsyncIterable<AgentEvent>"
     wave: 1
+    status: implemented
+
+  - path: src/core/version.ts
+    purpose: Single source of truth for the app version — cached runtime read of package.json
+    exports:
+      - "getVersion(): string"
+    wave: 5
+    status: implemented
+
+  - path: src/core/version.test.ts
+    purpose: getVersion matches package.json + caching
+    wave: 5
+    status: implemented
+
+  - path: src/core/config/mask.ts
+    purpose: Centralized secret masking (prefix + …▓▓▓▓; urls unmasked) — replaces 2 ad-hoc schemes
+    exports:
+      - "maskSecret(value, fieldType?): string"
+    wave: 5
+    status: implemented
+
+  - path: src/core/config/mask.test.ts
+    purpose: maskSecret edge cases — dashes, short values, urls, default fieldType
+    wave: 5
+    status: implemented
+
+  - path: src/core/llm/limits.ts
+    purpose: Model-aware output-token ceilings (claude 8192 / big-openai 16384 / fallback 4096)
+    exports:
+      - "maxOutputTokens(model): number"
+    wave: 5
+    status: implemented
+
+  - path: src/core/llm/limits.test.ts
+    purpose: maxOutputTokens prefix table tests
+    wave: 5
+    status: implemented
+
+  - path: src/core/llm/model-cache.ts
+    purpose: TTL cache in front of listModels — instant model-picker reopen
+    exports:
+      - "cachedListModels(provider, apiKey?, ttlMs?)"
+      - clearModelCache
+    wave: 5
     status: implemented
 
   - path: src/core/session.ts
@@ -362,13 +549,35 @@ core:
 
 orchestration:
   - path: src/orchestration/schema.ts
-    purpose: "af-plan.json Zod schema — PlanSchema, StepSchema"
+    purpose: "af-plan.json Zod schema — PlanSchema, StepSchema + additive x-studio extension (layout + typed edges + node→session bindings)"
     exports:
       - PlanSchema
       - StepSchema
+      - StudioExtSchema
       - Plan (inferred type)
       - Step (inferred type)
+      - StudioExt (inferred type)
     wave: 3
+    status: implemented
+
+  - path: src/orchestration/studio-model.ts
+    purpose: "Pure studio core (PLAN-13 standalone) — StudioModel source of truth, serialize/round-trip af-plan.json incl. sessionId bindings, design-time validation, deriveView; no TUI imports"
+    exports:
+      - StudioNode (interface)
+      - StudioEdge (interface)
+      - StudioModel (interface)
+      - StudioIssue (interface)
+      - emptyModel
+      - validateStudio
+      - studioToPlan
+      - planToStudio
+      - deriveView
+    wave: 5
+    status: implemented
+
+  - path: src/orchestration/studio-model.test.ts
+    purpose: purity check, round-trips, handoff prompt scaffold, validation table, deriveView
+    wave: 5
     status: implemented
 
   - path: src/orchestration/schema.test.ts
@@ -417,6 +626,107 @@ orchestration:
   - path: src/orchestration/graph.test.ts
     purpose: Graph tests — linear chain, diamond, self-cycle, 3-node cycle, readySet scenarios
     wave: 3
+    status: implemented
+
+features:
+  - path: src/features/types.ts
+    purpose: Feature contract (ddd/11) — tab + commands + tools + keybindings + lifecycle, FeatureCtx services
+    exports:
+      - FeatureCtx (interface)
+      - KeyBindingContribution (interface)
+      - Feature (interface)
+    wave: 5
+    status: implemented
+
+  - path: src/features/registry.ts
+    purpose: Feature registry — registerFeature/loadedFeatures/resetFeatures
+    exports:
+      - registerFeature
+      - loadedFeatures
+      - resetFeatures
+    wave: 5
+    status: implemented
+
+  - path: src/features/registry.test.ts
+    purpose: Registry semantics + logs-feature proving case
+    wave: 5
+    status: implemented
+
+  - path: src/features/logs/index.ts
+    purpose: Logs tab as a self-contained Feature — panel, AI analysis flow, 2-min heartbeat lifecycle, vim keybindings
+    exports:
+      - "logsFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/session/index.ts
+    purpose: Session feature — panel + clear-session command + SessionBridge service (metas/switch/switchToId/createSession/resumeById/postMessage/model/chat/copy)
+    exports:
+      - SessionBridge (interface)
+      - SessionMeta (re-export)
+      - "sessionFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/session/panel.test.ts
+    purpose: Session identity tests — unique rollout ids, focus-safe createSession, switchToId, resumeById, postMessage (rollout/agent-loop/hooks mocked)
+    wave: 5
+    status: implemented
+
+  - path: src/features/canvas/index.ts
+    purpose: Canvas feature — plan load/save/run flows, PlanBridge + PlanEventSink services, Ctrl+R/Ctrl+S bindings
+    exports:
+      - PlanBridge (interface)
+      - PlanEventSink (interface)
+      - "canvasFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/canvas/NodeInspector.ts
+    purpose: "Modal node editor (PLAN-13 §6) — id/agent/provider/model/timeout/prompt fields, inline validation"
+    exports:
+      - NodeInspector (class)
+    wave: 5
+    status: implemented
+
+  - path: src/features/canvas/NodeInspector.test.ts
+    purpose: NodeInspector render, save/cancel, validation blocking, provider cycling
+    wave: 5
+    status: implemented
+
+  - path: src/features/agents/index.ts
+    purpose: Agents feature — session-list refresh via beforeRender + plan-events sink for the team dashboard
+    exports:
+      - "agentsFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/agents/panel.test.ts
+    purpose: Team-mode tests — pending/skipped badges + text labels, event log, Esc back to sessions
+    wave: 5
+    status: implemented
+
+  - path: src/features/terminal/index.ts
+    purpose: Terminal feature — lazy PTY spawn (VT-GAP-08), destroy on stop
+    exports:
+      - "terminalFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/config/index.ts
+    purpose: Config feature — panel + login/logout palette commands + auth-user load
+    exports:
+      - "configFeature(): Feature"
+    wave: 5
+    status: implemented
+
+  - path: src/features/config/flows.ts
+    purpose: Login/logout/import flows driving the ConfigPanel overlays
+    exports:
+      - runLoginFlow
+      - runLogout
+      - runImport
+    wave: 5
     status: implemented
 
 harness:
@@ -610,6 +920,61 @@ docs:
     status: implemented
   - path: scripts/docs-append.sh
     purpose: Append a doc as a link line to its folder README index (idempotent)
+    wave: 5
+    status: implemented
+
+  - path: scripts/smoke-tui.sh
+    purpose: tmux-driven TUI smoke test — captures panes and greps expected chrome per phase
+    wave: 5
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-07-04-ui-consolidation-studio.md
+    purpose: Approved plan — UI consolidation (ddd/09–11) + standalone orchestration studio
+    wave: 5
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-07-08-canvas-session-binding-and-wire-fix.md
+    purpose: Approved plan — routeWire infinite-loop fix + canvas↔agents↔sessions binding (session identity, x-studio.sessions)
+    wave: 5
+    status: implemented
+
+  - path: docs/features/FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md
+    purpose: Feature doc — wire crash fix, canvas nodes as real sessions, click-to-open, bound plan runs
+    wave: 5
+    status: implemented
+
+  - path: docs/features/FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md
+    purpose: Operator guide — panes, keys, studio authoring, team dashboard, where things live
+    wave: 5
+    status: implemented
+
+  - path: docs/testing/TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md
+    purpose: E2E test guide — input/keymap, themes/profiles, widgets, studio authoring + run
+    wave: 5
+    status: implemented
+
+  - path: docs/testing/TESTING-CANVAS-SESSION-BINDING-2026-07-09.md
+    purpose: E2E test guide — wire-crash regression, binding states, click-through, bound runs, failure indicators
+    wave: 5
+    status: implemented
+
+  - path: docs/changes/CHANGE-UI-CONSOLIDATION-STUDIO-2026-07-07.md
+    purpose: Change delta — consolidation + studio behavioral table over Waves 0–5
+    wave: 5
+    status: implemented
+
+  - path: docs/changes/CHANGE-CANVAS-SESSION-BINDING-2026-07-09.md
+    purpose: Change delta — wire fix + session binding; before/after trees, Mermaid workflows
+    wave: 5
+    status: implemented
+
+  - path: docs/features/FEATURE-UI-CONSOLIDATION-2026-07-07.md
+    purpose: Feature doc — ddd/09–11 implementation (widgets, tokens, controller, keymap, a11y, size profiles, registry)
+    wave: 5
+    status: implemented
+
+  - path: docs/features/FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md
+    purpose: Feature doc — standalone studio + team dashboard + NDJSON run
     wave: 5
     status: implemented
   # ────────────────────────────────────────────────────────────────────────────

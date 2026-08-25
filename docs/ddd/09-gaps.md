@@ -1,9 +1,16 @@
 # 09 — Gaps, Inconsistencies & Issues
 
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 <!-- classification: DESIGN -->
 <!-- date: 2026-06-18 -->
-<!-- last-updated: 2026-06-18 -->
+<!-- last-updated: 2026-07-07 -->
+
+> **Status 2026-07-07:** addressed by `feature/ui-consolidation`
+> (plan `specs/docs/approvedPlans/2026-07-04-ui-consolidation-studio.md`).
+> Gaps 1–5, 7–15, 17–22 resolved; 6/16 kept as intended quirks; gap 14's
+> kernel-dependent pieces (MessageBus/SharedMemory/asks) await PLAN-00–08.
+> See `docs/features/FEATURE-UI-CONSOLIDATION-2026-07-07.md` and
+> `FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md` for the resolution map.
 
 Verified issues, classified so a redesign doesn't "fix" intended quirks blindly. Severity:
 🔴 functional/UX problem · 🟡 inconsistency · 🟢 intended quirk (decide explicitly).

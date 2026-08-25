@@ -1,8 +1,8 @@
-<!-- version: 1.1.0 -->
+<!-- version: 1.5.0 -->
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-06-19 -->
+<!-- last-updated: 2026-07-10 -->
 <!-- status: ACTIVE -->
 
 # Documentation Registry
@@ -22,12 +22,12 @@ Complete index of all documentation organized by type, feature, and date.
 
 | Type | Count | Latest | Status |
 |------|-------|--------|--------|
-| **FEATURE** | 4 | 2026-06-09 | ✅ Active |
-| **TESTING** | 2 | 2026-06-18 | ✅ Active |
+| **FEATURE** | 15 | 2026-07-08 | ✅ Active |
+| **TESTING** | 4 | 2026-07-09 | ✅ Active |
 | **DESIGN** | 1 + DDD set (14) | 2026-06-18 | ✅ Active |
 | **GAPS** | 0 | — | — |
 | **ANALYSIS** | 1 | 2026-06-09 | ✅ Active |
-| **CHANGE** | 1 | 2026-06-09 | ✅ Active |
+| **CHANGE** | 3 | 2026-07-09 | ✅ Active |
 | **STUDY** | 0 | — | — |
 | **REVIEW** | 4 | 2026-06-18 | ✅ Active |
 | **ARCHITECTURE** | 1 | 2026-04-27 | ✅ Active |
@@ -61,10 +61,23 @@ is the centralized term/acronym lookup.
 
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
+| FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md | 2026-07-08 | Canvas Session Binding | ✅ Active | routeWire crash fix + canvas nodes bound to real sessions: Agents-list visibility, click-to-open, bound plan runs |
+| FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md | 2026-07-07 | UI Consolidation + Studio | ✅ Active | Operator guide: panes, keys, studio authoring, team dashboard, where things live |
+| FEATURE-UI-CONSOLIDATION-2026-07-07.md | 2026-07-07 | UI Consolidation | ✅ Active | ddd/09–11 implementation: Overlay/ListBehavior, theme tokens, InputController, keymap, a11y, size profiles, Feature registry |
+| FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md | 2026-07-07 | Orchestration Studio | ✅ Active | Standalone PLAN-13/PLAN-10: StudioModel, typed connectors, inspector, toolbox, team dashboard, NDJSON run |
 | FEATURE-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | Live logging, metrics, auto-analysis operational guide |
 | FEATURE-WAVE-5-REGISTRY-AUTH-2026-06-09.md | 2026-04-XX | Registry Auth | ✅ Active | Registry authentication & key management |
 | FEATURE-WAVE-4-TERMINAL-PANEL-2026-05-18.md | 2026-04-XX | Terminal Panel | ✅ Active | Embedded PTY terminal usage |
 | FEATURE-AGENTFACTORY-SKILL-PIPELINE-2026-05-01.md | 2026-04-XX | Skill Pipeline | ✅ Active | Agent skill execution pipeline |
+| FEATURE-LOGGER-2026-06-09.md | 2026-06-09 | Logger | ✅ Active | Structured JSONL logger, ring buffer, log-file layout |
+| FEATURE-TOOLS-AND-TOKEN-FLOW-2026-06-01.md | 2026-06-01 | Core Tools | ✅ Active | Tool registry + token accounting flow |
+| FEATURE-WAVE-3-DAG-ORCHESTRATION-2026-05-01.md | 2026-05-01 | Orchestration | ✅ Active | Wave 3: DAG executor, plan schema, /run |
+| FEATURE-WAVE-2-ITUI-CANVAS-2026-04-27.md | 2026-04-27 | ITUI Canvas | ✅ Active | Wave 2: mouse SGR, block drag, wire routing |
+| FEATURE-WAVE-1-SESSION-2026-04-27.md | 2026-04-27 | Session | ✅ Active | Wave 1: Claude streaming loop, tools, slash commands |
+| FEATURE-WAVE-0-SCAFFOLD-2026-04-26.md | 2026-04-26 | Scaffold | ✅ Active | Wave 0: cell-buffer, ANSI, layout, doctor |
+| FEATURE-PROJECT-INDEX-2026-04-26.md | 2026-04-26 | Governance | ✅ Active | .ai/project-index.yml navigation aid |
+
+*(Rows below FEATURE-AGENTFACTORY-SKILL-PIPELINE were backfilled 2026-07-10 — they existed in `docs/features/` but were never registered.)*
 
 ---
 
@@ -72,6 +85,8 @@ is the centralized term/acronym lookup.
 
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
+| TESTING-CANVAS-SESSION-BINDING-2026-07-09.md | 2026-07-09 | Canvas Session Binding | ✅ Active | E2E: wire-crash regression, binding states, click-through, bound runs, failure indicators |
+| TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md | 2026-07-07 | UI Consolidation + Studio | ✅ Active | E2E: input/keymap, themes/profiles, widgets, studio authoring + run |
 | TESTING-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | 30+ test cases, procedures, failure checklist |
 | testing/TESTING-FACTORY-E2E-2026-06-18.md | 2026-06-18 | factory (Waves 0–5) | ✅ Active | E2E test guide: 9 surfaces, preconditions/steps/expected/failure indicators |
 
@@ -109,6 +124,8 @@ is the centralized term/acronym lookup.
 
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
+| CHANGE-CANVAS-SESSION-BINDING-2026-07-09.md | 2026-07-09 | Canvas Session Binding | ✅ Active | Delta: wire fix + binding; before/after trees, Mermaid workflows, operator-visible changes |
+| CHANGE-UI-CONSOLIDATION-STUDIO-2026-07-07.md | 2026-07-07 | UI Consolidation + Studio | ✅ Active | Delta over Waves 0–5: consolidation + studio behavioral table |
 | CHANGE-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | Before/after code, behavioral changes, performance |
 
 ---
@@ -131,8 +148,10 @@ is the centralized term/acronym lookup.
 |-----|------|------|---------|--------|---------|
 | REVIEW-DOCUMENTATION-LOGS-2026-06-09.md | 2026-06-09 | DOCUMENTATION | Logs Panel | ✅ Active | Documentation completeness audit |
 | REVIEW-SECURITY-ARCHITECTURE-2026-04-27.md | 2026-04-27 | SECURITY | Overall | ✅ Active | Security & architecture review |
-| REVIEW-CURRENT-STATE-2026-06-18.md | 2026-06-18 | IMPLEMENTATION | factory (Waves 0–5) | ✅ Active | Consolidated review: reasoning, assumptions, gaps/risks, enhancements, safeguards |
+| REVIEW-CURRENT-STATE-2026-06-18.md | 2026-06-18 | IMPLEMENTATION | factory (v2.1: Waves 0–5 + ui-consolidation + session binding) | ✅ Active | Consolidated review: reasoning, assumptions, gaps/risks (R10–R19), enhancements, safeguards |
 | REVIEW-DOCUMENTATION-WORKFLOW-2026-06-18.md | 2026-06-18 | DOCUMENTATION | Docs & plan workflow | ✅ Active | How the taxonomy + two plan buckets work, every scenario, tree diagrams |
+| REVIEW-DOCUMENTATION-VERIFICATION-2026-06-09.md | 2026-06-09 | DOCUMENTATION | Logs Panel | ✅ Active | Verification pass of the logs-panel doc set *(backfilled 2026-07-10)* |
+| REVIEW-SECURITY-DESIGN-2026-04-27.md | 2026-04-27 | SECURITY | Overall | ✅ Active | Security design companion to the architecture review *(backfilled 2026-07-10)* |
 
 ---
 
@@ -178,6 +197,23 @@ Location: `docs/PLANS/`. Set introduced by **PR #23** (multi-agent orchestration
 **Status**: 🟢 16-plan set, dependency-closed, `classification: PLAN` headers applied. Lives in
 `docs/PLANS/` (document plans). Promoted to `specs/docs/approvedPlans/` (dated format) on
 feature-dev approval. Also open in PR #23.
+
+**Approved plans** (`specs/docs/approvedPlans/`, latest first):
+
+| Doc | Date | Feature | Status | Purpose |
+|-----|------|---------|--------|---------|
+| 2026-07-08-canvas-session-binding-and-wire-fix.md | 2026-07-08 | Canvas Session Binding | ✅ Active | routeWire infinite-loop fix + session identity (rollout id), x-studio.sessions binding, bound plan runs |
+| 2026-07-04-ui-consolidation-studio.md | 2026-07-04 | UI Consolidation + Studio | ✅ Active | Addresses ddd/09–11: P0–P5 consolidation, Feature registry, standalone Studio + team dashboard |
+| 2026-06-09-wave-5-registry-auth.md | 2026-06-09 | Registry Auth | ✅ Done | Wave 5: registry client + device login *(backfilled 2026-07-10, as are all rows below)* |
+| 2026-05-31-canvas-interactive-wiring.md | 2026-05-31 | ITUI Canvas | ✅ Done | Interactive wiring (ports, drag, hit-test) |
+| 2026-05-30-command-palette.md | 2026-05-30 | Command Palette | ✅ Done | Ctrl+P palette |
+| 2026-05-18-wave-4-terminal-panel.md | 2026-05-18 | Terminal Panel | ✅ Done | Wave 4: PTY embed |
+| 2026-05-01-wave-3.5-multi-llm.md | 2026-05-01 | Multi-LLM | ✅ Done | Provider adapters (Anthropic/OpenAI) |
+| 2026-05-01-wave-3-orchestration.md | 2026-05-01 | Orchestration | ✅ Done | Wave 3: DAG executor + plan schema |
+| 2026-04-27-wave-2-canvas.md | 2026-04-27 | ITUI Canvas | ✅ Done | Wave 2: canvas scaffold |
+| 2026-04-27-ref-repos-permanent.md | 2026-04-27 | Governance | ✅ Done | Rule 9: permanent .refs/ contract |
+| 2026-04-26-wave-1-session.md | 2026-04-26 | Session | ✅ Done | Wave 1: Claude loop + tools |
+| 2026-04-26-wave-0-scaffold.md | 2026-04-26 | Scaffold | ✅ Done | Wave 0: renderer + doctor |
 
 ---
 
@@ -271,6 +307,9 @@ feature-dev approval. Also open in PR #23.
 
 | Date | Type | Doc | Feature | Status |
 |------|------|-----|---------|--------|
+| 2026-07-07 | FEATURE | FEATURE-UI-CONSOLIDATION-2026-07-07.md | UI Consolidation | ✅ Active |
+| 2026-07-07 | FEATURE | FEATURE-ORCHESTRATION-STUDIO-2026-07-07.md | Orchestration Studio | ✅ Active |
+| 2026-07-04 | PLAN | specs/docs/approvedPlans/2026-07-04-ui-consolidation-studio.md | UI Consolidation + Studio | ✅ Active |
 | 2026-06-09 | SUMMARY | IMPLEMENTATION-COMPLETE-LOGS-PANEL-2026-06-09.md | Logs Panel | ✅ Active |
 | 2026-06-09 | REVIEW | INDEX-LOGS-PANEL-DOCUMENTATION-2026-06-09.md | Logs Panel | ✅ Active |
 | 2026-06-09 | REVIEW | REVIEW-DOCUMENTATION-LOGS-2026-06-09.md | Logs Panel | ✅ Active |

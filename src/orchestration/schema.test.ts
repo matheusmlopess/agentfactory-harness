@@ -98,4 +98,20 @@ describe('PlanSchema', () => {
     })
     expect(plan.steps[1]?.dependsOn).toEqual(['a'])
   })
+
+  it('x-studio without sessions defaults to {} (legacy files parse)', () => {
+    const plan = PlanSchema.parse({
+      ...validPlan,
+      'x-studio': { layout: {}, edges: [] },
+    })
+    expect(plan['x-studio']!.sessions).toEqual({})
+  })
+
+  it('x-studio.sessions maps node ids to session ids', () => {
+    const plan = PlanSchema.parse({
+      ...validPlan,
+      'x-studio': { sessions: { [validPlan.steps[0]!.id]: '/path/to/rollout.jsonl' } },
+    })
+    expect(plan['x-studio']!.sessions).toEqual({ [validPlan.steps[0]!.id]: '/path/to/rollout.jsonl' })
+  })
 })

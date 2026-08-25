@@ -30,7 +30,8 @@ export function buildCli(version: string): Command {
   program
     .command('run [plan-path]')
     .description('Execute an af-plan.json and stream step events')
-    .action(async (planPath: string | undefined) => {
+    .option('--json', 'emit newline-delimited JSON events on stdout (for automation)')
+    .action(async (planPath: string | undefined, opts: { json?: boolean }) => {
       const file = resolve(process.cwd(), planPath ?? 'af-plan.json')
       const raw = JSON.parse(await readFile(file, 'utf8'))
       const plan = PlanSchema.parse(raw)
@@ -52,7 +53,15 @@ export function buildCli(version: string): Command {
         },
       })
 
+      let failed = false
       for await (const event of executor.run()) {
+        if (event.type === 'step:error') failed = true
+        if (opts.json) {
+          // NDJSON contract: one JSON object per StepEvent + ISO timestamp
+          // on stdout; human-readable lines stay on stderr
+          process.stdout.write(JSON.stringify({ ...event, ts: new Date().toISOString() }) + '\n')
+          continue
+        }
         if (event.type === 'plan:done') {
           process.stderr.write('plan:done\n')
         } else {
@@ -61,6 +70,7 @@ export function buildCli(version: string): Command {
           )
         }
       }
+      if (failed) process.exitCode = 1
     })
 
   const planCmd = program
