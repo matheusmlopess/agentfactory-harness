@@ -1,14 +1,43 @@
 meta:
-  version: "1.7.2"
-  wave: 5
+  version: "1.8.0"
+  wave: 6
   description: >
     Agent navigation aid — read this before searching src/ or .ai/.
     Updated each wave: add entries for new files, flip status to
     "implemented" on merge. Top-level keys are section names.
+    Wave 6 (compartmentalize): platform blocks are now @factory/* workspace
+    PACKAGES under packages/*; the app host + features stay in src/.
+    See workspace_packages below and docs/features/ARCHITECTURE-BLUEPRINT.
   status_values: [implemented, planned, stub]
 
+workspace_packages:
+  - path: packages/orchestration
+    purpose: "@factory/orchestration — pure DAG engine (schema, executor, graph, studio-model); deps: zod; TUI-free/reusable"
+    wave: 6
+    status: implemented
+  - path: packages/core
+    purpose: "@factory/core — agent-loop, llm adapters, config store, tools, logger, session, version; deps: @anthropic-ai/sdk, openai, zod"
+    wave: 6
+    status: implemented
+  - path: packages/shared
+    purpose: "@factory/shared — TUI platform (renderer, input controller/keymap/router, widgets, Panel, tabs); deps: @factory/core (tracked soft spot)"
+    wave: 6
+    status: implemented
+  - path: packages/contracts
+    purpose: "@factory/contracts — Feature contract + service bridges + typed ServiceRegistry + FeatureManifest/CONTRACT_VERSION; deps: @factory/{core,orchestration,shared}"
+    wave: 6
+    status: implemented
+  - path: packages/registry
+    purpose: "@factory/registry — agentfactory.dev client (auth, login, key import); deps: @factory/core"
+    wave: 6
+    status: implemented
+  - path: tsconfig.base.json
+    purpose: "Shared strict/NodeNext compilerOptions extended by root + each package tsconfig"
+    wave: 6
+    status: implemented
+
 tui_renderer:
-  - path: src/shared/renderer/ansi.ts
+  - path: packages/shared/src/renderer/ansi.ts
     purpose: Raw ANSI escape sequence builders — no dependencies
     exports:
       - ESC
@@ -36,7 +65,7 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/shared/renderer/cell-buffer.ts
+  - path: packages/shared/src/renderer/cell-buffer.ts
     purpose: "Core renderer: Cell[][] grid, minimal-diff output, full repaint"
     exports:
       - Cell (interface)
@@ -49,7 +78,7 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/shared/renderer/layout.ts
+  - path: packages/shared/src/renderer/layout.ts
     purpose: Computes Rect panel regions from terminal dimensions; draws borders
     exports:
       - Rect (interface)
@@ -59,7 +88,7 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/shared/renderer/theme.ts
+  - path: packages/shared/src/renderer/theme.ts
     purpose: 256-color palette constants + box-drawing char sets
     exports:
       - Colors
@@ -70,17 +99,17 @@ tui_renderer:
     wave: 0
     status: implemented
 
-  - path: src/shared/renderer/layout.test.ts
+  - path: packages/shared/src/renderer/layout.test.ts
     purpose: Characterization tests — exact computeLayout rects + drawBorder chrome (ui-consolidation P0)
     wave: 5
     status: implemented
 
-  - path: src/shared/renderer/theme.test.ts
+  - path: packages/shared/src/renderer/theme.test.ts
     purpose: Semantic token values, live setTheme swap, contrast pairs, render diff under both themes
     wave: 5
     status: implemented
 
-  - path: src/shared/renderer/motion.ts
+  - path: packages/shared/src/renderer/motion.ts
     purpose: Reduced-motion preference (gap 19) — motionEnabled() + refresh hook
     exports:
       - "motionEnabled(): boolean"
@@ -88,7 +117,7 @@ tui_renderer:
     wave: 5
     status: implemented
 
-  - path: src/shared/renderer/size-profiles.ts
+  - path: packages/shared/src/renderer/size-profiles.ts
     purpose: Settings-based min terminal sizes (compact/standard/wide) + sizeCheck + too-small guard screen
     exports:
       - SizeProfile (interface)
@@ -99,13 +128,13 @@ tui_renderer:
     wave: 5
     status: implemented
 
-  - path: src/shared/renderer/size-profiles.test.ts
+  - path: packages/shared/src/renderer/size-profiles.test.ts
     purpose: sizeCheck boundaries + guard-screen render
     wave: 5
     status: implemented
 
 tui_input:
-  - path: src/shared/input/keyboard.ts
+  - path: packages/shared/src/input/keyboard.ts
     purpose: Raw stdin buffer to KeyEvent; drops mouse escape bytes
     exports:
       - KeyEvent (interface)
@@ -113,7 +142,7 @@ tui_input:
     wave: 0
     status: implemented
 
-  - path: src/shared/input/mouse.ts
+  - path: packages/shared/src/input/mouse.ts
     purpose: "xterm SGR mouse event parser (\\033[<Pb;Px;PyM/m)"
     exports:
       - MouseEvent (interface)
@@ -121,7 +150,7 @@ tui_input:
     wave: 2
     status: implemented
 
-  - path: src/shared/input/router.ts
+  - path: packages/shared/src/input/router.ts
     purpose: Dispatches keyboard/mouse events to the currently focused panel
     exports:
       - InputRouter (class)
@@ -129,12 +158,12 @@ tui_input:
     wave: 2
     status: implemented
 
-  - path: src/shared/input/router.test.ts
+  - path: packages/shared/src/input/router.test.ts
     purpose: InputRouter tests over the TabEntry contract (updated in P3 — all six tabs first-class)
     wave: 5
     status: implemented
 
-  - path: src/shared/input/hit-test.ts
+  - path: packages/shared/src/input/hit-test.ts
     purpose: HitMap named clickable zones (tab bar, exit, status-bar) + rectContains
     exports:
       - "rectContains(rect, row, col)"
@@ -142,7 +171,7 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/shared/input/controller.ts
+  - path: packages/shared/src/input/controller.ts
     purpose: The stdin input state machine extracted from app.ts — terminal raw-bypass verbatim; handleData() testable without a TTY
     exports:
       - TerminalTarget (interface)
@@ -151,12 +180,12 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/shared/input/controller.test.ts
+  - path: packages/shared/src/input/controller.test.ts
     purpose: Byte-buffer tests against the real input state machine (terminal bypass table, global keys, mouse routing)
     wave: 5
     status: implemented
 
-  - path: src/shared/tabs.ts
+  - path: packages/shared/src/tabs.ts
     purpose: TabId/TabEntry — unified tab model (title, panel accessor, rect, hit visibility, capture-mouse)
     exports:
       - TabId (type)
@@ -167,7 +196,7 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/shared/tab-bar.ts
+  - path: packages/shared/src/tab-bar.ts
     purpose: Pure tab-bar geometry — label spans + tab/exit hit-testing (extracted from app.ts)
     exports:
       - EXIT_BTN
@@ -178,12 +207,12 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/shared/tab-bar.test.ts
+  - path: packages/shared/src/tab-bar.test.ts
     purpose: tab-bar geometry tests — spans, hits, gaps, exit-button precedence
     wave: 5
     status: implemented
 
-  - path: src/shared/input/keymap.ts
+  - path: packages/shared/src/input/keymap.ts
     purpose: Declarative key bindings — context filtering (when), text-input suppression, panelFirst, help listing
     exports:
       - KeyBindingDef (interface)
@@ -191,13 +220,13 @@ tui_input:
     wave: 5
     status: implemented
 
-  - path: src/shared/input/keymap.test.ts
+  - path: packages/shared/src/input/keymap.test.ts
     purpose: Keymap tests — context filter, printable suppression, aliases, panelFirst, list()
     wave: 5
     status: implemented
 
 tui_panels:
-  - path: src/shared/panel.ts
+  - path: packages/shared/src/panel.ts
     purpose: Abstract base class for all panels
     exports:
       - Panel (abstract class)
@@ -210,7 +239,7 @@ tui_panels:
     wave: 0
     status: implemented
 
-  - path: src/shared/widgets/StatusBar.ts
+  - path: packages/shared/src/widgets/StatusBar.ts
     purpose: Bottom status line — version, mode label, keybind hints
     exports:
       - "renderStatusBar(buf: CellBuffer, rect: Rect, mode?: string): void"
@@ -272,7 +301,7 @@ tui_panels:
     wave: 4
     status: implemented
 
-  - path: src/shared/input/terminal-bypass.test.ts
+  - path: packages/shared/src/input/terminal-bypass.test.ts
     purpose: Unit tests for Terminal tab raw-byte bypass — F1–F5, Ctrl+Q, Shift+PgUp/Dn, mouse intercept
     wave: 4
     status: implemented
@@ -306,14 +335,14 @@ tui_widgets:
     wave: 2
     status: implemented
 
-  - path: src/shared/widgets/ContextMenu.ts
+  - path: packages/shared/src/widgets/ContextMenu.ts
     purpose: Right-click popup — action list, keyboard nav
     exports:
       - ContextMenu (class)
     wave: 2
     status: implemented
 
-  - path: src/shared/widgets/CommandPalette.ts
+  - path: packages/shared/src/widgets/CommandPalette.ts
     purpose: Ctrl+P fuzzy-search command overlay — fuzzyScore + centered modal + 8 registered commands
     exports:
       - PaletteCommand (interface)
@@ -322,12 +351,12 @@ tui_widgets:
     wave: 1
     status: implemented
 
-  - path: src/shared/widgets/CommandPalette.test.ts
+  - path: packages/shared/src/widgets/CommandPalette.test.ts
     purpose: CommandPalette unit tests — fuzzyScore (4 cases) + palette render/nav/action (10 cases)
     wave: 1
     status: implemented
 
-  - path: src/shared/widgets/Overlay.ts
+  - path: packages/shared/src/widgets/Overlay.ts
     purpose: Shared modal frame — sm/md/lg tiers (46/56/64), centered geometry, title, footer hint, Esc + click-outside dismissal
     exports:
       - OverlayTier (type)
@@ -337,12 +366,12 @@ tui_widgets:
     wave: 5
     status: implemented
 
-  - path: src/shared/widgets/Overlay.test.ts
+  - path: packages/shared/src/widgets/Overlay.test.ts
     purpose: Overlay geometry/clamping/frame/dismissal tests
     wave: 5
     status: implemented
 
-  - path: src/shared/widgets/ScrollableList.ts
+  - path: packages/shared/src/widgets/ScrollableList.ts
     purpose: The shared list behaviour — selection + viewport, ListOptions (wrap, wheel viewport|selection, wheelStep), headless-capable
     exports:
       - ListRow (interface)
@@ -351,17 +380,17 @@ tui_widgets:
     wave: 5
     status: implemented
 
-  - path: src/shared/widgets/ScrollableList.test.ts
+  - path: packages/shared/src/widgets/ScrollableList.test.ts
     purpose: clamp/wrap nav, header skip, wheel semantics, click mapping
     wave: 5
     status: implemented
 
-  - path: src/shared/widgets/ContextMenu.test.ts
+  - path: packages/shared/src/widgets/ContextMenu.test.ts
     purpose: ContextMenu keyboard/mouse/dismissal tests (first coverage)
     wave: 5
     status: implemented
 
-  - path: src/shared/widgets/HelpOverlay.ts
+  - path: packages/shared/src/widgets/HelpOverlay.ts
     purpose: "`?` keyboard-shortcut reference — keymap listing grouped Global/tab, scrollable, Esc/click dismiss"
     exports:
       - HelpOverlay (class)
@@ -371,7 +400,7 @@ tui_widgets:
   # layout.ts extended in Wave 4 to add terminal: Rect
 
 core:
-  - path: src/core/agent-loop.ts
+  - path: packages/core/src/agent-loop.ts
     purpose: Claude streaming loop — sends messages, handles tool calls
     exports:
       - AgentEvent (type union)
@@ -380,43 +409,43 @@ core:
     wave: 1
     status: implemented
 
-  - path: src/core/version.ts
+  - path: packages/core/src/version.ts
     purpose: Single source of truth for the app version — cached runtime read of package.json
     exports:
       - "getVersion(): string"
     wave: 5
     status: implemented
 
-  - path: src/core/version.test.ts
+  - path: packages/core/src/version.test.ts
     purpose: getVersion matches package.json + caching
     wave: 5
     status: implemented
 
-  - path: src/core/config/mask.ts
+  - path: packages/core/src/config/mask.ts
     purpose: Centralized secret masking (prefix + …▓▓▓▓; urls unmasked) — replaces 2 ad-hoc schemes
     exports:
       - "maskSecret(value, fieldType?): string"
     wave: 5
     status: implemented
 
-  - path: src/core/config/mask.test.ts
+  - path: packages/core/src/config/mask.test.ts
     purpose: maskSecret edge cases — dashes, short values, urls, default fieldType
     wave: 5
     status: implemented
 
-  - path: src/core/llm/limits.ts
+  - path: packages/core/src/llm/limits.ts
     purpose: Model-aware output-token ceilings (claude 8192 / big-openai 16384 / fallback 4096)
     exports:
       - "maxOutputTokens(model): number"
     wave: 5
     status: implemented
 
-  - path: src/core/llm/limits.test.ts
+  - path: packages/core/src/llm/limits.test.ts
     purpose: maxOutputTokens prefix table tests
     wave: 5
     status: implemented
 
-  - path: src/core/llm/model-cache.ts
+  - path: packages/core/src/llm/model-cache.ts
     purpose: TTL cache in front of listModels — instant model-picker reopen
     exports:
       - "cachedListModels(provider, apiKey?, ttlMs?)"
@@ -424,7 +453,7 @@ core:
     wave: 5
     status: implemented
 
-  - path: src/core/session.ts
+  - path: packages/core/src/session.ts
     purpose: Conversation history, token tracking, context management
     exports:
       - Session (class)
@@ -434,7 +463,7 @@ core:
     wave: 1
     status: implemented
 
-  - path: src/core/rollout.ts
+  - path: packages/core/src/rollout.ts
     purpose: "Append-only JSONL session persistence (Codex-style rollout files) — ~/.config/agentfactory/sessions/<day>/rollout-*.jsonl"
     exports:
       - RolloutEvent (type union)
@@ -445,12 +474,12 @@ core:
     wave: 5
     status: implemented
 
-  - path: src/core/rollout.test.ts
+  - path: packages/core/src/rollout.test.ts
     purpose: RolloutStore tests — create/meta, append order, list newest-first, load, sanitize
     wave: 5
     status: implemented
 
-  - path: src/core/nobel.ts
+  - path: packages/core/src/nobel.ts
     purpose: "Nobel laureate names + quotes/contributions for session naming and hover tooltips"
     exports:
       - Laureate (interface)
@@ -460,7 +489,7 @@ core:
     wave: 5
     status: implemented
 
-  - path: src/core/logger.ts
+  - path: packages/core/src/logger.ts
     purpose: "Structured logging to ~/.config/agentfactory/logs/ with configurable verbosity (DEBUG/INFO/WARN/ERROR)"
     exports:
       - Logger (class)
@@ -471,19 +500,19 @@ core:
     wave: 5
     status: implemented
 
-  - path: src/core/logger.test.ts
+  - path: packages/core/src/logger.test.ts
     purpose: "Logger tests — instantiation, JSON formatting, log levels, file paths"
     wave: 5
     status: implemented
 
-  - path: src/core/hooks.ts
+  - path: packages/core/src/hooks.ts
     purpose: "Hook runner — PreToolUse PostToolUse SessionStart SessionStop StepStart StepComplete AgentSpawn"
     exports:
       - "runHook(event, ctx): Promise<HookResult>"
     wave: 1
     status: implemented
 
-  - path: src/core/tools/index.ts
+  - path: packages/core/src/tools/index.ts
     purpose: Tool registry and dispatcher
     exports:
       - registerTool
@@ -491,42 +520,42 @@ core:
     wave: 1
     status: implemented
 
-  - path: src/core/tools/bash.ts
+  - path: packages/core/src/tools/bash.ts
     purpose: Bash tool — child_process exec with timeout
     exports: [BashTool]
     wave: 1
     status: implemented
 
-  - path: src/core/tools/read.ts
+  - path: packages/core/src/tools/read.ts
     purpose: Read tool — filesystem file reader
     exports: [ReadTool]
     wave: 1
     status: implemented
 
-  - path: src/core/tools/write.ts
+  - path: packages/core/src/tools/write.ts
     purpose: Write tool — filesystem file writer
     exports: [WriteTool]
     wave: 1
     status: implemented
 
-  - path: src/core/tools/web-fetch.ts
+  - path: packages/core/src/tools/web-fetch.ts
     purpose: WebFetch tool — HTTP GET with body extraction
     exports: [WebFetchTool]
     wave: 1
     status: implemented
 
-  - path: src/core/tools/agent.ts
+  - path: packages/core/src/tools/agent.ts
     purpose: AgentTool — spawns a child agentLoop session, returns final text
     exports: [AgentTool]
     wave: 3
     status: implemented
 
-  - path: src/core/tools/agent.test.ts
+  - path: packages/core/src/tools/agent.test.ts
     purpose: AgentTool tests — text concat, empty output, metadata
     wave: 3
     status: implemented
 
-  - path: src/core/config/store.ts
+  - path: packages/core/src/config/store.ts
     purpose: Persistent config store — read/write provider API keys to ~/.config/agentfactory/config.json
     exports:
       - store (singleton)
@@ -534,12 +563,12 @@ core:
     wave: 4
     status: implemented
 
-  - path: src/core/config/store.test.ts
+  - path: packages/core/src/config/store.test.ts
     purpose: ConfigStore tests — init, get/set, persist, missing file
     wave: 4
     status: implemented
 
-  - path: src/core/config/providers.ts
+  - path: packages/core/src/config/providers.ts
     purpose: Registry of 35+ AI provider definitions — name, env var, placeholder
     exports:
       - PROVIDERS (readonly array)
@@ -548,7 +577,7 @@ core:
     status: implemented
 
 orchestration:
-  - path: src/orchestration/schema.ts
+  - path: packages/orchestration/src/schema.ts
     purpose: "af-plan.json Zod schema — PlanSchema, StepSchema + additive x-studio extension (layout + typed edges + node→session bindings)"
     exports:
       - PlanSchema
@@ -560,7 +589,7 @@ orchestration:
     wave: 3
     status: implemented
 
-  - path: src/orchestration/studio-model.ts
+  - path: packages/orchestration/src/studio-model.ts
     purpose: "Pure studio core (PLAN-13 standalone) — StudioModel source of truth, serialize/round-trip af-plan.json incl. sessionId bindings, design-time validation, deriveView; no TUI imports"
     exports:
       - StudioNode (interface)
@@ -575,17 +604,17 @@ orchestration:
     wave: 5
     status: implemented
 
-  - path: src/orchestration/studio-model.test.ts
+  - path: packages/orchestration/src/studio-model.test.ts
     purpose: purity check, round-trips, handoff prompt scaffold, validation table, deriveView
     wave: 5
     status: implemented
 
-  - path: src/orchestration/schema.test.ts
+  - path: packages/orchestration/src/schema.test.ts
     purpose: Schema validation tests — valid plans, duplicate ids, bad dependsOn refs
     wave: 3
     status: implemented
 
-  - path: src/orchestration/executor.ts
+  - path: packages/orchestration/src/executor.ts
     purpose: "DAG executor — AsyncIterable<StepEvent>, toposort dispatch, cascade-skip on error"
     exports:
       - Executor (class)
@@ -596,12 +625,12 @@ orchestration:
     wave: 3
     status: implemented
 
-  - path: src/orchestration/executor.test.ts
+  - path: packages/orchestration/src/executor.test.ts
     purpose: Executor tests — single step, parallel fan-out, chain, cascade failure, concurrency, interpolation
     wave: 3
     status: implemented
 
-  - path: src/orchestration/planner.ts
+  - path: packages/orchestration/src/planner.ts
     purpose: "/plan new interactive wizard — prompts → writes af-plan.json"
     exports:
       - Planner (class)
@@ -609,12 +638,12 @@ orchestration:
     wave: 3
     status: implemented
 
-  - path: src/orchestration/planner.test.ts
+  - path: packages/orchestration/src/planner.test.ts
     purpose: Planner tests — single step, dependsOn parsing, blank-name error
     wave: 3
     status: implemented
 
-  - path: src/orchestration/graph.ts
+  - path: packages/orchestration/src/graph.ts
     purpose: "Pure DAG utilities — topological sort, cycle detection, readySet"
     exports:
       - "toposort(steps): string[]"
@@ -623,13 +652,13 @@ orchestration:
     wave: 3
     status: implemented
 
-  - path: src/orchestration/graph.test.ts
+  - path: packages/orchestration/src/graph.test.ts
     purpose: Graph tests — linear chain, diamond, self-cycle, 3-node cycle, readySet scenarios
     wave: 3
     status: implemented
 
 contracts:
-  - path: src/contracts/index.ts
+  - path: packages/contracts/src/index.ts
     purpose: "Neutral bolt-spec barrel — the Feature contract + cross-feature service bridges/registry; features/shared/host import here instead of each other"
     exports:
       - Feature
@@ -644,11 +673,11 @@ contracts:
       - createServiceRegistry
     wave: 6
     status: implemented
-  - path: src/contracts/feature.ts
+  - path: packages/contracts/src/feature.ts
     purpose: "Feature + FeatureCtx contract (moved from features/types.ts); FeatureCtx.services is the typed ServiceRegistry"
     wave: 6
     status: implemented
-  - path: src/contracts/services.ts
+  - path: packages/contracts/src/services.ts
     purpose: "SessionBridge/PlanBridge/PlanEventSink + ServiceMap + typed ServiceRegistry (replaces Map<string,unknown> + casts)"
     exports:
       - SessionBridge
@@ -659,7 +688,7 @@ contracts:
       - createServiceRegistry
     wave: 6
     status: implemented
-  - path: src/contracts/services.test.ts
+  - path: packages/contracts/src/services.test.ts
     purpose: "ServiceRegistry unit tests — absence/get/set/dedup/key-independence"
     wave: 6
     status: implemented
@@ -792,7 +821,7 @@ harness:
     status: planned
 
 registry:
-  - path: src/registry/auth.ts
+  - path: packages/registry/src/auth.ts
     purpose: "Registry auth — read/write/clear ~/.agentfactory/token; decode JWT to AuthUser"
     exports:
       - AuthUser (interface)
@@ -804,19 +833,19 @@ registry:
     wave: 5
     status: implemented
 
-  - path: src/registry/auth.test.ts
+  - path: packages/registry/src/auth.test.ts
     purpose: decodeUser unit tests — valid JWT, missing handle, malformed, default plan
     wave: 5
     status: implemented
 
-  - path: src/registry/client.ts
+  - path: packages/registry/src/client.ts
     purpose: "agentfactory.dev typed fetch wrapper — reads Bearer token from auth.ts; get/post/put/delete"
     exports:
       - registryClient (singleton)
     wave: 5
     status: implemented
 
-  - path: src/registry/login.ts
+  - path: packages/registry/src/login.ts
     purpose: "Device-code login flow — POST /auth/cli/device, open browser, poll for token, save on success"
     exports:
       - LoginEvent (type union)
@@ -824,7 +853,7 @@ registry:
     wave: 5
     status: implemented
 
-  - path: src/registry/import-keys.ts
+  - path: packages/registry/src/import-keys.ts
     purpose: "Scan ~/.claude/.credentials.json and env vars for known API keys; return candidates for user confirmation"
     exports:
       - ImportCandidate (interface)
@@ -832,17 +861,17 @@ registry:
     wave: 5
     status: implemented
 
-  - path: src/registry/client.test.ts
+  - path: packages/registry/src/client.test.ts
     purpose: registryClient tests — Bearer auth, methods, error handling, env var
     wave: 5
     status: implemented
 
-  - path: src/registry/login.test.ts
+  - path: packages/registry/src/login.test.ts
     purpose: startDeviceLogin tests — device endpoint, code emit, polling, expiry, success
     wave: 5
     status: implemented
 
-  - path: src/registry/import-keys.test.ts
+  - path: packages/registry/src/import-keys.test.ts
     purpose: importFromTools tests — file scan, env scan, deduplication, empty
     wave: 5
     status: implemented
