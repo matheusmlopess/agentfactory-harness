@@ -8,10 +8,29 @@
  * Type references to shared/core/orchestration are `import type` only (erased
  * at compile time), so this module carries no runtime dependency on them.
  */
-import type { SessionMeta } from '../features/session/panel.js'
 import type { ModelEntry } from '../core/llm/index.js'
 import type { Plan } from '../orchestration/schema.js'
 import type { StepEvent } from '../orchestration/executor.js'
+
+/** Per-session run statistics (part of the session contract's data shape). */
+export interface SessionStats {
+  status:       'running' | 'done' | 'error'
+  model:        string
+  inputTokens:  number
+  outputTokens: number
+  toolCalls:    number
+  turns:        number
+  startTime:    number
+}
+
+/** A session as seen by consumers of the session bridge. */
+export interface SessionMeta {
+  id:     string
+  name:   string
+  status: 'idle' | 'running' | 'done' | 'error'
+  active: boolean
+  stats:  SessionStats | null
+}
 
 /** Provided by the session feature under key 'session'. */
 export interface SessionBridge {

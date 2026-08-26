@@ -1134,6 +1134,11 @@ config:
     wave: 4
     status: implemented
 
+  - path: eslint.config.js
+    purpose: "Architecture boundary enforcement (eslint-plugin-boundaries) — element-types allow-matrix bans feature→feature + layering-up imports; run by `npm run lint` and CI"
+    wave: 6
+    status: implemented
+
   - path: tsconfig.json
     purpose: TypeScript compiler config
     key_values:

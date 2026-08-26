@@ -16,6 +16,8 @@ export type {
   SessionBridge,
   PlanBridge,
   PlanEventSink,
+  SessionMeta,
+  SessionStats,
   ServiceMap,
   ServiceKey,
   ServiceRegistry,
