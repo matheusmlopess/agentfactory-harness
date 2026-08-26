@@ -979,6 +979,21 @@ docs:
     wave: 5
     status: implemented
 
+  - path: docs/features/ARCHITECTURE-BLUEPRINT-2026-08-26.md
+    purpose: "Block architecture blueprint — per-block I/O contracts, backward-compat policy, mermaid diagrams, enforcement matrix, test blueprint"
+    wave: 6
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-08-26-compartmentalize-blocks.md
+    purpose: "Approved plan — compartmentalize into swappable blocks (contracts, boundaries, packages, toggles)"
+    wave: 6
+    status: implemented
+
+  - path: .ai/rules/module-boundaries.md
+    purpose: "Rule 10 — enforced module boundary allow-matrix; features talk via ServiceRegistry, never sibling imports"
+    wave: 6
+    status: implemented
+
   - path: docs/features/FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md
     purpose: Operator guide — panes, keys, studio authoring, team dashboard, where things live
     wave: 5
