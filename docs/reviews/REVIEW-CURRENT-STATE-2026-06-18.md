@@ -1,6 +1,6 @@
 # Consolidated Implementation Review — `factory` (Waves 0–5 + UI Consolidation + Compartmentalization)
 
-<!-- version: 2.2.0 -->
+<!-- version: 2.3.0 -->
 <!-- classification: REVIEW -->
 <!-- date: 2026-06-18 -->
 <!-- last-updated: 2026-08-26 -->
@@ -343,12 +343,13 @@ accumulation (R17), and the environment-sensitive smoke gate (R19).
 
 | # | Risk | Impact | Sev |
 |---|---|---|---|
-| C1 | **Cross-package layering not machine-checked** (ESLint governs only `src/`; package deps are declarative but npm won't block an undeclared workspace import) | A package could import an undeclared sibling and tsc/build still pass | 🟡 |
-| C2 | **`shared → core` coupling** | `@factory/shared` isn't reusable standalone | 🟢 |
-| C3 | **Features not yet packages** | no per-feature versioning; `node-pty` installed even when Terminal is off | 🟢 |
-| C4 | **`exports` point at source** | packages aren't independently publishable to npm as-is (dist-less) | 🟢 |
-| C5 | **Lockfile drift under `package-lock=false`** | CI `npm ci` fails silently after a dep change | 🟡 (mitigated: documented + verified) |
+| C1 | **Cross-package layering not machine-checked** (ESLint governs only `src/`; package deps are declarative but npm won't block an undeclared workspace import) | A package could import an undeclared sibling and tsc/build still pass | 🟡 → ✅ **closed (F)** |
+| C2 | **`shared → core` coupling** | `@factory/shared` isn't reusable standalone | 🟢 (deferred — needs B.3-clean prop-injection) |
+| C3 | **Features not yet packages** | no per-feature versioning; `node-pty` installed even when Terminal is off | 🟢 (deferred — larger split) |
+| C4 | **`exports` point at source** | packages aren't independently publishable to npm as-is (dist-less) | 🟢 (deferred — only matters if published to npm) |
+| C5 | **Lockfile drift under `package-lock=false`** | CI `npm ci` fails after a dep change | 🟡 → ✅ **closed (F)** — the existing `npm ci` in every CI job is the guard |
 | C6 | **Contract gate is major-only** | a feature depending on a minor-added service could load and then `get()` undefined | 🟢 (graceful — consumer already handles undefined) |
+| C7 | **Built bin resolved `@factory/*` to `.ts`** (tsup externalized the workspace deps; smoke only ran `tsx` dev, so it went undetected) | shipped `factory` bin crashed with `ERR_UNKNOWN_FILE_EXTENSION` | 🔴 → ✅ **closed (F)** — `tsup.config.ts` `noExternal: [/^@factory\//]` bundles them |
 
 ### 8.4 Missing scenarios (not yet handled/verified)
 
@@ -383,6 +384,19 @@ per package if any block is ever published to npm (closes C4).
 | **A cycle check** (`madge`/`dpdm` on packages) | catch type-only package cycles project references would miss |
 | **Contract-version test in CI** | assert every feature's `manifest.contract` major == `CONTRACT_VERSION` (catch a forgotten bump) |
 | **Smoke a subset build** | once feature packages exist, CI a `features.terminal=off` variant to prove node-pty is droppable |
+
+### 8.7 Stage F — gaps addressed (v2.3, 2026-08-26)
+
+The addressable gaps from §8.3 were closed without undertaking the larger deferred splits
+(C2 shared→core, C3 per-feature packages, C4 dist builds), which remain future work:
+
+| Gap | Resolution shipped in Stage F |
+|---|---|
+| **C1** | `scripts/check-package-deps.mjs` — scans every `packages/*/src` + the root `src/` for `@factory/*` imports, asserts each is a declared dependency in that unit's `package.json`, and DFS-checks the graph is acyclic (catches type-only cycles tsc misses). Wired into `npm run lint` + CI. Verified: passes clean, fails on a planted undeclared import. |
+| **C5** | Confirmed the existing `npm ci` (run in every CI job) already fails on package.json↔lock drift — that is what caught the earlier stale lock. No separate check needed; the redundant `lockcheck` script was removed (it also tripped the sandbox's `--allow-scripts` npm config). |
+| **C6** | `contract-version` guard: `src/features/manifests.test.ts` asserts every feature's `manifest.contract` major equals `CONTRACT_VERSION`, that ids are unique and match the feature id, and that provided service keys don't collide. Catches a forgotten bump at test time. |
+| **C7** *(newly found)* | The built `factory` bin resolved `@factory/*` to `.ts` sources at runtime because tsup externalizes `dependencies`; smoke only exercised the `tsx` dev path, so it never surfaced. Fixed with `tsup.config.ts` (`noExternal: [/^@factory\//]`) — the workspace graph is now bundled into the single 275 KB `dist/index.js`. `node-pty` stays external (native module). |
+| **capability report** | new `factory features` command lists each feature with its `on`/`off`/`incompat` state, contract version, and provided/consumed service keys — the `doctor --features` idea from §8.5, surfaced as a first-class subcommand. |
 
 *Verdict addendum (v2.2): the compartmentalization pays down the last structural item flagged
 in v2 — the untyped services seam — and turns the platform into versioned, independently-

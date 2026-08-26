@@ -10,6 +10,16 @@ import { AgentTool } from '@factory/core/tools/agent.js'
 import { Session } from '@factory/core/session.js'
 import { agentLoop } from '@factory/core/agent-loop.js'
 import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
+import { store } from '@factory/core/config/store.js'
+import {
+  CONTRACT_VERSION, isContractCompatible, isFeatureEnabled, type Feature,
+} from '@factory/contracts/index.js'
+import { sessionFeature } from './features/session/index.js'
+import { canvasFeature } from './features/canvas/index.js'
+import { agentsFeature } from './features/agents/index.js'
+import { terminalFeature } from './features/terminal/index.js'
+import { configFeature } from './features/config/index.js'
+import { logsFeature } from './features/logs/index.js'
 
 export function buildCli(version: string): Command {
   const program = new Command()
@@ -25,6 +35,33 @@ export function buildCli(version: string): Command {
     .action(() => {
       const results = runDoctor(process.cwd())
       printDoctorReport(results)
+    })
+
+  program
+    .command('features')
+    .description('List features with their enabled/compatibility state (Stage E)')
+    .action(async () => {
+      await store.init()
+      const features: Feature[] = [
+        sessionFeature(), canvasFeature(), agentsFeature(),
+        terminalFeature(), configFeature(), logsFeature(),
+      ]
+      process.stdout.write(`Contract version: ${CONTRACT_VERSION}\n\n`)
+      process.stdout.write(`  state      id             contract  provides / consumes\n`)
+      for (const f of features) {
+        const m = f.manifest
+        if (!m) continue
+        const compatible = isContractCompatible(m.contract)
+        const enabled = isFeatureEnabled(m, (k) => store.getSetting(k))
+        const state = !compatible ? 'incompat' : enabled ? 'on' : 'off'
+        const io = [
+          (m.provides ?? []).map(p => `+${p}`).join(' '),
+          (m.consumes ?? []).map(c => `-${c}`).join(' '),
+        ].filter(Boolean).join('  ')
+        process.stdout.write(
+          `  ${state.padEnd(9)} ${m.id.padEnd(14)} ${m.contract.padEnd(9)} ${io}\n`,
+        )
+      }
     })
 
   program

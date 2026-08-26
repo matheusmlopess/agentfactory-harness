@@ -993,6 +993,16 @@ docs:
     wave: 5
     status: implemented
 
+  - path: scripts/check-package-deps.mjs
+    purpose: Cross-package boundary gate — asserts every @factory import is a declared dep and the package graph is acyclic (gap C1); run by npm run lint + CI
+    wave: 5
+    status: implemented
+
+  - path: tsup.config.ts
+    purpose: Build config for the factory bin — noExternal bundles the @factory workspace packages into one self-contained dist/index.js (gap C7)
+    wave: 5
+    status: implemented
+
   - path: specs/docs/approvedPlans/2026-07-04-ui-consolidation-studio.md
     purpose: Approved plan — UI consolidation (ddd/09–11) + standalone orchestration studio
     wave: 5
