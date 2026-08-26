@@ -1139,6 +1139,11 @@ config:
     wave: 6
     status: implemented
 
+  - path: vitest.workspace.ts
+    purpose: "Per-block test projects — `vitest run --project <block>` runs one block's colocated tests in isolation (Stage C)"
+    wave: 6
+    status: implemented
+
   - path: tsconfig.json
     purpose: TypeScript compiler config
     key_values:
