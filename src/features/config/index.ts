@@ -1,5 +1,5 @@
 import { ConfigPanel } from './panel.js'
-import { getUser } from '../../registry/auth.js'
+import { getUser } from '@factory/registry/auth.js'
 import { applySetting } from '@factory/shared/settings.js'
 import { logger } from '@factory/core/logger.js'
 import type { Feature, FeatureCtx } from '../types.js'

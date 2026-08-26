@@ -27,7 +27,7 @@ import { registerFeature, loadedFeatures, resetFeatures } from './features/regis
 import {
   createServiceRegistry,
   type FeatureCtx, type SessionBridge, type PlanBridge,
-} from './contracts/index.js'
+} from '@factory/contracts/index.js'
 import { sessionFeature } from './features/session/index.js'
 import { canvasFeature } from './features/canvas/index.js'
 import { agentsFeature } from './features/agents/index.js'

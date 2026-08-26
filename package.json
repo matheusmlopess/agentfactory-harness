@@ -25,7 +25,9 @@
     "openai": "^6.35.0",
     "zod": "^3.23.0",
     "@factory/core": "*",
-    "@factory/shared": "*"
+    "@factory/shared": "*",
+    "@factory/contracts": "*",
+    "@factory/registry": "*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -10,11 +10,11 @@ import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
 import { logger } from '@factory/core/logger.js'
 import type {
   Feature, FeatureCtx, SessionBridge, PlanBridge, PlanEventSink,
-} from '../../contracts/index.js'
+} from '@factory/contracts/index.js'
 
 // PlanBridge / PlanEventSink now live in contracts/services; re-export for
 // back-compat with any existing importer.
-export type { PlanBridge, PlanEventSink } from '../../contracts/index.js'
+export type { PlanBridge, PlanEventSink } from '@factory/contracts/index.js'
 
 const log = logger('CanvasFeature')
 

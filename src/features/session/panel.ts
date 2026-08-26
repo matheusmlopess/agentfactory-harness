@@ -1,5 +1,5 @@
 import { Panel } from '@factory/shared/panel.js'
-import type { SessionMeta, SessionStats } from '../../contracts/index.js'
+import type { SessionMeta, SessionStats } from '@factory/contracts/index.js'
 import type { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
 import type { KeyEvent } from '@factory/shared/input/keyboard.js'
 import type { MouseEvent } from '@factory/shared/input/mouse.js'
@@ -77,7 +77,7 @@ const SLASH_COMMANDS: readonly SlashCommand[] = [
 
 // SessionMeta / SessionStats are the session contract's data shapes — defined
 // in contracts/, re-exported here so existing importers keep resolving.
-export type { SessionMeta, SessionStats } from '../../contracts/index.js'
+export type { SessionMeta, SessionStats } from '@factory/contracts/index.js'
 
 interface SessionRecord {
   id:            string                 // stable identity — the rollout id

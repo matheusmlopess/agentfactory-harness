@@ -1,7 +1,7 @@
 import type { ConfigPanel } from './panel.js'
-import { startDeviceLogin } from '../../registry/login.js'
-import { clearToken } from '../../registry/auth.js'
-import { importFromTools } from '../../registry/import-keys.js'
+import { startDeviceLogin } from '@factory/registry/login.js'
+import { clearToken } from '@factory/registry/auth.js'
+import { importFromTools } from '@factory/registry/import-keys.js'
 import type { FeatureCtx } from '../types.js'
 
 /** Device-code login flow — drives the ConfigPanel login overlay. */

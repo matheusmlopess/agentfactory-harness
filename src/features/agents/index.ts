@@ -1,5 +1,5 @@
 import { AgentsPanel } from './panel.js'
-import type { Feature, FeatureCtx } from '../../contracts/index.js'
+import type { Feature, FeatureCtx } from '@factory/contracts/index.js'
 
 export function agentsFeature(): Feature {
   let panel: AgentsPanel | null = null
