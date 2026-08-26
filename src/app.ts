@@ -24,9 +24,12 @@ import { store } from './core/config/store.js'
 import { logger, getLogFilePath } from './core/logger.js'
 import { getVersion } from './core/version.js'
 import { registerFeature, loadedFeatures, resetFeatures } from './features/registry.js'
-import type { FeatureCtx } from './features/types.js'
-import { sessionFeature, type SessionBridge } from './features/session/index.js'
-import { canvasFeature, type PlanBridge } from './features/canvas/index.js'
+import {
+  createServiceRegistry,
+  type FeatureCtx, type SessionBridge, type PlanBridge,
+} from './contracts/index.js'
+import { sessionFeature } from './features/session/index.js'
+import { canvasFeature } from './features/canvas/index.js'
 import { agentsFeature } from './features/agents/index.js'
 import { terminalFeature } from './features/terminal/index.js'
 import { configFeature } from './features/config/index.js'
@@ -54,7 +57,7 @@ export class App {
   private palette!: CommandPalette
   private paletteOpen = false
   private tabs!: TabEntry[]
-  private readonly services = new Map<string, unknown>()
+  private readonly services = createServiceRegistry()
   /** Last render-failure message per tab, to avoid logging every frame. */
   private readonly panelRenderErrors = new Map<TabId, string>()
   private readonly hitMap = new HitMap()
@@ -171,11 +174,11 @@ export class App {
   }
 
   private sessionBridge(): SessionBridge | undefined {
-    return this.services.get('session') as SessionBridge | undefined
+    return this.services.get('session')
   }
 
   private planBridge(): PlanBridge | undefined {
-    return this.services.get('plan') as PlanBridge | undefined
+    return this.services.get('plan')
   }
 
   private tabEntry(id: TabId): TabEntry | undefined {

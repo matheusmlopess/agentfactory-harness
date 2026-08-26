@@ -1,8 +1,8 @@
-<!-- version: 1.5.0 -->
+<!-- version: 1.6.0 -->
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
-<!-- last-updated: 2026-07-10 -->
+<!-- last-updated: 2026-08-26 -->
 <!-- status: ACTIVE -->
 
 # Documentation Registry
@@ -159,6 +159,7 @@ is the centralized term/acronym lookup.
 
 | Doc | Date | System | Version | Status | Purpose |
 |-----|------|--------|---------|--------|---------|
+| docs/features/ARCHITECTURE-BLUEPRINT-2026-08-26.md | 2026-08-26 | Block architecture | v1.0.0 | ✅ Active | Per-block I/O contracts, backward-compat policy, mermaid architecture/comms/ERD, enforcement matrix, test blueprint |
 | docs/features/FEATURE-SYSTEM-ARCHITECTURE-v0.4.0-2026-05-18.md | 2026-04-27 | Logs Panel | v0.4.0 | ✅ Active | System architecture overview |
 
 ---
@@ -202,6 +203,7 @@ feature-dev approval. Also open in PR #23.
 
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
+| 2026-08-26-compartmentalize-blocks.md | 2026-08-26 | Block Architecture | ✅ Active | Compartmentalize into swappable blocks: contracts + typed registry, ESLint boundaries, per-block tests, workspace packages, runtime toggles |
 | 2026-07-08-canvas-session-binding-and-wire-fix.md | 2026-07-08 | Canvas Session Binding | ✅ Active | routeWire infinite-loop fix + session identity (rollout id), x-studio.sessions binding, bound plan runs |
 | 2026-07-04-ui-consolidation-studio.md | 2026-07-04 | UI Consolidation + Studio | ✅ Active | Addresses ddd/09–11: P0–P5 consolidation, Feature registry, standalone Studio + team dashboard |
 | 2026-06-09-wave-5-registry-auth.md | 2026-06-09 | Registry Auth | ✅ Done | Wave 5: registry client + device login *(backfilled 2026-07-10, as are all rows below)* |

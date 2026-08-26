@@ -8,23 +8,15 @@ import { Session } from '../../core/session.js'
 import { agentLoop } from '../../core/agent-loop.js'
 import { createAdapter, defaultProvider } from '../../core/llm/index.js'
 import { logger } from '../../core/logger.js'
-import type { Feature, FeatureCtx } from '../types.js'
-import type { SessionBridge } from '../session/index.js'
+import type {
+  Feature, FeatureCtx, SessionBridge, PlanBridge, PlanEventSink,
+} from '../../contracts/index.js'
+
+// PlanBridge / PlanEventSink now live in contracts/services; re-export for
+// back-compat with any existing importer.
+export type { PlanBridge, PlanEventSink } from '../../contracts/index.js'
 
 const log = logger('CanvasFeature')
-
-/** Cross-feature surface (services key 'plan'): status bar + Ctrl+R use it. */
-export interface PlanBridge {
-  isRunning(): boolean
-  hasPlan(): boolean
-  run(): Promise<void>
-}
-
-/** Consumers of live run events (the agents dashboard registers this). */
-export interface PlanEventSink {
-  setPlan(plan: Plan): void
-  onPlanEvent(event: StepEvent): void
-}
 
 export function canvasFeature(): Feature {
   let panel: OrchestrationCanvas | null = null
@@ -34,7 +26,7 @@ export function canvasFeature(): Feature {
 
   /** Resolved lazily — the session feature registers its bridge on startup. */
   const sessionBridge = (): SessionBridge | undefined =>
-    ctx?.services.get('session') as SessionBridge | undefined
+    ctx?.services.get('session')
 
   /** Legacy fallback: run a step in a throwaway, invisible session (used
    *  only when no session bridge is registered, e.g. headless tests). */
@@ -115,7 +107,7 @@ export function canvasFeature(): Feature {
     currentPlan = plan
     planRunning = true
 
-    const sink = ctx?.services.get('plan-events') as PlanEventSink | undefined
+    const sink = ctx?.services.get('plan-events')
     sink?.setPlan(plan)
 
     try {

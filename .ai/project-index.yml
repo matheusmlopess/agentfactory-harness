@@ -628,9 +628,45 @@ orchestration:
     wave: 3
     status: implemented
 
+contracts:
+  - path: src/contracts/index.ts
+    purpose: "Neutral bolt-spec barrel — the Feature contract + cross-feature service bridges/registry; features/shared/host import here instead of each other"
+    exports:
+      - Feature
+      - FeatureCtx
+      - KeyBindingContribution
+      - SessionBridge
+      - PlanBridge
+      - PlanEventSink
+      - ServiceMap
+      - ServiceKey
+      - ServiceRegistry
+      - createServiceRegistry
+    wave: 6
+    status: implemented
+  - path: src/contracts/feature.ts
+    purpose: "Feature + FeatureCtx contract (moved from features/types.ts); FeatureCtx.services is the typed ServiceRegistry"
+    wave: 6
+    status: implemented
+  - path: src/contracts/services.ts
+    purpose: "SessionBridge/PlanBridge/PlanEventSink + ServiceMap + typed ServiceRegistry (replaces Map<string,unknown> + casts)"
+    exports:
+      - SessionBridge
+      - PlanBridge
+      - PlanEventSink
+      - ServiceMap
+      - ServiceRegistry
+      - createServiceRegistry
+    wave: 6
+    status: implemented
+  - path: src/contracts/services.test.ts
+    purpose: "ServiceRegistry unit tests — absence/get/set/dedup/key-independence"
+    wave: 6
+    status: implemented
+
 features:
   - path: src/features/types.ts
-    purpose: Feature contract (ddd/11) — tab + commands + tools + keybindings + lifecycle, FeatureCtx services
+    purpose: "Back-compat re-export of the Feature contract from src/contracts/ (authoritative home is contracts/feature.ts)"
     exports:
       - FeatureCtx (interface)
       - KeyBindingContribution (interface)
@@ -943,6 +979,21 @@ docs:
     wave: 5
     status: implemented
 
+  - path: docs/features/ARCHITECTURE-BLUEPRINT-2026-08-26.md
+    purpose: "Block architecture blueprint — per-block I/O contracts, backward-compat policy, mermaid diagrams, enforcement matrix, test blueprint"
+    wave: 6
+    status: implemented
+
+  - path: specs/docs/approvedPlans/2026-08-26-compartmentalize-blocks.md
+    purpose: "Approved plan — compartmentalize into swappable blocks (contracts, boundaries, packages, toggles)"
+    wave: 6
+    status: implemented
+
+  - path: .ai/rules/module-boundaries.md
+    purpose: "Rule 10 — enforced module boundary allow-matrix; features talk via ServiceRegistry, never sibling imports"
+    wave: 6
+    status: implemented
+
   - path: docs/features/FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md
     purpose: Operator guide — panes, keys, studio authoring, team dashboard, where things live
     wave: 5
@@ -1096,6 +1147,16 @@ config:
   - path: vitest.config.ts
     purpose: Vitest config — scopes test discovery to src/ only, excludes .refs/
     wave: 4
+    status: implemented
+
+  - path: eslint.config.js
+    purpose: "Architecture boundary enforcement (eslint-plugin-boundaries) — element-types allow-matrix bans feature→feature + layering-up imports; run by `npm run lint` and CI"
+    wave: 6
+    status: implemented
+
+  - path: vitest.workspace.ts
+    purpose: "Per-block test projects — `vitest run --project <block>` runs one block's colocated tests in isolation (Stage C)"
+    wave: 6
     status: implemented
 
   - path: tsconfig.json
