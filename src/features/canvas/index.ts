@@ -11,6 +11,7 @@ import { logger } from '@factory/core/logger.js'
 import type {
   Feature, FeatureCtx, SessionBridge, PlanBridge, PlanEventSink,
 } from '@factory/contracts/index.js'
+import { CONTRACT_VERSION } from '@factory/contracts/index.js'
 
 // PlanBridge / PlanEventSink now live in contracts/services; re-export for
 // back-compat with any existing importer.
@@ -131,6 +132,7 @@ export function canvasFeature(): Feature {
 
   return {
     id: 'orchestration',
+    manifest: { id: 'orchestration', contract: CONTRACT_VERSION, provides: ['plan'], consumes: ['session', 'plan-events'] },
     tab: {
       id: 'orchestration',
       title: 'Orchestration',

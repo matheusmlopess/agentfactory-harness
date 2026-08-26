@@ -13,6 +13,7 @@ import type { KeyBindingDef } from '@factory/shared/input/keymap.js'
 import type { ConfigStore } from '@factory/core/config/store.js'
 import type { Tool } from '@factory/core/tools/index.js'
 import type { ServiceRegistry } from './services.js'
+import type { FeatureManifest } from './manifest.js'
 
 /**
  * Services the host injects into features. Kept deliberately minimal to avoid
@@ -35,6 +36,9 @@ export type KeyBindingContribution = KeyBindingDef
 
 export interface Feature {
   id: TabId | string
+  /** Optional runtime manifest — enables config toggles + contract-version
+   *  gating (Stage E). Absent = always loaded at the host's contract version. */
+  manifest?: FeatureManifest
   tab?: {
     id: TabId
     title: string

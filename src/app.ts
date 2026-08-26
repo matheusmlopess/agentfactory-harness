@@ -11,7 +11,7 @@ import { HitMap } from '@factory/shared/input/hit-test.js'
 import { Keymap } from '@factory/shared/input/keymap.js'
 import { HelpOverlay } from '@factory/shared/widgets/HelpOverlay.js'
 import { CommandPalette, type PaletteCommand } from '@factory/shared/widgets/CommandPalette.js'
-import { type TabEntry, type TabId, tabIndex, tabIdAt } from '@factory/shared/tabs.js'
+import { type TabEntry, type TabId } from '@factory/shared/tabs.js'
 import { tabLabelSpans, EXIT_BTN } from '@factory/shared/tab-bar.js'
 import { applySetting } from '@factory/shared/settings.js'
 import type { Panel } from '@factory/shared/panel.js'
@@ -26,6 +26,7 @@ import { getVersion } from '@factory/core/version.js'
 import { registerFeature, loadedFeatures, resetFeatures } from './features/registry.js'
 import {
   createServiceRegistry,
+  CONTRACT_VERSION, isContractCompatible, isFeatureEnabled,
   type FeatureCtx, type SessionBridge, type PlanBridge,
 } from '@factory/contracts/index.js'
 import { sessionFeature } from './features/session/index.js'
@@ -38,6 +39,13 @@ import type { TerminalPanel } from './features/terminal/panel.js'
 import { ConfigPanel } from './features/config/panel.js'
 
 const log = logger('App')
+
+/** Fixed F-key per known tab id; used to build switch commands/bindings for
+ *  the tabs that are actually loaded (Stage E toggles). */
+const FKEY: Partial<Record<TabId, string>> = {
+  session: 'f1', orchestration: 'f2', agents: 'f3',
+  terminal: 'f4', config: 'f5', logs: 'f6',
+}
 
 /**
  * Thin host (ddd/11): loads features from the registry, builds the tab bar,
@@ -110,15 +118,27 @@ export class App {
     })
   }
 
-  /** Register all features and build tabs / palette / keymap from them. */
+  /** Register all features and build tabs / palette / keymap from them.
+   *  Stage E: a feature is skipped when its contract major is incompatible
+   *  or when config disables it (`features.<id> = off`). */
   private initFeatures(): void {
     resetFeatures()
-    registerFeature(sessionFeature())
-    registerFeature(canvasFeature())
-    registerFeature(agentsFeature())
-    registerFeature(terminalFeature())
-    registerFeature(configFeature())
-    registerFeature(logsFeature())
+    const candidates = [
+      sessionFeature(), canvasFeature(), agentsFeature(),
+      terminalFeature(), configFeature(), logsFeature(),
+    ]
+    for (const f of candidates) {
+      const m = f.manifest
+      if (m && !isContractCompatible(m.contract)) {
+        log.warn('skipping feature: incompatible contract', { id: m.id, contract: m.contract, host: CONTRACT_VERSION })
+        continue
+      }
+      if (m && !isFeatureEnabled(m, (k) => store.getSetting(k))) {
+        log.info('feature disabled by config', { id: m.id })
+        continue
+      }
+      registerFeature(f)
+    }
 
     const ctx = this.featureCtx()
 
@@ -140,15 +160,21 @@ export class App {
       return [entry]
     })
 
-    // Palette — host chrome commands + every feature's contributions
+    // If the active tab was disabled, fall back to the first loaded tab.
+    if (!this.tabs.some(t => t.id === this.activeTab) && this.tabs[0]) {
+      this.activeTab = this.tabs[0].id
+    }
+
+    // Palette — a switch command per LOADED tab (disabled tabs contribute none)
+    // + host chrome + every feature's contributions.
     const switchTab = (id: TabId) => () => { this.activeTab = id; this.render() }
     const commands: PaletteCommand[] = [
-      { id: 'switch-session',       label: 'Switch to Session',       hint: 'F1', action: switchTab('session') },
-      { id: 'switch-orchestration', label: 'Switch to Orchestration', hint: 'F2', action: switchTab('orchestration') },
-      { id: 'switch-agents',        label: 'Switch to Agents',        hint: 'F3', action: switchTab('agents') },
-      { id: 'switch-terminal',      label: 'Switch to Terminal',      hint: 'F4', action: switchTab('terminal') },
-      { id: 'switch-config',        label: 'Switch to Config',        hint: 'F5', action: switchTab('config') },
-      { id: 'switch-logs',          label: 'Switch to Logs',          hint: 'F6', action: switchTab('logs') },
+      ...this.tabs.map(t => ({
+        id: `switch-${t.id}`,
+        label: `Switch to ${t.title}`,
+        hint: (FKEY[t.id] ?? '').toUpperCase(),
+        action: switchTab(t.id),
+      })),
       { id: 'help',                 label: 'Help: keyboard shortcuts', hint: '?', action: () => { this.help.open(this.activeTab); this.render() } },
       { id: 'theme-default',        label: 'Theme: default',          hint: '', action: () => this.applyAndRender('theme', 'default') },
       { id: 'theme-high-contrast',  label: 'Theme: high contrast',    hint: '', action: () => this.applyAndRender('theme', 'high-contrast') },
@@ -185,10 +211,12 @@ export class App {
     return this.tabs.find(t => t.id === id)
   }
 
-  /** Declarative host bindings — the old listenInput if-chain as data. */
+  /** Declarative host bindings — the old listenInput if-chain as data.
+   *  F-key switches + Tab-cycle are built from the LOADED tabs only, so a
+   *  disabled feature has no phantom tab to land on. */
   private buildKeymap(ctx: FeatureCtx): void {
-    const switchTo = (id: TabId, desc: string, key: string) => ({
-      id: `tab.${id}`, keys: [key], description: desc,
+    const switchTo = (id: TabId, title: string, key: string) => ({
+      id: `tab.${id}`, keys: [key], description: `${title} tab`,
       run: () => {
         if (id === 'session' && this.activeTab === 'session') this.sessionBridge()?.openNewSessionMenu()
         this.activeTab = id
@@ -213,14 +241,15 @@ export class App {
       { id: 'app.selectCopy', keys: ['ctrl+e'], description: 'Toggle native text selection', run: () => this.toggleMouseCapture() },
       {
         id: 'app.nextTab', keys: ['tab'], description: 'Next tab',
-        run: () => { this.activeTab = tabIdAt(tabIndex(this.activeTab) + 1); this.render() },
+        run: () => {
+          const ids = this.tabs.map(t => t.id)
+          const i = ids.indexOf(this.activeTab)
+          const next = ids[(i + 1) % ids.length]
+          if (next) { this.activeTab = next; this.render() }
+        },
       },
-      switchTo('session', 'Session tab (again: new session)', 'f1'),
-      switchTo('orchestration', 'Orchestration tab', 'f2'),
-      switchTo('agents', 'Agents tab', 'f3'),
-      switchTo('terminal', 'Terminal tab', 'f4'),
-      switchTo('config', 'Config tab', 'f5'),
-      switchTo('logs', 'Logs tab', 'f6'),
+      // One F-key switch per loaded tab
+      ...this.tabs.flatMap(t => (FKEY[t.id] ? [switchTo(t.id, t.title, FKEY[t.id]!)] : [])),
       {
         id: 'help.show', keys: ['?'], description: 'This help',
         run: () => { this.help.open(this.activeTab); this.render() },

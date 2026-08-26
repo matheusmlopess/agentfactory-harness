@@ -1,5 +1,6 @@
 import { AgentsPanel } from './panel.js'
 import type { Feature, FeatureCtx } from '@factory/contracts/index.js'
+import { CONTRACT_VERSION } from '@factory/contracts/index.js'
 
 export function agentsFeature(): Feature {
   let panel: AgentsPanel | null = null
@@ -29,6 +30,7 @@ export function agentsFeature(): Feature {
 
   return {
     id: 'agents',
+    manifest: { id: 'agents', contract: CONTRACT_VERSION, provides: ['plan-events'], consumes: ['session'] },
     tab: {
       id: 'agents',
       title: 'Agents',

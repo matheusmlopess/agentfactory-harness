@@ -4,7 +4,8 @@ import { agentLoop } from '@factory/core/agent-loop.js'
 import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
 import { getRecentLogs, type LogEntry } from '@factory/core/logger.js'
 import { motionEnabled } from '@factory/shared/renderer/motion.js'
-import type { Feature, FeatureCtx } from '../types.js'
+import type { Feature, FeatureCtx } from '@factory/contracts/index.js'
+import { CONTRACT_VERSION } from '@factory/contracts/index.js'
 
 /**
  * The Logs tab as a self-contained Feature — the registry's proving case
@@ -67,6 +68,7 @@ export function logsFeature(): Feature {
 
   return {
     id: 'logs',
+    manifest: { id: 'logs', contract: CONTRACT_VERSION },
     tab: {
       id: 'logs',
       title: 'Logs',

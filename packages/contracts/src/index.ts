@@ -24,3 +24,11 @@ export type {
 } from './services.js'
 
 export { createServiceRegistry } from './services.js'
+
+export type { FeatureManifest } from './manifest.js'
+export {
+  CONTRACT_VERSION,
+  contractMajor,
+  isContractCompatible,
+  isFeatureEnabled,
+} from './manifest.js'
