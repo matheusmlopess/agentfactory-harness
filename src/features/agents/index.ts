@@ -1,6 +1,5 @@
 import { AgentsPanel } from './panel.js'
-import type { Feature, FeatureCtx } from '../types.js'
-import type { SessionBridge } from '../session/index.js'
+import type { Feature, FeatureCtx } from '../../contracts/index.js'
 
 export function agentsFeature(): Feature {
   let panel: AgentsPanel | null = null
@@ -8,7 +7,7 @@ export function agentsFeature(): Feature {
 
   /** Push the session list into the panel (was App.refreshAgents). */
   function refresh(): void {
-    const bridge = ctx?.services.get('session') as SessionBridge | undefined
+    const bridge = ctx?.services.get('session')
     if (!bridge || !panel || panel.mode === 'team') return
     const metas = bridge.metas()
     panel.setAgents(metas.map(m => ({
@@ -40,18 +39,19 @@ export function agentsFeature(): Feature {
         ctx = c
         panel = new AgentsPanel(c.layout().agents, () => c.scheduleRender(),
           (idx) => {
-            const bridge = c.services.get('session') as SessionBridge | undefined
+            const bridge = c.services.get('session')
             bridge?.switchTo(idx)
             // Clicking an agent OPENS its session: move focus to the Session
             // tab so the conversation is immediately interactive.
             c.switchTab('session')
           },
         )
-        // Live team dashboard: the canvas feature fans run events here
+        // Live team dashboard: the canvas feature fans run events here.
+        // Value shape is checked against ServiceMap['plan-events'] by set().
         c.services.set('plan-events', {
           setPlan: (plan) => panel?.setPlan(plan),
           onPlanEvent: (ev) => panel?.onPlanEvent(ev),
-        } satisfies import('../canvas/index.js').PlanEventSink)
+        })
         return panel
       },
       beforeRender: refresh,
