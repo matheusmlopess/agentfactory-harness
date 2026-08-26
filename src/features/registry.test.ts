@@ -3,7 +3,7 @@ import { registerFeature, loadedFeatures, resetFeatures } from './registry.js'
 import { logsFeature } from './logs/index.js'
 import type { Feature, FeatureCtx } from './types.js'
 import { ConfigStore } from '@factory/core/config/store.js'
-import { computeLayout } from '../shared/renderer/layout.js'
+import { computeLayout } from '@factory/shared/renderer/layout.js'
 
 beforeEach(() => resetFeatures())
 

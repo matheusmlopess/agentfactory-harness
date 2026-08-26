@@ -3,7 +3,7 @@ import { Session } from '@factory/core/session.js'
 import { agentLoop } from '@factory/core/agent-loop.js'
 import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
 import { getRecentLogs, type LogEntry } from '@factory/core/logger.js'
-import { motionEnabled } from '../../shared/renderer/motion.js'
+import { motionEnabled } from '@factory/shared/renderer/motion.js'
 import type { Feature, FeatureCtx } from '../types.js'
 
 /**

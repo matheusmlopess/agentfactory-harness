@@ -24,7 +24,8 @@
     "node-pty": "^1.0.0",
     "openai": "^6.35.0",
     "zod": "^3.23.0",
-    "@factory/core": "*"
+    "@factory/core": "*",
+    "@factory/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

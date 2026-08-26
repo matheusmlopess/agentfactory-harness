@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { NodeInspector } from './NodeInspector.js'
-import { CellBuffer } from '../../shared/renderer/cell-buffer.js'
+import { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
 import type { StudioNode } from '@factory/orchestration/studio-model.js'
 
 const node = (over: Partial<StudioNode> = {}): StudioNode => ({

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { AgentsPanel } from './panel.js'
-import { CellBuffer } from '../../shared/renderer/cell-buffer.js'
+import { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
 import { PlanSchema } from '@factory/orchestration/schema.js'
 
 const plan = PlanSchema.parse({

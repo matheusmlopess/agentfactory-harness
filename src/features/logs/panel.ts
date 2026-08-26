@@ -1,9 +1,9 @@
-import { Panel } from '../../shared/panel.js'
-import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
-import type { Rect } from '../../shared/renderer/layout.js'
-import type { MouseEvent } from '../../shared/input/mouse.js'
-import type { KeyEvent } from '../../shared/input/keyboard.js'
-import { Colors } from '../../shared/renderer/theme.js'
+import { Panel } from '@factory/shared/panel.js'
+import type { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
+import type { Rect } from '@factory/shared/renderer/layout.js'
+import type { MouseEvent } from '@factory/shared/input/mouse.js'
+import type { KeyEvent } from '@factory/shared/input/keyboard.js'
+import { Colors } from '@factory/shared/renderer/theme.js'
 import { getRecentLogs, clearLogBuffer, getLogSources, type LogEntry } from '@factory/core/logger.js'
 
 interface Metrics {

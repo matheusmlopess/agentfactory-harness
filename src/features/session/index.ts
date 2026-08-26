@@ -1,5 +1,5 @@
 import { SessionPanel, type SessionStats } from './panel.js'
-import * as A from '../../shared/renderer/ansi.js'
+import * as A from '@factory/shared/renderer/ansi.js'
 import type { Feature, FeatureCtx, SessionBridge } from '../../contracts/index.js'
 
 // Back-compat: SessionBridge/SessionMeta are now defined in contracts/session

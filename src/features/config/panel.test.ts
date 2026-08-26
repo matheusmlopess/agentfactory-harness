@@ -18,8 +18,8 @@ vi.mock('@factory/core/config/store.js', () => ({
 }))
 
 const { ConfigPanel, PROVIDERS, providersByCategory } = await import('./panel.js')
-import { CellBuffer } from '../../shared/renderer/cell-buffer.js'
-import type { Rect } from '../../shared/renderer/layout.js'
+import { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
+import type { Rect } from '@factory/shared/renderer/layout.js'
 
 const RECT: Rect = { row: 1, col: 20, height: 30, width: 60 }
 

@@ -1,6 +1,6 @@
 import { ConfigPanel } from './panel.js'
 import { getUser } from '../../registry/auth.js'
-import { applySetting } from '../../shared/settings.js'
+import { applySetting } from '@factory/shared/settings.js'
 import { logger } from '@factory/core/logger.js'
 import type { Feature, FeatureCtx } from '../types.js'
 import { runLoginFlow, runLogout, runImport } from './flows.js'
