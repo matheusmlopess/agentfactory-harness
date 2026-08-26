@@ -1013,6 +1013,21 @@ docs:
     wave: 6
     status: implemented
 
+  - path: docs/features/FEATURE-COMPARTMENTALIZE-OPERATIONS-2026-08-26.md
+    purpose: "Operational guide — block/developer workflows, runtime feature toggles, edge/failure modes + recovery, validation"
+    wave: 6
+    status: implemented
+
+  - path: docs/testing/TESTING-COMPARTMENTALIZE-2026-08-26.md
+    purpose: "E2E test guide — packages resolve, boundary bans, toggle e2e, version gate, correctness checklist"
+    wave: 6
+    status: implemented
+
+  - path: docs/changes/CHANGE-COMPARTMENTALIZE-2026-08-26.md
+    purpose: "Change delta — before/after tree + mermaid workflows, added/removed/renamed, before/after execution + examples"
+    wave: 6
+    status: implemented
+
   - path: specs/docs/approvedPlans/2026-08-26-compartmentalize-blocks.md
     purpose: "Approved plan — compartmentalize into swappable blocks (contracts, boundaries, packages, toggles)"
     wave: 6
