@@ -4,7 +4,7 @@ import type { Rect } from '../../shared/renderer/layout.js'
 import type { MouseEvent } from '../../shared/input/mouse.js'
 import type { KeyEvent } from '../../shared/input/keyboard.js'
 import { Colors } from '../../shared/renderer/theme.js'
-import { getRecentLogs, clearLogBuffer, getLogSources, type LogEntry } from '../../core/logger.js'
+import { getRecentLogs, clearLogBuffer, getLogSources, type LogEntry } from '@factory/core/logger.js'
 
 interface Metrics {
   total: number

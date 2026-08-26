@@ -6,7 +6,7 @@ const mockClear  = vi.fn()
 const mockGetSetting = vi.fn()
 const mockSetSetting = vi.fn()
 
-vi.mock('../../core/config/store.js', () => ({
+vi.mock('@factory/core/config/store.js', () => ({
   store: {
     getKey: (...args: unknown[]) => mockGetKey(...args),
     setKey: (...args: unknown[]) => mockSetKey(...args),

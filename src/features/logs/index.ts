@@ -1,8 +1,8 @@
 import { LogsPanel } from './panel.js'
-import { Session } from '../../core/session.js'
-import { agentLoop } from '../../core/agent-loop.js'
-import { createAdapter, defaultProvider } from '../../core/llm/index.js'
-import { getRecentLogs, type LogEntry } from '../../core/logger.js'
+import { Session } from '@factory/core/session.js'
+import { agentLoop } from '@factory/core/agent-loop.js'
+import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
+import { getRecentLogs, type LogEntry } from '@factory/core/logger.js'
 import { motionEnabled } from '../../shared/renderer/motion.js'
 import type { Feature, FeatureCtx } from '../types.js'
 

@@ -5,11 +5,11 @@ import { runDoctor, printDoctorReport } from './harness/doctor.js'
 import { PlanSchema } from '@factory/orchestration/schema.js'
 import { Executor } from '@factory/orchestration/executor.js'
 import { Planner } from '@factory/orchestration/planner.js'
-import { registerTool } from './core/tools/index.js'
-import { AgentTool } from './core/tools/agent.js'
-import { Session } from './core/session.js'
-import { agentLoop } from './core/agent-loop.js'
-import { createAdapter, defaultProvider } from './core/llm/index.js'
+import { registerTool } from '@factory/core/tools/index.js'
+import { AgentTool } from '@factory/core/tools/agent.js'
+import { Session } from '@factory/core/session.js'
+import { agentLoop } from '@factory/core/agent-loop.js'
+import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
 
 export function buildCli(version: string): Command {
   const program = new Command()

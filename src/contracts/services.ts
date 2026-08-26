@@ -8,7 +8,7 @@
  * Type references to shared/core/orchestration are `import type` only (erased
  * at compile time), so this module carries no runtime dependency on them.
  */
-import type { ModelEntry } from '../core/llm/index.js'
+import type { ModelEntry } from '@factory/core/llm/index.js'
 import type { Plan } from '@factory/orchestration/schema.js'
 import type { StepEvent } from '@factory/orchestration/executor.js'
 
