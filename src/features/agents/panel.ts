@@ -6,8 +6,8 @@ import type { MouseEvent } from '../../shared/input/mouse.js'
 import { Colors } from '../../shared/renderer/theme.js'
 import { findLaureate } from '../../core/nobel.js'
 import { logger } from '../../core/logger.js'
-import type { Plan } from '../../orchestration/schema.js'
-import type { StepEvent, StepStatus } from '../../orchestration/executor.js'
+import type { Plan } from '@factory/orchestration/schema.js'
+import type { StepEvent, StepStatus } from '@factory/orchestration/executor.js'
 
 export interface AgentEntry {
   /** Stable session id (rollout id) — pass-through for click-to-open. */

@@ -9,7 +9,7 @@
  */
 export default [
   { test: { name: 'contracts',     include: ['src/contracts/**/*.test.ts'] } },
-  { test: { name: 'orchestration', include: ['src/orchestration/**/*.test.ts'] } },
+  { test: { name: 'orchestration', include: ['packages/orchestration/src/**/*.test.ts'] } },
   { test: { name: 'core',          include: ['src/core/**/*.test.ts'] } },
   { test: { name: 'shared',        include: ['src/shared/**/*.test.ts'] } },
   { test: { name: 'registry',      include: ['src/registry/**/*.test.ts'] } },

@@ -2,9 +2,9 @@ import { Command } from 'commander'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { runDoctor, printDoctorReport } from './harness/doctor.js'
-import { PlanSchema } from './orchestration/schema.js'
-import { Executor } from './orchestration/executor.js'
-import { Planner } from './orchestration/planner.js'
+import { PlanSchema } from '@factory/orchestration/schema.js'
+import { Executor } from '@factory/orchestration/executor.js'
+import { Planner } from '@factory/orchestration/planner.js'
 import { registerTool } from './core/tools/index.js'
 import { AgentTool } from './core/tools/agent.js'
 import { Session } from './core/session.js'
@@ -97,7 +97,7 @@ export function buildCli(version: string): Command {
         process.exit(1)
       }
       // toposort throws on cycle
-      const { toposort } = await import('./orchestration/graph.js')
+      const { toposort } = await import('@factory/orchestration/graph.js')
       toposort(result.data.steps)
       process.stdout.write(`Plan "${result.data.name}" is valid (${result.data.steps.length} steps)\n`)
     })

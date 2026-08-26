@@ -6,6 +6,9 @@
   "bin": {
     "factory": "./dist/index.js"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup src/index.ts --format esm --dts --clean",
@@ -16,6 +19,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@factory/orchestration": "*",
     "commander": "^12.0.0",
     "node-pty": "^1.0.0",
     "openai": "^6.35.0",

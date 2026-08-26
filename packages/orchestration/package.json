@@ -1,0 +1,15 @@
+{
+  "name": "@factory/orchestration",
+  "version": "0.4.0",
+  "description": "Pure DAG plan engine — schema, executor, graph, studio-model (TUI-free, reusable)",
+  "type": "module",
+  "exports": {
+    "./*.js": {
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  }
+}

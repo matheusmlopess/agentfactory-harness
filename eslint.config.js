@@ -19,13 +19,14 @@ export default [
     plugins: { boundaries },
     settings: {
       // Resolve NodeNext ".js" specifiers to their ".ts" source so boundaries
-      // can classify the import target.
+      // can classify the import target. Extracted @factory/* packages resolve
+      // as external and are governed by each package.json's dependencies + the
+      // per-package tsconfig, not by these src/ element rules.
       'import/resolver': { typescript: { alwaysTryTypes: true } },
       'boundaries/include': ['src/**/*.ts'],
       'boundaries/ignore': ['src/**/*.test.ts'],
       'boundaries/elements': [
         { type: 'contracts',      pattern: 'src/contracts',      mode: 'folder' },
-        { type: 'orchestration',  pattern: 'src/orchestration',  mode: 'folder' },
         { type: 'core',           pattern: 'src/core',           mode: 'folder' },
         { type: 'shared',         pattern: 'src/shared',         mode: 'folder' },
         { type: 'registry',       pattern: 'src/registry',       mode: 'folder' },

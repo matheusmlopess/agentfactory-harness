@@ -4,7 +4,7 @@ import type { KeyEvent } from '../../shared/input/keyboard.js'
 import type { MouseEvent } from '../../shared/input/mouse.js'
 import { Colors } from '../../shared/renderer/theme.js'
 import { Overlay } from '../../shared/widgets/Overlay.js'
-import type { StudioNode } from '../../orchestration/studio-model.js'
+import type { StudioNode } from '@factory/orchestration/studio-model.js'
 
 const NODE_ID_PATTERN = /^[a-z0-9_-]+$/
 const PROVIDERS = ['', 'anthropic', 'openai'] as const

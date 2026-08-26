@@ -9,8 +9,8 @@
  * at compile time), so this module carries no runtime dependency on them.
  */
 import type { ModelEntry } from '../core/llm/index.js'
-import type { Plan } from '../orchestration/schema.js'
-import type { StepEvent } from '../orchestration/executor.js'
+import type { Plan } from '@factory/orchestration/schema.js'
+import type { StepEvent } from '@factory/orchestration/executor.js'
 
 /** Per-session run statistics (part of the session contract's data shape). */
 export interface SessionStats {
