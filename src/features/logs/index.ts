@@ -1,10 +1,11 @@
 import { LogsPanel } from './panel.js'
-import { Session } from '../../core/session.js'
-import { agentLoop } from '../../core/agent-loop.js'
-import { createAdapter, defaultProvider } from '../../core/llm/index.js'
-import { getRecentLogs, type LogEntry } from '../../core/logger.js'
-import { motionEnabled } from '../../shared/renderer/motion.js'
-import type { Feature, FeatureCtx } from '../types.js'
+import { Session } from '@factory/core/session.js'
+import { agentLoop } from '@factory/core/agent-loop.js'
+import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
+import { getRecentLogs, type LogEntry } from '@factory/core/logger.js'
+import { motionEnabled } from '@factory/shared/renderer/motion.js'
+import type { Feature, FeatureCtx } from '@factory/contracts/index.js'
+import { CONTRACT_VERSION } from '@factory/contracts/index.js'
 
 /**
  * The Logs tab as a self-contained Feature — the registry's proving case
@@ -67,6 +68,7 @@ export function logsFeature(): Feature {
 
   return {
     id: 'logs',
+    manifest: { id: 'logs', contract: CONTRACT_VERSION },
     tab: {
       id: 'logs',
       title: 'Logs',

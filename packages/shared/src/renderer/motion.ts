@@ -1,4 +1,4 @@
-import { store } from '../../core/config/store.js'
+import { store } from '@factory/core/config/store.js'
 
 let cached: boolean | null = null
 

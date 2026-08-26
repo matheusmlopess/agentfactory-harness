@@ -1,10 +1,11 @@
 import { SessionPanel, type SessionStats } from './panel.js'
-import * as A from '../../shared/renderer/ansi.js'
-import type { Feature, FeatureCtx, SessionBridge } from '../../contracts/index.js'
+import * as A from '@factory/shared/renderer/ansi.js'
+import type { Feature, FeatureCtx, SessionBridge } from '@factory/contracts/index.js'
+import { CONTRACT_VERSION } from '@factory/contracts/index.js'
 
 // Back-compat: SessionBridge/SessionMeta are now defined in contracts/session
 // panel; re-export so existing importers keep resolving.
-export type { SessionBridge } from '../../contracts/index.js'
+export type { SessionBridge } from '@factory/contracts/index.js'
 export type { SessionMeta } from './panel.js'
 
 export function sessionFeature(): Feature {
@@ -12,6 +13,7 @@ export function sessionFeature(): Feature {
 
   return {
     id: 'session',
+    manifest: { id: 'session', contract: CONTRACT_VERSION, provides: ['session'] },
     tab: {
       id: 'session',
       title: 'Session',

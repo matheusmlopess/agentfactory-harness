@@ -1,5 +1,5 @@
-import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
-import { Colors, DBox, Wire } from '../../shared/renderer/theme.js'
+import type { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
+import { Colors, DBox, Wire } from '@factory/shared/renderer/theme.js'
 
 export interface Block {
   id: string

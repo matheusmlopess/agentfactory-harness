@@ -1,19 +1,19 @@
-import { Panel } from '../../shared/panel.js'
-import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
-import type { Rect } from '../../shared/renderer/layout.js'
-import type { KeyEvent } from '../../shared/input/keyboard.js'
-import type { MouseEvent } from '../../shared/input/mouse.js'
-import { Colors } from '../../shared/renderer/theme.js'
-import { store } from '../../core/config/store.js'
-import { providersByCategory, PROVIDERS } from '../../core/config/providers.js'
-import type { ProviderDef, Category } from '../../core/config/providers.js'
-import type { AuthUser } from '../../registry/auth.js'
-import type { LoginEvent } from '../../registry/login.js'
-import type { ImportCandidate } from '../../registry/import-keys.js'
-import { logger } from '../../core/logger.js'
-import { maskSecret } from '../../core/config/mask.js'
-import { Overlay } from '../../shared/widgets/Overlay.js'
-import { motionEnabled } from '../../shared/renderer/motion.js'
+import { Panel } from '@factory/shared/panel.js'
+import type { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
+import type { Rect } from '@factory/shared/renderer/layout.js'
+import type { KeyEvent } from '@factory/shared/input/keyboard.js'
+import type { MouseEvent } from '@factory/shared/input/mouse.js'
+import { Colors } from '@factory/shared/renderer/theme.js'
+import { store } from '@factory/core/config/store.js'
+import { providersByCategory, PROVIDERS } from '@factory/core/config/providers.js'
+import type { ProviderDef, Category } from '@factory/core/config/providers.js'
+import type { AuthUser } from '@factory/registry/auth.js'
+import type { LoginEvent } from '@factory/registry/login.js'
+import type { ImportCandidate } from '@factory/registry/import-keys.js'
+import { logger } from '@factory/core/logger.js'
+import { maskSecret } from '@factory/core/config/mask.js'
+import { Overlay } from '@factory/shared/widgets/Overlay.js'
+import { motionEnabled } from '@factory/shared/renderer/motion.js'
 
 type PanelMode = 'browse' | 'edit' | 'login' | 'import'
 
@@ -418,7 +418,7 @@ export class ConfigPanel extends Panel {
     if (e.key === 'escape') { this.mode = 'browse'; this.onUpdate(); return true }
     if (e.key === 'enter' && this.importCandidates.length > 0) {
       for (const c of this.importCandidates) {
-        const def = (PROVIDERS as readonly import('../../core/config/providers.js').ProviderDef[]).find(p => p.configKey === c.configKey && p.aliasOf === undefined)
+        const def = (PROVIDERS as readonly import('@factory/core/config/providers.js').ProviderDef[]).find(p => p.configKey === c.configKey && p.aliasOf === undefined)
         if (def) store.setKey(c.configKey, c.value, def.fieldType)
       }
       this.importCandidates = []

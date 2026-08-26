@@ -45,6 +45,8 @@ lookups see the [Glossary](../documentation/GLOSSARY.md).
 
 - [ARCHITECTURE-BLUEPRINT-2026-08-26.md](ARCHITECTURE-BLUEPRINT-2026-08-26.md) · [[ARCHITECTURE-BLUEPRINT-2026-08-26]] — The living blueprint for the block architecture: what each block takes in and puts out, which
 
+- [FEATURE-COMPARTMENTALIZE-OPERATIONS-2026-08-26.md](FEATURE-COMPARTMENTALIZE-OPERATIONS-2026-08-26.md) · [[FEATURE-COMPARTMENTALIZE-OPERATIONS-2026-08-26]] — Operator/developer guide for the compartmentalization work (Stages A–E): the `@factory/*`
+
 ## Reference
 
 Glossary: [`../documentation/GLOSSARY.md`](../documentation/GLOSSARY.md) · Registry: [`../documentation/DOCUMENTATION-REGISTRY.md`](../documentation/DOCUMENTATION-REGISTRY.md)

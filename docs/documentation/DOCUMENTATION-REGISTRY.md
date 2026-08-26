@@ -1,4 +1,4 @@
-<!-- version: 1.6.0 -->
+<!-- version: 1.7.0 -->
 <!-- classification: REVIEW -->
 <!-- review-type: DOCUMENTATION -->
 <!-- date: 2026-06-09 -->
@@ -61,6 +61,7 @@ is the centralized term/acronym lookup.
 
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
+| FEATURE-COMPARTMENTALIZE-OPERATIONS-2026-08-26.md | 2026-08-26 | Compartmentalization | ✅ Active | Operational guide: block workflows, feature toggles, edge/failure modes + recovery, validation |
 | FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md | 2026-07-08 | Canvas Session Binding | ✅ Active | routeWire crash fix + canvas nodes bound to real sessions: Agents-list visibility, click-to-open, bound plan runs |
 | FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md | 2026-07-07 | UI Consolidation + Studio | ✅ Active | Operator guide: panes, keys, studio authoring, team dashboard, where things live |
 | FEATURE-UI-CONSOLIDATION-2026-07-07.md | 2026-07-07 | UI Consolidation | ✅ Active | ddd/09–11 implementation: Overlay/ListBehavior, theme tokens, InputController, keymap, a11y, size profiles, Feature registry |
@@ -85,6 +86,7 @@ is the centralized term/acronym lookup.
 
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
+| TESTING-COMPARTMENTALIZE-2026-08-26.md | 2026-08-26 | Compartmentalization | ✅ Active | E2E: packages resolve, boundary bans, toggle, version gate, correctness checklist |
 | TESTING-CANVAS-SESSION-BINDING-2026-07-09.md | 2026-07-09 | Canvas Session Binding | ✅ Active | E2E: wire-crash regression, binding states, click-through, bound runs, failure indicators |
 | TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md | 2026-07-07 | UI Consolidation + Studio | ✅ Active | E2E: input/keymap, themes/profiles, widgets, studio authoring + run |
 | TESTING-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | 30+ test cases, procedures, failure checklist |
@@ -124,6 +126,7 @@ is the centralized term/acronym lookup.
 
 | Doc | Date | Feature | Status | Purpose |
 |-----|------|---------|--------|---------|
+| CHANGE-COMPARTMENTALIZE-2026-08-26.md | 2026-08-26 | Compartmentalization | ✅ Active | Before/after tree + mermaid, added/removed/renamed, before/after execution + examples |
 | CHANGE-CANVAS-SESSION-BINDING-2026-07-09.md | 2026-07-09 | Canvas Session Binding | ✅ Active | Delta: wire fix + binding; before/after trees, Mermaid workflows, operator-visible changes |
 | CHANGE-UI-CONSOLIDATION-STUDIO-2026-07-07.md | 2026-07-07 | UI Consolidation + Studio | ✅ Active | Delta over Waves 0–5: consolidation + studio behavioral table |
 | CHANGE-LOGS-PANEL-2026-06-09.md | 2026-06-09 | Logs Panel | ✅ Active | Before/after code, behavioral changes, performance |
@@ -159,7 +162,7 @@ is the centralized term/acronym lookup.
 
 | Doc | Date | System | Version | Status | Purpose |
 |-----|------|--------|---------|--------|---------|
-| docs/features/ARCHITECTURE-BLUEPRINT-2026-08-26.md | 2026-08-26 | Block architecture | v1.0.0 | ✅ Active | Per-block I/O contracts, backward-compat policy, mermaid architecture/comms/ERD, enforcement matrix, test blueprint |
+| docs/features/ARCHITECTURE-BLUEPRINT-2026-08-26.md | 2026-08-26 | Block architecture | v1.1.0 | ✅ Active | Per-block I/O contracts, backward-compat policy, mermaid architecture/comms/ERD, enforcement matrix, test blueprint |
 | docs/features/FEATURE-SYSTEM-ARCHITECTURE-v0.4.0-2026-05-18.md | 2026-04-27 | Logs Panel | v0.4.0 | ✅ Active | System architecture overview |
 
 ---

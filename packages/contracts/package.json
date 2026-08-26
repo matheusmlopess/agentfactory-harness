@@ -1,0 +1,15 @@
+{
+  "name": "@factory/contracts",
+  "version": "0.4.0",
+  "description": "Neutral bolt-spec — Feature contract + cross-feature service bridges and typed registry",
+  "type": "module",
+  "exports": {
+    ".": { "types": "./src/index.ts", "default": "./src/index.ts" },
+    "./*.js": { "types": "./src/*.ts", "default": "./src/*.ts" }
+  },
+  "dependencies": {
+    "@factory/core": "*",
+    "@factory/orchestration": "*",
+    "@factory/shared": "*"
+  }
+}

@@ -1,6 +1,6 @@
 # Architecture Blueprint — Compartmentalized `factory`
 
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 <!-- classification: ARCHITECTURE -->
 <!-- date: 2026-08-26 -->
 <!-- last-updated: 2026-08-26 -->
@@ -9,11 +9,13 @@ The living blueprint for the block architecture: what each block takes in and pu
 surfaces are stable connectors (backward-compat-governed) versus free-to-change internals, and
 the diagrams that back the design. Plan of record:
 `specs/docs/approvedPlans/2026-08-26-compartmentalize-blocks.md`. Boundaries are enforced by
-`eslint.config.js` (`.ai/rules/module-boundaries.md`).
+each package's `dependencies` + `eslint.config.js` (`.ai/rules/module-boundaries.md`).
 
-**Status:** Stages A–C implemented (contracts + typed registry; ESLint boundary enforcement;
-per-block test projects). Stages D (workspace packages) and E (runtime toggles + contract
-versioning) are **planned** — sections below mark them.
+**Status:** Stages A–E implemented. The platform blocks — **contracts, core, shared,
+orchestration, registry** — are now `@factory/*` npm **workspace packages** under `packages/*`;
+the app **host + the six features** stay in `src/`. Runtime feature toggles + contract
+versioning (Stage E) are live. Remaining follow-up: per-feature packages + `node-pty` in its
+own package, and tsc project-references for machine-checked cross-package types (see §8).
 
 ---
 
@@ -240,7 +242,7 @@ erDiagram
     }
 ```
 
-`FEATUREMANIFEST` is the Stage-E addition (planned). `XSTUDIO` is the additive `x-studio`
+`FEATUREMANIFEST` is the Stage-E manifest (live). `XSTUDIO` is the additive `x-studio`
 extension on the plan file that carries canvas layout, typed edges, and node-session bindings.
 
 ---
@@ -264,21 +266,21 @@ provider can be absent (toggled off, Stage E) and consumers degrade to a no-op o
 
 ---
 
-## 6. Enforcement — the allow-matrix (live, in `eslint.config.js`)
+## 6. Enforcement (post-packaging)
 
-| from ↓ \ may import → | contracts | orchestration | core | shared | registry | sibling feature |
-|---|---|---|---|---|---|---|
-| contracts     | ✔ | ✔ type | ✔ type | ✔ type | – | – |
-| orchestration | – | ✔ | – | – | – | – |
-| core          | ✔ | – | ✔ | – | – | – |
-| shared        | ✔ | – | ✔ soft | ✔ | – | – |
-| registry      | ✔ | – | ✔ | – | ✔ | – |
-| harness       | ✔ | – | ✔ | – | ✔ | – |
-| feature       | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ never |
-| host          | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+Two complementary mechanisms:
 
-A violating import fails `npm run lint` (and CI). Verified: a planted `logs → session` import
-and an `orchestration → shared` import both fail; the clean tree passes.
+1. **Package `dependencies`** (the platform libraries). Each `@factory/*` package declares
+   exactly what it may use — the DAG is `orchestration` (leaf) · `core` (leaf) · `shared → core`
+   · `contracts → {orchestration, core, shared}` · `registry → core`. A package's public
+   surface is its `exports` map; consumers bind to `@factory/x/...`.
+2. **ESLint boundaries** (the `src/` app: host + features). The one rule that lives here is the
+   guarantee that **a feature never imports a sibling feature** (cross-feature capability goes
+   through the typed `ServiceRegistry` in `@factory/contracts`), plus features never importing
+   the host/harness. A violation fails `npm run lint` and CI.
+
+Verified: a planted `logs → session` import and a planted `feature → host` import both fail
+`npm run lint`; the clean tree passes.
 
 ---
 
@@ -297,25 +299,28 @@ and an `orchestration → shared` import both fail; the clean tree passes.
 │                    │ input, wires services          │ handleData byte drives        │
 │ Event-flow         │ plan run fans to canvas+agents │ canvas/agents with stub Exec  │
 │ Round-trip         │ studioToPlan∘planToStudio ≡ id │ studio-model.test             │
-│ Version-gate (E)   │ incompatible manifest skipped  │ app test (planned)            │
-│ Toggle (E)         │ features.<id>=off degrades ok  │ app test + smoke (planned)    │
+│ Version-gate (E)   │ incompatible manifest skipped  │ contracts manifest.test       │
+│ Toggle (E)         │ features.<id>=off degrades ok  │ manifest.test + e2e tmux      │
 │ E2E smoke          │ real TUI renders + studio run  │ scripts/smoke-tui.sh (tmux)   │
-│ Build DAG (D)      │ package graph acyclic, bin runs│ tsc -b + npm ci (planned)     │
+│ Build             │ tsup bundles the workspace, bin │ npm run build                 │
 └────────────────────┴────────────────────────────────┴───────────────────────────────┘
 ```
 
-Gate summary today: `npm run lint` (eslint boundaries + typecheck) · `npm test` (446, per-block
-projects available) · `npm run build` · `scripts/smoke-tui.sh`. A connector change additionally
+Gate summary today: `npm run lint` (eslint boundaries + typecheck) · `npm test` (453; per-block
+projects incl. `--project orchestration`) · `npm run build` (tsup bundles the `@factory/*`
+graph into the `factory` bin) · `scripts/smoke-tui.sh`. A connector change additionally
 requires its contract test plus all consumers updated in the same PR.
 
 ---
 
-## 8. Roadmap
+## 8. Roadmap (remaining)
 
-- **Stage D — workspace packages** (planned): extract leaves-first
-  (contracts → orchestration → core → shared → features → host), one package per PR; scope
-  `node-pty` to `feature-terminal`; clean the `shared → core/config` soft spot; each edge in §2
-  becomes an `@factory/*` dependency.
-- **Stage E — runtime toggles + contract versioning** (planned): `FeatureManifest` +
-  `CONTRACT_VERSION`; config-driven enable/disable; a major-version gate the host checks on
-  load; `factory doctor --features` capability report.
+- **Per-feature packages** — split `src/features/*` into `@factory/feature-*` packages so each
+  versions independently and `node-pty` lives only in `@factory/feature-terminal` (a subset
+  build then omits the native dep). Needs per-package tsconfig `references` to preserve the
+  feature-sibling ban that ESLint gives today in `src/`.
+- **tsc project references** (`composite` + `tsc -b`) across packages, for machine-checked
+  cross-package types and incremental builds — the precise blast-radius guarantee.
+- **`shared → core/config` clean-up** (B.3-clean) so `@factory/shared` drops its `@factory/core`
+  dependency (StatusBar version via prop; motion/settings/size-profiles take a `ConfigReader`).
+- **`factory doctor --features`** capability report (enabled/disabled + provides/consumes).

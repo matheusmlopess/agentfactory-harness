@@ -6,20 +6,28 @@
   "bin": {
     "factory": "./dist/index.js"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "lint": "eslint src",
+    "build": "tsup",
+    "lint": "eslint src && node scripts/check-package-deps.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@factory/orchestration": "*",
     "commander": "^12.0.0",
     "node-pty": "^1.0.0",
     "openai": "^6.35.0",
-    "zod": "^3.23.0"
+    "zod": "^3.23.0",
+    "@factory/core": "*",
+    "@factory/shared": "*",
+    "@factory/contracts": "*",
+    "@factory/registry": "*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

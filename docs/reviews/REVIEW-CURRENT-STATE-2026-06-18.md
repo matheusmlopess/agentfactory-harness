@@ -1,9 +1,9 @@
-# Consolidated Implementation Review — `factory` (Waves 0–5 + UI Consolidation)
+# Consolidated Implementation Review — `factory` (Waves 0–5 + UI Consolidation + Compartmentalization)
 
-<!-- version: 2.1.0 -->
+<!-- version: 2.3.0 -->
 <!-- classification: REVIEW -->
 <!-- date: 2026-06-18 -->
-<!-- last-updated: 2026-07-09 -->
+<!-- last-updated: 2026-08-26 -->
 <!-- Scope: the IMPLEMENTED app (Waves 0–5 + feature/ui-consolidation). -->
 <!-- Companion: docs/ddd/ (design reference), docs/testing/TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md + TESTING-CANVAS-SESSION-BINDING-2026-07-09.md (test guides), docs/changes/CHANGE-UI-CONSOLIDATION-STUDIO-2026-07-07.md + CHANGE-CANVAS-SESSION-BINDING-2026-07-09.md (deltas). -->
 
@@ -298,3 +298,109 @@ accumulation (R17), and the environment-sensitive smoke gate (R19).
 *See `docs/testing/TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md` (new surfaces),
 `docs/testing/TESTING-CANVAS-SESSION-BINDING-2026-07-09.md` (binding + wire fix), and
 `docs/testing/TESTING-FACTORY-E2E-2026-06-18.md` (Waves 0–5) for the end-to-end procedures.*
+
+---
+
+## 8. Compartmentalization — `@factory/*` packages + typed seam + toggles (v2.2, 2026-08-26)
+
+> Analysis of the block-compartmentalization work (Stages A–E; PRs #26 + #27). Full blueprint:
+> `docs/features/ARCHITECTURE-BLUEPRINT-2026-08-26.md`; delta:
+> `docs/changes/CHANGE-COMPARTMENTALIZE-2026-08-26.md`; tests:
+> `docs/testing/TESTING-COMPARTMENTALIZE-2026-08-26.md`.
+
+### 8.1 Design reasoning & trade-offs
+
+| Decision | Reasoning | Trade-off accepted |
+|---|---|---|
+| **Seams before splits** (A–C in-place, then D packages) | De-risk: fix contracts/enforcement reversibly before any directory move | Two-phase delivery; A–C shipped separately |
+| **Typed `ServiceRegistry` over `Map<string,unknown>`** | Kills 6 casts + 3 cross-feature edges; `get()→T\|undefined` makes graceful-absence compiler-enforced | A tiny runtime `Map` behind the typed interface |
+| **`@factory/*` workspace packages** (5 libs), app + features stay in `src/` | Real independent versioning for the platform + a reusable pure engine, with far less risk/churn than 11 packages | Per-feature packaging + node-pty isolation deferred |
+| **`exports` map `./*.js → ./src/*.ts`** | Consumers keep NodeNext subpath imports; no exhaustive barrels to build (collision-free); tsup bundles source | Packages "publish" source, fine for an app (not an npm lib); entry-point (barrel-only) rule deferred |
+| **Enforcement split: package deps (libs) + ESLint (features)** | Platform DAG lives in `package.json`; the highest-value guarantee (feature-sibling ban) stays machine-checked in `src/` | Cross-*package* layering is not yet machine-checked (needs tsc project references) |
+| **`shared → core` shipped honestly** (not B.3-clean) | Unblocks the split now | `@factory/shared` can't be reused without `@factory/core` yet |
+| **Manifest + major-version gate** | Reject a stale feature package without crashing the TUI | Only major is gated (minor/patch drift trusted) |
+| **Toggle via `settings.features.<id>`** | No new file/format; reuses the config store; host builds tabs from loaded features | Toggling needs a restart (read at startup) |
+
+### 8.2 Assumptions
+
+```
+┌ Compartmentalization assumptions ─────────────────────────────────────────┐
+│ • The toolchain (tsx dev, tsup build, tsc, vitest) resolves @factory/*      │
+│   subpath `.js` specifiers to `.ts` source via workspace symlinks + the     │
+│   `exports` maps. (Node itself never runs the raw .ts.)                     │
+│ • All @factory/* packages share the app version (0.4.0), kept in sync.      │
+│ • getVersion() can find the root `agentfactory-harness` package.json within │
+│   4 parent levels of its module.                                            │
+│ • The package DAG stays acyclic; a new cross-package edge is added to the   │
+│   importing package's `dependencies`.                                       │
+│ • Feature ids are stable config keys (`features.<id>`).                     │
+│ • The dev sandbox has `package-lock=false`; the lockfile must be force-      │
+│   regenerated (`--package-lock=true`) before a `npm ci`.                    │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.3 Identified gaps & risks
+
+| # | Risk | Impact | Sev |
+|---|---|---|---|
+| C1 | **Cross-package layering not machine-checked** (ESLint governs only `src/`; package deps are declarative but npm won't block an undeclared workspace import) | A package could import an undeclared sibling and tsc/build still pass | 🟡 → ✅ **closed (F)** |
+| C2 | **`shared → core` coupling** | `@factory/shared` isn't reusable standalone | 🟢 (deferred — needs B.3-clean prop-injection) |
+| C3 | **Features not yet packages** | no per-feature versioning; `node-pty` installed even when Terminal is off | 🟢 (deferred — larger split) |
+| C4 | **`exports` point at source** | packages aren't independently publishable to npm as-is (dist-less) | 🟢 (deferred — only matters if published to npm) |
+| C5 | **Lockfile drift under `package-lock=false`** | CI `npm ci` fails after a dep change | 🟡 → ✅ **closed (F)** — the existing `npm ci` in every CI job is the guard |
+| C6 | **Contract gate is major-only** | a feature depending on a minor-added service could load and then `get()` undefined | 🟢 (graceful — consumer already handles undefined) |
+| C7 | **Built bin resolved `@factory/*` to `.ts`** (tsup externalized the workspace deps; smoke only ran `tsx` dev, so it went undetected) | shipped `factory` bin crashed with `ERR_UNKNOWN_FILE_EXTENSION` | 🔴 → ✅ **closed (F)** — `tsup.config.ts` `noExternal: [/^@factory\//]` bundles them |
+
+### 8.4 Missing scenarios (not yet handled/verified)
+
+```
+• A feature disabled that ANOTHER feature's tab logic assumes present at a fixed
+  tab index — mitigated (switches built from loaded tabs) but not exhaustively fuzzed.
+• Two @factory packages accidentally forming a cycle — caught by tsc only if the
+  cycle crosses a value import; a type-only cycle may pass. (project references would catch.)
+• A partial subset build (omit @factory/feature-terminal) — not yet a build target;
+  today node-pty is always a root dependency.
+• Hot toggle without restart — not supported (settings read at startup).
+```
+
+### 8.5 Potential enhancements
+
+**Short-term:** tsc **project references** (`composite`+`tsc -b`) per package → machine-checked
+cross-package DAG + incremental builds (closes C1); a tiny CI check that fails when
+`package.json` changed without a lockfile update (closes C5); `factory doctor --features`
+capability report.
+
+**Long-term:** split `src/features/*` into `@factory/feature-*` packages (per-feature versioning
++ node-pty isolation + subset builds, closes C3) — requires per-package references to keep the
+sibling ban; B.3-clean so `@factory/shared` drops `@factory/core` (closes C2); build to `dist`
+per package if any block is ever published to npm (closes C4).
+
+### 8.6 Additional checks & safeguards
+
+| Safeguard | Why |
+|---|---|
+| **CI lockfile-sync check** | fail the build if `package.json` changed but `package-lock.json` didn't (the recurring C5 gotcha) |
+| **tsc project references** | make the cross-package DAG a build error, not a convention (C1) |
+| **A cycle check** (`madge`/`dpdm` on packages) | catch type-only package cycles project references would miss |
+| **Contract-version test in CI** | assert every feature's `manifest.contract` major == `CONTRACT_VERSION` (catch a forgotten bump) |
+| **Smoke a subset build** | once feature packages exist, CI a `features.terminal=off` variant to prove node-pty is droppable |
+
+### 8.7 Stage F — gaps addressed (v2.3, 2026-08-26)
+
+The addressable gaps from §8.3 were closed without undertaking the larger deferred splits
+(C2 shared→core, C3 per-feature packages, C4 dist builds), which remain future work:
+
+| Gap | Resolution shipped in Stage F |
+|---|---|
+| **C1** | `scripts/check-package-deps.mjs` — scans every `packages/*/src` + the root `src/` for `@factory/*` imports, asserts each is a declared dependency in that unit's `package.json`, and DFS-checks the graph is acyclic (catches type-only cycles tsc misses). Wired into `npm run lint` + CI. Verified: passes clean, fails on a planted undeclared import. |
+| **C5** | Confirmed the existing `npm ci` (run in every CI job) already fails on package.json↔lock drift — that is what caught the earlier stale lock. No separate check needed; the redundant `lockcheck` script was removed (it also tripped the sandbox's `--allow-scripts` npm config). |
+| **C6** | `contract-version` guard: `src/features/manifests.test.ts` asserts every feature's `manifest.contract` major equals `CONTRACT_VERSION`, that ids are unique and match the feature id, and that provided service keys don't collide. Catches a forgotten bump at test time. |
+| **C7** *(newly found)* | The built `factory` bin resolved `@factory/*` to `.ts` sources at runtime because tsup externalizes `dependencies`; smoke only exercised the `tsx` dev path, so it never surfaced. Fixed with `tsup.config.ts` (`noExternal: [/^@factory\//]`) — the workspace graph is now bundled into the single 275 KB `dist/index.js`. `node-pty` stays external (native module). |
+| **capability report** | new `factory features` command lists each feature with its `on`/`off`/`incompat` state, contract version, and provided/consumed service keys — the `doctor --features` idea from §8.5, surfaced as a first-class subcommand. |
+
+*Verdict addendum (v2.2): the compartmentalization pays down the last structural item flagged
+in v2 — the untyped services seam — and turns the platform into versioned, independently-
+upgradeable `@factory/*` packages with a reusable pure engine, while keeping the feature-sibling
+guarantee machine-checked. Remaining debt is enforcement-completeness (project references) and
+the deferred per-feature packaging, not correctness — all gates green (lint, tsc, 453 tests,
+build, smoke).*

@@ -1,7 +1,7 @@
 import type { CellBuffer } from '../renderer/cell-buffer.js'
 import { Colors } from '../renderer/theme.js'
 import type { Rect } from '../renderer/layout.js'
-import { getVersion } from '../../core/version.js'
+import { getVersion } from '@factory/core/version.js'
 
 export interface StatusBarLayout {
   /** Column where the model tag starts (-1 if not shown). */

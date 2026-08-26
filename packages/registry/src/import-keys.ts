@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { PROVIDERS } from '../core/config/providers.js'
+import { PROVIDERS } from '@factory/core/config/providers.js'
 
 export interface ImportCandidate {
   configKey: string

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Deterministic rollout ids, no homedir writes
 let rolloutSeq = 0
-vi.mock('../../core/rollout.js', () => ({
+vi.mock('@factory/core/rollout.js', () => ({
   rolloutStore: {
     create: vi.fn((name: string) => ({
       id: `/fake/rollouts/${name}-${++rolloutSeq}.jsonl`,
@@ -19,7 +19,7 @@ vi.mock('../../core/rollout.js', () => ({
 }))
 
 // Scripted agent loop: streams two deltas, no network
-vi.mock('../../core/agent-loop.js', () => ({
+vi.mock('@factory/core/agent-loop.js', () => ({
   // eslint-disable-next-line @typescript-eslint/require-await
   agentLoop: vi.fn(async function* () {
     yield { type: 'text_delta', delta: 'final ' }
@@ -28,10 +28,10 @@ vi.mock('../../core/agent-loop.js', () => ({
   }),
 }))
 
-vi.mock('../../core/hooks.js', () => ({ runHook: vi.fn(async () => {}) }))
+vi.mock('@factory/core/hooks.js', () => ({ runHook: vi.fn(async () => {}) }))
 
-vi.mock('../../core/llm/index.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../core/llm/index.js')>()
+vi.mock('@factory/core/llm/index.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@factory/core/llm/index.js')>()
   return {
     ...actual,
     defaultProvider: () => 'anthropic' as const,

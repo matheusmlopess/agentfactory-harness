@@ -2,14 +2,24 @@ import { Command } from 'commander'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { runDoctor, printDoctorReport } from './harness/doctor.js'
-import { PlanSchema } from './orchestration/schema.js'
-import { Executor } from './orchestration/executor.js'
-import { Planner } from './orchestration/planner.js'
-import { registerTool } from './core/tools/index.js'
-import { AgentTool } from './core/tools/agent.js'
-import { Session } from './core/session.js'
-import { agentLoop } from './core/agent-loop.js'
-import { createAdapter, defaultProvider } from './core/llm/index.js'
+import { PlanSchema } from '@factory/orchestration/schema.js'
+import { Executor } from '@factory/orchestration/executor.js'
+import { Planner } from '@factory/orchestration/planner.js'
+import { registerTool } from '@factory/core/tools/index.js'
+import { AgentTool } from '@factory/core/tools/agent.js'
+import { Session } from '@factory/core/session.js'
+import { agentLoop } from '@factory/core/agent-loop.js'
+import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
+import { store } from '@factory/core/config/store.js'
+import {
+  CONTRACT_VERSION, isContractCompatible, isFeatureEnabled, type Feature,
+} from '@factory/contracts/index.js'
+import { sessionFeature } from './features/session/index.js'
+import { canvasFeature } from './features/canvas/index.js'
+import { agentsFeature } from './features/agents/index.js'
+import { terminalFeature } from './features/terminal/index.js'
+import { configFeature } from './features/config/index.js'
+import { logsFeature } from './features/logs/index.js'
 
 export function buildCli(version: string): Command {
   const program = new Command()
@@ -25,6 +35,33 @@ export function buildCli(version: string): Command {
     .action(() => {
       const results = runDoctor(process.cwd())
       printDoctorReport(results)
+    })
+
+  program
+    .command('features')
+    .description('List features with their enabled/compatibility state (Stage E)')
+    .action(async () => {
+      await store.init()
+      const features: Feature[] = [
+        sessionFeature(), canvasFeature(), agentsFeature(),
+        terminalFeature(), configFeature(), logsFeature(),
+      ]
+      process.stdout.write(`Contract version: ${CONTRACT_VERSION}\n\n`)
+      process.stdout.write(`  state      id             contract  provides / consumes\n`)
+      for (const f of features) {
+        const m = f.manifest
+        if (!m) continue
+        const compatible = isContractCompatible(m.contract)
+        const enabled = isFeatureEnabled(m, (k) => store.getSetting(k))
+        const state = !compatible ? 'incompat' : enabled ? 'on' : 'off'
+        const io = [
+          (m.provides ?? []).map(p => `+${p}`).join(' '),
+          (m.consumes ?? []).map(c => `-${c}`).join(' '),
+        ].filter(Boolean).join('  ')
+        process.stdout.write(
+          `  ${state.padEnd(9)} ${m.id.padEnd(14)} ${m.contract.padEnd(9)} ${io}\n`,
+        )
+      }
     })
 
   program
@@ -97,7 +134,7 @@ export function buildCli(version: string): Command {
         process.exit(1)
       }
       // toposort throws on cycle
-      const { toposort } = await import('./orchestration/graph.js')
+      const { toposort } = await import('@factory/orchestration/graph.js')
       toposort(result.data.steps)
       process.stdout.write(`Plan "${result.data.name}" is valid (${result.data.steps.length} steps)\n`)
     })

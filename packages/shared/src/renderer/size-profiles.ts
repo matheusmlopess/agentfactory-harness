@@ -1,6 +1,6 @@
 import type { CellBuffer } from './cell-buffer.js'
 import { Colors } from './theme.js'
-import type { ConfigStore } from '../../core/config/store.js'
+import type { ConfigStore } from '@factory/core/config/store.js'
 
 /**
  * Settings-based minimum terminal sizes (gaps 20–22). The user picks a

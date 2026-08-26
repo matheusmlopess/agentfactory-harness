@@ -1,20 +1,21 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { OrchestrationCanvas, type CanvasSessionActions } from './panel.js'
-import { PlanSchema, type Plan, type Step } from '../../orchestration/schema.js'
-import { Executor, type StepEvent } from '../../orchestration/executor.js'
-import { studioToPlan, validateStudio } from '../../orchestration/studio-model.js'
-import { Session } from '../../core/session.js'
-import { agentLoop } from '../../core/agent-loop.js'
-import { createAdapter, defaultProvider } from '../../core/llm/index.js'
-import { logger } from '../../core/logger.js'
+import { PlanSchema, type Plan, type Step } from '@factory/orchestration/schema.js'
+import { Executor, type StepEvent } from '@factory/orchestration/executor.js'
+import { studioToPlan, validateStudio } from '@factory/orchestration/studio-model.js'
+import { Session } from '@factory/core/session.js'
+import { agentLoop } from '@factory/core/agent-loop.js'
+import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
+import { logger } from '@factory/core/logger.js'
 import type {
   Feature, FeatureCtx, SessionBridge, PlanBridge, PlanEventSink,
-} from '../../contracts/index.js'
+} from '@factory/contracts/index.js'
+import { CONTRACT_VERSION } from '@factory/contracts/index.js'
 
 // PlanBridge / PlanEventSink now live in contracts/services; re-export for
 // back-compat with any existing importer.
-export type { PlanBridge, PlanEventSink } from '../../contracts/index.js'
+export type { PlanBridge, PlanEventSink } from '@factory/contracts/index.js'
 
 const log = logger('CanvasFeature')
 
@@ -131,6 +132,7 @@ export function canvasFeature(): Feature {
 
   return {
     id: 'orchestration',
+    manifest: { id: 'orchestration', contract: CONTRACT_VERSION, provides: ['plan'], consumes: ['session', 'plan-events'] },
     tab: {
       id: 'orchestration',
       title: 'Orchestration',
