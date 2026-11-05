@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup src/index.ts --format esm --dts --clean",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -21,9 +23,13 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "eslint": "^9.39.5",
+    "eslint-import-resolver-typescript": "^3.10.1",
+    "eslint-plugin-boundaries": "^5.4.0",
     "tsup": "^8.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.4.0",
+    "typescript-eslint": "^8.68.0",
     "vitest": "^1.0.0"
   }
 }

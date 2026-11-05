@@ -1,4 +1,5 @@
 import { Panel } from '../../shared/panel.js'
+import type { SessionMeta, SessionStats } from '../../contracts/index.js'
 import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
 import type { KeyEvent } from '../../shared/input/keyboard.js'
 import type { MouseEvent } from '../../shared/input/mouse.js'
@@ -59,16 +60,6 @@ const EMOJI_ASCII: Record<string, string> = {
   '🎉': '*', '✨': '*', '🚀': '^', '🔥': '!', '❤️': '<3', '💡': '(i)',
 }
 
-export interface SessionStats {
-  status:       'running' | 'done' | 'error'
-  model:        string
-  inputTokens:  number
-  outputTokens: number
-  toolCalls:    number
-  turns:        number
-  startTime:    number
-}
-
 interface SlashCommand {
   name: string
   desc: string
@@ -84,14 +75,9 @@ const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: '/tokens', desc: 'Show approximate token count'             },
 ] as const
 
-/** Public per-session metadata — consumed by the Agents list and the canvas. */
-export interface SessionMeta {
-  id:     string
-  name:   string
-  status: 'idle' | 'running' | 'done' | 'error'
-  active: boolean
-  stats:  SessionStats | null
-}
+// SessionMeta / SessionStats are the session contract's data shapes — defined
+// in contracts/, re-exported here so existing importers keep resolving.
+export type { SessionMeta, SessionStats } from '../../contracts/index.js'
 
 interface SessionRecord {
   id:            string                 // stable identity — the rollout id

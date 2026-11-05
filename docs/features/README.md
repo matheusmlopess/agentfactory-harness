@@ -1,7 +1,7 @@
 <!-- version: 1.0.0 -->
 <!-- classification: SUMMARY -->
 <!-- date: 2026-06-19 -->
-<!-- last-updated: 2026-07-10 -->
+<!-- last-updated: 2026-08-26 -->
 <!-- status: ACTIVE -->
 
 # features/ — Feature Operational Guides
@@ -42,6 +42,8 @@ lookups see the [Glossary](../documentation/GLOSSARY.md).
 - [FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md](FEATURE-CANVAS-SESSION-BINDING-2026-07-08.md) · [[FEATURE-CANVAS-SESSION-BINDING-2026-07-08]] — routeWire crash fix + canvas↔agents↔sessions binding
 
 - [FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md](FEATURE-UI-STUDIO-OPERATIONS-2026-07-07.md) · [[FEATURE-UI-STUDIO-OPERATIONS-2026-07-07]] — Operator guide: panes, keys, studio authoring, team dashboard
+
+- [ARCHITECTURE-BLUEPRINT-2026-08-26.md](ARCHITECTURE-BLUEPRINT-2026-08-26.md) · [[ARCHITECTURE-BLUEPRINT-2026-08-26]] — The living blueprint for the block architecture: what each block takes in and puts out, which
 
 ## Reference
 
