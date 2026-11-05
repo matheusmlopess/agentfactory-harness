@@ -1,5 +1,6 @@
 import { TerminalPanel } from './panel.js'
-import type { Feature, FeatureCtx } from '../types.js'
+import type { Feature, FeatureCtx } from '@factory/contracts/index.js'
+import { CONTRACT_VERSION } from '@factory/contracts/index.js'
 
 /**
  * Terminal tab. makePanel is invoked lazily by the host on first access —
@@ -10,6 +11,7 @@ export function terminalFeature(): Feature {
 
   return {
     id: 'terminal',
+    manifest: { id: 'terminal', contract: CONTRACT_VERSION },
     tab: {
       id: 'terminal',
       title: 'Terminal',

@@ -1,4 +1,4 @@
-import type { ConfigStore } from '../core/config/store.js'
+import type { ConfigStore } from '@factory/core/config/store.js'
 import { setTheme } from './renderer/theme.js'
 import { refreshMotionSetting } from './renderer/motion.js'
 

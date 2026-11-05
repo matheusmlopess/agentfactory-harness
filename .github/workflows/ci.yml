@@ -16,6 +16,8 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      # `npm ci` fails when package.json and package-lock.json are out of sync,
+      # which is the guard for gap C5 (a dep change without a regenerated lock).
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck

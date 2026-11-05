@@ -5,14 +5,15 @@
  * one place. The host iterates loadedFeatures() to build tabs, palette entries,
  * and key bindings. Shared/core references are `import type` only (erased).
  */
-import type { Panel } from '../shared/panel.js'
-import type { PanelLayout, Rect } from '../shared/renderer/layout.js'
-import type { TabId } from '../shared/tabs.js'
-import type { PaletteCommand } from '../shared/widgets/CommandPalette.js'
-import type { KeyBindingDef } from '../shared/input/keymap.js'
-import type { ConfigStore } from '../core/config/store.js'
-import type { Tool } from '../core/tools/index.js'
+import type { Panel } from '@factory/shared/panel.js'
+import type { PanelLayout, Rect } from '@factory/shared/renderer/layout.js'
+import type { TabId } from '@factory/shared/tabs.js'
+import type { PaletteCommand } from '@factory/shared/widgets/CommandPalette.js'
+import type { KeyBindingDef } from '@factory/shared/input/keymap.js'
+import type { ConfigStore } from '@factory/core/config/store.js'
+import type { Tool } from '@factory/core/tools/index.js'
 import type { ServiceRegistry } from './services.js'
+import type { FeatureManifest } from './manifest.js'
 
 /**
  * Services the host injects into features. Kept deliberately minimal to avoid
@@ -35,6 +36,9 @@ export type KeyBindingContribution = KeyBindingDef
 
 export interface Feature {
   id: TabId | string
+  /** Optional runtime manifest — enables config toggles + contract-version
+   *  gating (Stage E). Absent = always loaded at the host's contract version. */
+  manifest?: FeatureManifest
   tab?: {
     id: TabId
     title: string

@@ -1,10 +1,10 @@
 /**
  * Back-compat re-export. The Feature contract now lives in src/contracts/.
  * Existing `import … from '../types.js'` sites keep working; new code should
- * import from '../../contracts/index.js' directly.
+ * import from '@factory/contracts/index.js' directly.
  */
 export type {
   Feature,
   FeatureCtx,
   KeyBindingContribution,
-} from '../contracts/feature.js'
+} from '@factory/contracts/feature.js'

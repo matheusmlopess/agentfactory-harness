@@ -1,7 +1,7 @@
 <!-- version: 1.0.0 -->
 <!-- classification: SUMMARY -->
 <!-- date: 2026-06-19 -->
-<!-- last-updated: 2026-07-10 -->
+<!-- last-updated: 2026-08-26 -->
 <!-- status: ACTIVE -->
 
 # testing/ — Test Procedures
@@ -27,6 +27,8 @@ correctness checklist.
 - [TESTING-CANVAS-SESSION-BINDING-2026-07-09.md](TESTING-CANVAS-SESSION-BINDING-2026-07-09.md) · [[TESTING-CANVAS-SESSION-BINDING-2026-07-09]] — E2E: wire-crash regression, binding states, click-through, bound runs
 
 - [TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md](TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07.md) · [[TESTING-UI-CONSOLIDATION-STUDIO-2026-07-07]] — E2E: input/keymap, themes/profiles, widgets, studio authoring + run
+
+- [TESTING-COMPARTMENTALIZE-2026-08-26.md](TESTING-COMPARTMENTALIZE-2026-08-26.md) · [[TESTING-COMPARTMENTALIZE-2026-08-26]] — How to verify the compartmentalization (Stages A–E) end-to-end: the `@factory/*` workspace
 
 ## Reference
 

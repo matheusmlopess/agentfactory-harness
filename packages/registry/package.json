@@ -1,0 +1,12 @@
+{
+  "name": "@factory/registry",
+  "version": "0.4.0",
+  "description": "agentfactory.dev client — auth, device login, key import",
+  "type": "module",
+  "exports": {
+    "./*.js": { "types": "./src/*.ts", "default": "./src/*.ts" }
+  },
+  "dependencies": {
+    "@factory/core": "*"
+  }
+}

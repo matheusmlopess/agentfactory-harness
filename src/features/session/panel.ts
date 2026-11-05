@@ -1,22 +1,22 @@
-import { Panel } from '../../shared/panel.js'
-import type { SessionMeta, SessionStats } from '../../contracts/index.js'
-import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
-import type { KeyEvent } from '../../shared/input/keyboard.js'
-import type { MouseEvent } from '../../shared/input/mouse.js'
-import type { Rect } from '../../shared/renderer/layout.js'
-import { Colors } from '../../shared/renderer/theme.js'
-import { Session } from '../../core/session.js'
-import { agentLoop } from '../../core/agent-loop.js'
-import { runHook } from '../../core/hooks.js'
-import { createAdapter, defaultProvider } from '../../core/llm/index.js'
-import { cachedListModels } from '../../core/llm/model-cache.js'
-import type { Provider, ModelEntry } from '../../core/llm/index.js'
-import { store } from '../../core/config/store.js'
-import { ScrollableList } from '../../shared/widgets/ScrollableList.js'
-import { Overlay } from '../../shared/widgets/Overlay.js'
-import { nextLaureate, type Laureate } from '../../core/nobel.js'
-import { rolloutStore, type RolloutHandle, type RolloutEvent } from '../../core/rollout.js'
-import { logger } from '../../core/logger.js'
+import { Panel } from '@factory/shared/panel.js'
+import type { SessionMeta, SessionStats } from '@factory/contracts/index.js'
+import type { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
+import type { KeyEvent } from '@factory/shared/input/keyboard.js'
+import type { MouseEvent } from '@factory/shared/input/mouse.js'
+import type { Rect } from '@factory/shared/renderer/layout.js'
+import { Colors } from '@factory/shared/renderer/theme.js'
+import { Session } from '@factory/core/session.js'
+import { agentLoop } from '@factory/core/agent-loop.js'
+import { runHook } from '@factory/core/hooks.js'
+import { createAdapter, defaultProvider } from '@factory/core/llm/index.js'
+import { cachedListModels } from '@factory/core/llm/model-cache.js'
+import type { Provider, ModelEntry } from '@factory/core/llm/index.js'
+import { store } from '@factory/core/config/store.js'
+import { ScrollableList } from '@factory/shared/widgets/ScrollableList.js'
+import { Overlay } from '@factory/shared/widgets/Overlay.js'
+import { nextLaureate, type Laureate } from '@factory/core/nobel.js'
+import { rolloutStore, type RolloutHandle, type RolloutEvent } from '@factory/core/rollout.js'
+import { logger } from '@factory/core/logger.js'
 
 const MAX_PICKER_VISIBLE = 10
 
@@ -77,7 +77,7 @@ const SLASH_COMMANDS: readonly SlashCommand[] = [
 
 // SessionMeta / SessionStats are the session contract's data shapes — defined
 // in contracts/, re-exported here so existing importers keep resolving.
-export type { SessionMeta, SessionStats } from '../../contracts/index.js'
+export type { SessionMeta, SessionStats } from '@factory/contracts/index.js'
 
 interface SessionRecord {
   id:            string                 // stable identity — the rollout id

@@ -1,7 +1,7 @@
 <!-- version: 1.0.0 -->
 <!-- classification: SUMMARY -->
 <!-- date: 2026-06-19 -->
-<!-- last-updated: 2026-07-10 -->
+<!-- last-updated: 2026-08-26 -->
 <!-- status: ACTIVE -->
 
 # changes/ — Change Summaries
@@ -23,6 +23,8 @@ specific change. For ongoing roadmap see [`../WAVE-PLAN.md`](../WAVE-PLAN.md).
 - [CHANGE-CANVAS-SESSION-BINDING-2026-07-09.md](CHANGE-CANVAS-SESSION-BINDING-2026-07-09.md) · [[CHANGE-CANVAS-SESSION-BINDING-2026-07-09]] — Delta: wire fix + session binding; before/after trees + Mermaid workflows
 
 - [CHANGE-UI-CONSOLIDATION-STUDIO-2026-07-07.md](CHANGE-UI-CONSOLIDATION-STUDIO-2026-07-07.md) · [[CHANGE-UI-CONSOLIDATION-STUDIO-2026-07-07]] — Delta over Waves 0–5: consolidation + studio behavioral table
+
+- [CHANGE-COMPARTMENTALIZE-2026-08-26.md](CHANGE-COMPARTMENTALIZE-2026-08-26.md) · [[CHANGE-COMPARTMENTALIZE-2026-08-26]] — Scope: the compartmentalization branches `feature/compartmentalize` (A–C, PR #26) +
 
 ## Reference
 

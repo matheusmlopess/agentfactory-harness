@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import { decodeUser } from '../registry/auth.js'
+import { decodeUser } from '@factory/registry/auth.js'
 
 interface CheckResult {
   label: string

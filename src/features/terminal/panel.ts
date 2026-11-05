@@ -1,8 +1,8 @@
 import * as pty from 'node-pty'
-import { Panel } from '../../shared/panel.js'
-import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
-import type { Rect } from '../../shared/renderer/layout.js'
-import { Colors } from '../../shared/renderer/theme.js'
+import { Panel } from '@factory/shared/panel.js'
+import type { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
+import type { Rect } from '@factory/shared/renderer/layout.js'
+import { Colors } from '@factory/shared/renderer/theme.js'
 import { VTScreen } from './vt.js'
 
 export class TerminalPanel extends Panel {

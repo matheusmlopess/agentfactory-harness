@@ -1,19 +1,19 @@
-import { Panel } from '../../shared/panel.js'
-import type { CellBuffer } from '../../shared/renderer/cell-buffer.js'
-import type { KeyEvent } from '../../shared/input/keyboard.js'
-import type { MouseEvent } from '../../shared/input/mouse.js'
-import type { Rect } from '../../shared/renderer/layout.js'
-import { Colors } from '../../shared/renderer/theme.js'
+import { Panel } from '@factory/shared/panel.js'
+import type { CellBuffer } from '@factory/shared/renderer/cell-buffer.js'
+import type { KeyEvent } from '@factory/shared/input/keyboard.js'
+import type { MouseEvent } from '@factory/shared/input/mouse.js'
+import type { Rect } from '@factory/shared/renderer/layout.js'
+import { Colors } from '@factory/shared/renderer/theme.js'
 import { type Block, renderBlock } from './Block.js'
 import { routeWire } from './Wire.js'
-import { ContextMenu } from '../../shared/widgets/ContextMenu.js'
+import { ContextMenu } from '@factory/shared/widgets/ContextMenu.js'
 import { NodeInspector } from './NodeInspector.js'
-import type { Plan } from '../../orchestration/schema.js'
-import type { StepEvent } from '../../orchestration/executor.js'
+import type { Plan } from '@factory/orchestration/schema.js'
+import type { StepEvent } from '@factory/orchestration/executor.js'
 import {
   emptyModel, deriveView, planToStudio,
   type StudioModel, type StudioNode,
-} from '../../orchestration/studio-model.js'
+} from '@factory/orchestration/studio-model.js'
 
 export interface CanvasWire {
   id: string

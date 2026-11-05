@@ -1,8 +1,9 @@
 import { ConfigPanel } from './panel.js'
-import { getUser } from '../../registry/auth.js'
-import { applySetting } from '../../shared/settings.js'
-import { logger } from '../../core/logger.js'
-import type { Feature, FeatureCtx } from '../types.js'
+import { getUser } from '@factory/registry/auth.js'
+import { applySetting } from '@factory/shared/settings.js'
+import { logger } from '@factory/core/logger.js'
+import type { Feature, FeatureCtx } from '@factory/contracts/index.js'
+import { CONTRACT_VERSION } from '@factory/contracts/index.js'
 import { runLoginFlow, runLogout, runImport } from './flows.js'
 
 const log = logger('ConfigFeature')
@@ -12,6 +13,7 @@ export function configFeature(): Feature {
 
   return {
     id: 'config',
+    manifest: { id: 'config', contract: CONTRACT_VERSION },
     tab: {
       id: 'config',
       title: 'Config',

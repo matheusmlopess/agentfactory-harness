@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { buildCli } from './cli.js'
 import { App } from './app.js'
-import { getVersion } from './core/version.js'
+import { getVersion } from '@factory/core/version.js'
 
 const program = buildCli(getVersion())
 
